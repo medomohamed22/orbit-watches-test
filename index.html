@@ -16,11 +16,11 @@
                     },
                     colors: {
                         orbit: {
-                            dark: '#0B0F19',
-                            card: '#131C2E',
-                            gold: '#D4AF37',
-                            goldLight: '#F3E5AB',
-                            accent: '#3B82F6'
+                            dark: '#050B14',     /* أزرق داكن غني ونقي */
+                            card: '#0D1626',     /* أزرق داكن للبطاقات */
+                            blue: '#1D4ED8',     /* أزرق رويال أساسي */
+                            blueLight: '#3B82F6',/* أزرق مضيء */
+                            accent: '#60A5FA'    /* أزرق فاتح مميز */
                         }
                     }
                 }
@@ -28,25 +28,34 @@
         }
     </script>
 </head>
-<body class="bg-orbit-dark text-white font-tajawal antialiased selection:bg-orbit-gold selection:text-black">
+<body class="bg-orbit-dark text-white font-tajawal antialiased selection:bg-orbit-blueLight selection:text-white overflow-x-hidden">
 
     <!-- Header / Navbar -->
-    <header class="fixed top-0 left-0 right-0 z-50 bg-orbit-dark/80 backdrop-blur-md border-b border-white/10">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-orbit-gold to-orbit-goldLight flex items-center justify-center text-orbit-dark font-black text-xl shadow-lg shadow-orbit-gold/20">
+    <header class="fixed top-0 left-0 right-0 z-50 bg-orbit-dark/95 backdrop-blur-md border-b border-white/10 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 sm:h-20 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-tr from-orbit-blue to-orbit-blueLight flex items-center justify-center text-white font-black text-lg sm:text-xl shadow-lg shadow-orbit-blue/30">
                     <i class="fa-solid fa-clock-rotate-left"></i>
                 </div>
-                <span class="text-2xl font-black tracking-wider bg-gradient-to-r from-white via-orbit-goldLight to-orbit-gold bg-clip-text text-transparent">Orbit Watches</span>
+                <span class="text-lg sm:text-2xl font-black tracking-wider bg-gradient-to-r from-white via-blue-200 to-orbit-accent bg-clip-text text-transparent">Orbit Watches</span>
             </div>
+            
             <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-gray-300">
-                <a href="#hero" class="hover:text-orbit-gold transition">الرئيسية</a>
-                <a href="#features" class="hover:text-orbit-gold transition">المميزات</a>
-                <a href="#products" class="hover:text-orbit-gold transition">المنتجات</a>
-                <a href="#contact" class="hover:text-orbit-gold transition">تواصل معنا</a>
+                <a href="#hero" class="hover:text-orbit-accent transition">الرئيسية</a>
+                <a href="#features" class="hover:text-orbit-accent transition">المميزات</a>
+                <a href="#products" class="hover:text-orbit-accent transition">المنتجات</a>
+                <a href="#contact" class="hover:text-orbit-accent transition">تواصل معنا</a>
             </nav>
-            <div>
-                <a href="#products" class="bg-gradient-to-r from-orbit-gold to-yellow-600 text-orbit-dark font-bold px-6 py-2.5 rounded-full shadow-lg shadow-orbit-gold/20 hover:opacity-90 transition transform hover:scale-105">
+
+            <div class="flex items-center gap-3">
+                <!-- Cart Button -->
+                <button onclick="toggleCart()" class="relative bg-orbit-card border border-white/15 hover:border-orbit-blueLight px-3.5 py-2.5 sm:px-4 sm:py-2.5 rounded-xl text-white flex items-center gap-2 transition shadow-sm">
+                    <i class="fa-solid fa-cart-shopping text-orbit-accent text-base"></i>
+                    <span class="text-xs sm:text-sm font-bold">السلة</span>
+                    <span id="cartCount" class="absolute -top-1.5 -right-1.5 bg-orbit-blueLight text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md">0</span>
+                </button>
+
+                <a href="#products" class="hidden sm:inline-block bg-gradient-to-r from-orbit-blue to-orbit-blueLight text-white font-bold px-5 py-2.5 rounded-xl shadow-lg shadow-orbit-blue/30 hover:opacity-90 transition transform hover:scale-105 text-sm">
                     تسوّق الآن
                 </a>
             </div>
@@ -54,55 +63,55 @@
     </header>
 
     <!-- Hero Section -->
-    <section id="hero" class="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
+    <section id="hero" class="relative min-h-[92vh] sm:min-h-screen flex items-center justify-center pt-28 sm:pt-24 pb-16 px-4 sm:px-6 lg:px-8">
         <!-- Background Glows -->
-        <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-orbit-gold/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div class="absolute bottom-10 right-10 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 sm:w-96 h-80 sm:h-96 bg-orbit-blue/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute bottom-10 right-10 w-60 h-60 bg-orbit-accent/15 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div class="max-w-7xl mx-auto w-full relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
             <div class="lg:col-span-7 text-center lg:text-right space-y-6">
-                <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orbit-gold/10 border border-orbit-gold/30 text-orbit-gold text-sm font-semibold">
-                    <i class="fa-solid fa-star text-xs"></i> الفخامة تبدأ من معصمك
+                <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orbit-blue/20 border border-orbit-blueLight/40 text-orbit-accent text-xs sm:text-sm font-semibold shadow-inner">
+                    <i class="fa-solid fa-shield-halved text-xs"></i> دقة التصميم وفخامة الأداء
                 </span>
-                <h1 class="text-4xl sm:text-6xl font-black tracking-tight leading-tight">
-                    اكتشف دقة الزمن مع <br/>
-                    <span class="bg-gradient-to-r from-orbit-gold via-orbit-goldLight to-white bg-clip-text text-transparent">ساعات Orbit الفاخرة</span>
+                <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight">
+                    ارتقِ بمظهرك اليومي مع <br/>
+                    <span class="bg-gradient-to-r from-white via-blue-200 to-orbit-accent bg-clip-text text-transparent">ساعات Orbit الفاخرة</span>
                 </h1>
-                <p class="text-gray-400 text-lg sm:text-xl max-w-2xl mx-auto lg:mx-0">
-                    تصاميم استثنائية تمزج بين الحرفية العريقة والتكنولوجيا الحديثة. ارتقِ بمظهرك اليومي واجعل كل لحظة تتحدث عن ذوقك الرفيع.
+                <p class="text-gray-300 text-sm sm:text-lg max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+                    تصاميم استثنائية مصممة خصيصاً للرجل العصري الذي يقدر قيمة الزمن والأناقة المطلقة. اكتشف مجموعتنا الجديدة الآن.
                 </p>
-                <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">
-                    <a href="#products" class="w-full sm:w-auto bg-gradient-to-r from-orbit-gold to-yellow-600 text-orbit-dark font-extrabold px-8 py-4 rounded-xl shadow-xl shadow-orbit-gold/20 hover:shadow-orbit-gold/40 transition transform hover:-translate-y-0.5 text-center">
+                <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3.5 pt-2">
+                    <a href="#products" class="w-full sm:w-auto bg-gradient-to-r from-orbit-blue to-orbit-blueLight text-white font-extrabold px-8 py-4 rounded-xl shadow-xl shadow-orbit-blue/30 hover:shadow-orbit-blue/50 transition transform hover:-translate-y-0.5 text-center text-sm sm:text-base">
                         تصفح التشكيلة الفاخرة
                     </a>
-                    <a href="#features" class="w-full sm:w-auto bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold px-8 py-4 rounded-xl transition text-center">
-                        لماذا Orbit؟
+                    <a href="#features" class="w-full sm:w-auto bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold px-8 py-4 rounded-xl transition text-center text-sm sm:text-base">
+                        مميزاتنا
                     </a>
                 </div>
-                <div class="grid grid-cols-3 gap-6 pt-8 border-t border-white/10 max-w-lg mx-auto lg:mx-0">
+                <div class="grid grid-cols-3 gap-4 pt-6 border-t border-white/10 max-w-md mx-auto lg:mx-0">
                     <div>
-                        <h4 class="text-2xl font-black text-orbit-gold">+10,000</h4>
-                        <p class="text-xs text-gray-400 mt-1">عميل سعيد</p>
+                        <h4 class="text-xl sm:text-2xl font-black text-orbit-accent">+10,000</h4>
+                        <p class="text-[11px] sm:text-xs text-gray-400 mt-1">عميل سعيد</p>
                     </div>
                     <div>
-                        <h4 class="text-2xl font-black text-orbit-gold">سنتان</h4>
-                        <p class="text-xs text-gray-400 mt-1">ضمان دولي</p>
+                        <h4 class="text-xl sm:text-2xl font-black text-orbit-accent">سنتان</h4>
+                        <p class="text-[11px] sm:text-xs text-gray-400 mt-1">ضمان شامل</p>
                     </div>
                     <div>
-                        <h4 class="text-2xl font-black text-orbit-gold">100%</h4>
-                        <p class="text-xs text-gray-400 mt-1">أصلي ومضمون</p>
+                        <h4 class="text-xl sm:text-2xl font-black text-orbit-accent">100%</h4>
+                        <p class="text-[11px] sm:text-xs text-gray-400 mt-1">أصلي ومضمون</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Hero Image / Watch Showcase -->
+            <!-- Hero Image Showcase -->
             <div class="lg:col-span-5 flex justify-center">
-                <div class="relative w-72 h-72 sm:w-96 sm:h-96 rounded-3xl bg-gradient-to-br from-orbit-card to-orbit-dark border border-white/10 p-4 shadow-2xl flex items-center justify-center group">
-                    <div class="absolute inset-0 bg-gradient-to-tr from-orbit-gold/20 to-transparent rounded-3xl opacity-50 group-hover:opacity-100 transition duration-500"></div>
-                    <img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=800" alt="Orbit Luxury Watch" class="relative z-10 w-full h-full object-cover rounded-2xl transform group-hover:scale-105 transition duration-500 shadow-2xl">
-                    <div class="absolute -bottom-4 -right-4 bg-orbit-card border border-orbit-gold/40 px-4 py-2 rounded-xl shadow-xl z-20 flex items-center gap-3">
-                        <div class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
-                        <span class="text-xs font-bold text-gray-200">الأكثر مبيعاً هذا الشهر</span>
+                <div class="relative w-72 h-72 sm:w-80 sm:h-80 lg:w-96 lg:h-96 rounded-3xl bg-gradient-to-br from-orbit-card to-orbit-dark border border-white/15 p-4 shadow-2xl flex items-center justify-center group">
+                    <div class="absolute inset-0 bg-gradient-to-tr from-orbit-blue/30 to-transparent rounded-3xl opacity-60 group-hover:opacity-100 transition duration-500"></div>
+                    <img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=800" alt="Orbit Luxury Watch" class="relative z-10 w-full h-full object-cover rounded-2xl transform group-hover:scale-105 transition duration-500 shadow-xl">
+                    <div class="absolute -bottom-3 -right-3 sm:-bottom-4 sm:-right-4 bg-orbit-card border border-orbit-blueLight/40 px-3.5 py-2 rounded-xl shadow-xl z-20 flex items-center gap-2.5">
+                        <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
+                        <span class="text-[11px] sm:text-xs font-bold text-gray-200">الأكثر مبيعاً هذا الشهر</span>
                     </div>
                 </div>
             </div>
@@ -110,129 +119,138 @@
     </section>
 
     <!-- Features Section -->
-    <section id="features" class="py-24 bg-orbit-card/50 relative border-t border-b border-white/5">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center max-w-3xl mx-auto space-y-4 mb-16">
-                <span class="text-orbit-gold font-bold text-sm tracking-widest uppercase">مواصفات استثنائية</span>
-                <h2 class="text-3xl sm:text-4xl font-black">لماذا تختار ساعات Orbit؟</h2>
-                <p class="text-gray-400">نحن لا نصنع مجرد ساعات، بل نصنع تحفاً فنية ترافقك طوال العمر.</p>
+    <section id="features" class="py-20 sm:py-24 bg-orbit-card/50 relative border-t border-b border-white/5 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center max-w-3xl mx-auto space-y-3 mb-12 sm:mb-16">
+                <span class="text-orbit-accent font-bold text-xs sm:text-sm tracking-widest uppercase">جودة استثنائية</span>
+                <h2 class="text-2xl sm:text-4xl font-black">لماذا تختار ساعات Orbit؟</h2>
+                <p class="text-gray-300 text-sm sm:text-base">نحن نصمم كل ساعة بعناية فائقة لتلائم أسلوب حياتك اليومي والعملي.</p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
                 <!-- Feature 1 -->
-                <div class="bg-orbit-card border border-white/10 p-8 rounded-2xl hover:border-orbit-gold/50 transition duration-300 group">
-                    <div class="w-14 h-14 rounded-xl bg-orbit-gold/10 text-orbit-gold flex items-center justify-center text-2xl mb-6 group-hover:bg-orbit-gold group-hover:text-orbit-dark transition duration-300">
+                <div class="bg-orbit-card border border-white/10 p-6 sm:p-8 rounded-2xl hover:border-orbit-blueLight/50 transition duration-300 group shadow-lg">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-orbit-blue/20 text-orbit-accent flex items-center justify-center text-xl sm:text-2xl mb-5 group-hover:bg-orbit-blueLight group-hover:text-white transition duration-300 shadow-sm">
                         <i class="fa-solid fa-gem"></i>
                     </div>
-                    <h3 class="text-xl font-bold mb-3">خامات عالية الجودة</h3>
-                    <p class="text-gray-400 text-sm leading-relaxed">زجاج الياقوت المقاوم للخدش، ستانلس ستيل مقاوم للصدأ، وجلود طبيعية فاخرة.</p>
+                    <h3 class="text-lg sm:text-xl font-bold mb-2.5">خامات ممتازة</h3>
+                    <p class="text-gray-400 text-xs sm:text-sm leading-relaxed">زجاج مقاوم للخدش، ستانلس ستيل عالي الجودة، وجلود مريحة تدوم طويلاً.</p>
                 </div>
 
                 <!-- Feature 2 -->
-                <div class="bg-orbit-card border border-white/10 p-8 rounded-2xl hover:border-orbit-gold/50 transition duration-300 group">
-                    <div class="w-14 h-14 rounded-xl bg-orbit-gold/10 text-orbit-gold flex items-center justify-center text-2xl mb-6 group-hover:bg-orbit-gold group-hover:text-orbit-dark transition duration-300">
+                <div class="bg-orbit-card border border-white/10 p-6 sm:p-8 rounded-2xl hover:border-orbit-blueLight/50 transition duration-300 group shadow-lg">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-orbit-blue/20 text-orbit-accent flex items-center justify-center text-xl sm:text-2xl mb-5 group-hover:bg-orbit-blueLight group-hover:text-white transition duration-300 shadow-sm">
                         <i class="fa-solid fa-water"></i>
                     </div>
-                    <h3 class="text-xl font-bold mb-3">مقاومة للماء</h3>
-                    <p class="text-gray-400 text-sm leading-relaxed">مصممة لتحمل ضغط المياه حتى عمق 50 متراً لتناسب روتينك اليومي ومغامراتك.</p>
+                    <h3 class="text-lg sm:text-xl font-bold mb-2.5">مقاومة للماء</h3>
+                    <p class="text-gray-400 text-xs sm:text-sm leading-relaxed">مصممة لتحمل الاستخدام اليومي والأمطار والسباحة الخفيفة حتى 50 متراً.</p>
                 </div>
 
                 <!-- Feature 3 -->
-                <div class="bg-orbit-card border border-white/10 p-8 rounded-2xl hover:border-orbit-gold/50 transition duration-300 group">
-                    <div class="w-14 h-14 rounded-xl bg-orbit-gold/10 text-orbit-gold flex items-center justify-center text-2xl mb-6 group-hover:bg-orbit-gold group-hover:text-orbit-dark transition duration-300">
+                <div class="bg-orbit-card border border-white/10 p-6 sm:p-8 rounded-2xl hover:border-orbit-blueLight/50 transition duration-300 group sm:col-span-2 md:col-span-1 shadow-lg">
+                    <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-orbit-blue/20 text-orbit-accent flex items-center justify-center text-xl sm:text-2xl mb-5 group-hover:bg-orbit-blueLight group-hover:text-white transition duration-300 shadow-sm">
                         <i class="fa-solid fa-shield-halved"></i>
                     </div>
-                    <h3 class="text-xl font-bold mb-3">ضمان شامل لمدة عامين</h3>
-                    <p class="text-gray-400 text-sm leading-relaxed">نثق بجودة ساعاتنا ونقدم لك ضماناً دولياً شامل ضد أي عيوب تصنيعية.</p>
+                    <h3 class="text-lg sm:text-xl font-bold mb-2.5">ضمان لمدة عامين</h3>
+                    <p class="text-gray-400 text-xs sm:text-sm leading-relaxed">نضمن لك جودة الصناعة مع ضمان دولي شامل ضد عيوب التصنيع.</p>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Products Section -->
-    <section id="products" class="py-24 relative">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center max-w-3xl mx-auto space-y-4 mb-16">
-                <span class="text-orbit-gold font-bold text-sm tracking-widest uppercase">التشكيلة الملكية</span>
-                <h2 class="text-3xl sm:text-4xl font-black">أبرز ساعات Orbit</h2>
-                <p class="text-gray-400">اختر ساعتك المفضلة الآن واستمتع بالشحن المجاني والدفع عند الاستلام.</p>
+    <section id="products" class="py-20 sm:py-24 relative px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center max-w-3xl mx-auto space-y-3 mb-12 sm:mb-16">
+                <span class="text-orbit-accent font-bold text-xs sm:text-sm tracking-widest uppercase">التشكيلة الحصرية</span>
+                <h2 class="text-2xl sm:text-4xl font-black">أبرز ساعات Orbit</h2>
+                <p class="text-gray-300 text-sm sm:text-base">اختر ساعتك المفضلة، أضفها للسلة أو اطلبها مباشرة بكل سهولة.</p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                 <!-- Product 1 -->
-                <div class="bg-orbit-card border border-white/10 rounded-2xl overflow-hidden group hover:border-orbit-gold/40 transition duration-300 flex flex-col justify-between">
+                <div class="bg-orbit-card border border-white/10 rounded-2xl overflow-hidden group hover:border-orbit-blueLight/50 transition duration-300 flex flex-col justify-between shadow-lg">
                     <div>
-                        <div class="relative h-72 overflow-hidden bg-gray-900">
-                            <img src="https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=800" alt="Orbit Eclipse" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">
-                            <span class="absolute top-4 right-4 bg-orbit-dark/80 backdrop-blur-md text-orbit-gold text-xs font-bold px-3 py-1 rounded-full border border-orbit-gold/30">جديد</span>
+                        <div class="relative h-64 sm:h-72 overflow-hidden bg-gray-900">
+                            <img src="https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=800" alt="Orbit Eclipse" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                            <span class="absolute top-3.5 right-3.5 bg-orbit-dark/85 backdrop-blur-md text-orbit-accent text-[11px] font-bold px-3 py-1 rounded-full border border-orbit-blueLight/30">جديد</span>
                         </div>
-                        <div class="p-6 space-y-3">
-                            <h3 class="text-xl font-bold">ساعة Orbit Eclipse</h3>
-                            <p class="text-gray-400 text-sm">تصميم أسود داكن بلمسات ذهبية فاخرة، تناسب السهرات والمناسبات الرسمية.</p>
-                            <div class="flex items-center justify-between pt-2">
-                                <span class="text-2xl font-black text-orbit-gold">1,250 ر.س</span>
-                                <div class="flex items-center text-yellow-400 text-xs gap-1">
+                        <div class="p-5 sm:p-6 space-y-2.5">
+                            <h3 class="text-lg sm:text-xl font-bold">ساعة Orbit Eclipse</h3>
+                            <p class="text-gray-400 text-xs sm:text-sm">تصميم أنيق باللونين الأسود والأزرق الداكن لإطلالة رسمية جذابة.</p>
+                            <div class="flex items-center justify-between pt-1">
+                                <span class="text-xl sm:text-2xl font-black text-orbit-accent">1,250 ر.س</span>
+                                <div class="flex items-center text-amber-400 text-xs gap-1">
                                     <i class="fa-solid fa-star"></i>
-                                    <span class="text-gray-300 font-bold">4.9 (120 تقييم)</span>
+                                    <span class="text-gray-300 font-bold">4.9 (120)</span>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="p-6 pt-0">
-                        <button onclick="openCheckout('ساعة Orbit Eclipse', '1,250 ر.س')" class="w-full bg-gradient-to-r from-orbit-gold to-yellow-600 hover:opacity-90 text-orbit-dark font-extrabold py-3 rounded-xl shadow-lg transition duration-200 flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-bag-shopping"></i> اشترِ الآن
+                    <div class="p-5 sm:p-6 pt-0 grid grid-cols-2 gap-3">
+                        <button onclick="addToCart('ساعة Orbit Eclipse', 1250, 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=800')" class="bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5 border border-white/10">
+                            <i class="fa-solid fa-cart-plus text-orbit-accent"></i> للسلة
+                        </button>
+                        <button onclick="buyNow('ساعة Orbit Eclipse', 1250)" class="bg-gradient-to-r from-orbit-blue to-orbit-blueLight hover:opacity-90 text-white font-bold py-3 rounded-xl text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-bag-shopping"></i> اشترِ
                         </button>
                     </div>
                 </div>
 
                 <!-- Product 2 -->
-                <div class="bg-orbit-card border border-white/10 rounded-2xl overflow-hidden group hover:border-orbit-gold/40 transition duration-300 flex flex-col justify-between">
+                <div class="bg-orbit-card border border-white/10 rounded-2xl overflow-hidden group hover:border-orbit-blueLight/50 transition duration-300 flex flex-col justify-between shadow-lg">
                     <div>
-                        <div class="relative h-72 overflow-hidden bg-gray-900">
-                            <img src="https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&q=80&w=800" alt="Orbit Chrono Classic" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">
-                            <span class="absolute top-4 right-4 bg-orbit-dark/80 backdrop-blur-md text-orbit-gold text-xs font-bold px-3 py-1 rounded-full border border-orbit-gold/30">الأكثر طلباً</span>
+                        <div class="relative h-64 sm:h-72 overflow-hidden bg-gray-900">
+                            <img src="https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&q=80&w=800" alt="Orbit Chrono Classic" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                            <span class="absolute top-3.5 right-3.5 bg-orbit-dark/85 backdrop-blur-md text-orbit-accent text-[11px] font-bold px-3 py-1 rounded-full border border-orbit-blueLight/30">الأكثر طلباً</span>
                         </div>
-                        <div class="p-6 space-y-3">
-                            <h3 class="text-xl font-bold">ساعة Orbit Chrono Classic</h3>
-                            <p class="text-gray-400 text-sm">إطار معدني فضي براق مع عداد كرونوغراف دقيق ومينا زرقاء ساحرة.</p>
-                            <div class="flex items-center justify-between pt-2">
-                                <span class="text-2xl font-black text-orbit-gold">950 ر.س</span>
-                                <div class="flex items-center text-yellow-400 text-xs gap-1">
+                        <div class="p-5 sm:p-6 space-y-2.5">
+                            <h3 class="text-lg sm:text-xl font-bold">ساعة Orbit Chrono Classic</h3>
+                            <p class="text-gray-400 text-xs sm:text-sm">هيكل فضي براق مع عداد دقيق ومينا زرقاء تناسب كل الأوقات.</p>
+                            <div class="flex items-center justify-between pt-1">
+                                <span class="text-xl sm:text-2xl font-black text-orbit-accent">950 ر.س</span>
+                                <div class="flex items-center text-amber-400 text-xs gap-1">
                                     <i class="fa-solid fa-star"></i>
-                                    <span class="text-gray-300 font-bold">4.8 (98 تقييم)</span>
+                                    <span class="text-gray-300 font-bold">4.8 (98)</span>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="p-6 pt-0">
-                        <button onclick="openCheckout('ساعة Orbit Chrono Classic', '950 ر.س')" class="w-full bg-gradient-to-r from-orbit-gold to-yellow-600 hover:opacity-90 text-orbit-dark font-extrabold py-3 rounded-xl shadow-lg transition duration-200 flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-bag-shopping"></i> اشترِ الآن
+                    <div class="p-5 sm:p-6 pt-0 grid grid-cols-2 gap-3">
+                        <button onclick="addToCart('ساعة Orbit Chrono Classic', 950, 'https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?auto=format&fit=crop&q=80&w=800')" class="bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5 border border-white/10">
+                            <i class="fa-solid fa-cart-plus text-orbit-accent"></i> للسلة
+                        </button>
+                        <button onclick="buyNow('ساعة Orbit Chrono Classic', 950)" class="bg-gradient-to-r from-orbit-blue to-orbit-blueLight hover:opacity-90 text-white font-bold py-3 rounded-xl text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-bag-shopping"></i> اشترِ
                         </button>
                     </div>
                 </div>
 
                 <!-- Product 3 -->
-                <div class="bg-orbit-card border border-white/10 rounded-2xl overflow-hidden group hover:border-orbit-gold/40 transition duration-300 flex flex-col justify-between">
+                <div class="bg-orbit-card border border-white/10 rounded-2xl overflow-hidden group hover:border-orbit-blueLight/50 transition duration-300 flex flex-col justify-between sm:col-span-2 lg:col-span-1 shadow-lg">
                     <div>
-                        <div class="relative h-72 overflow-hidden bg-gray-900">
-                            <img src="https://images.unsplash.com/photo-1533139502658-0198f920d8e8?auto=format&fit=crop&q=80&w=800" alt="Orbit Royal Gold" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">
-                            <span class="absolute top-4 right-4 bg-orbit-dark/80 backdrop-blur-md text-orbit-gold text-xs font-bold px-3 py-1 rounded-full border border-orbit-gold/30">إصدار محدود</span>
+                        <div class="relative h-64 sm:h-72 overflow-hidden bg-gray-900">
+                            <img src="https://images.unsplash.com/photo-1533139502658-0198f920d8e8?auto=format&fit=crop&q=80&w=800" alt="Orbit Royal Steel" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                            <span class="absolute top-3.5 right-3.5 bg-orbit-dark/85 backdrop-blur-md text-orbit-accent text-[11px] font-bold px-3 py-1 rounded-full border border-orbit-blueLight/30">إصدار خاص</span>
                         </div>
-                        <div class="p-6 space-y-3">
-                            <h3 class="text-xl font-bold">ساعة Orbit Royal Gold</h3>
-                            <p class="text-gray-400 text-sm">مطلية بالذهب عيار 18 بالكامل، مصممة لأصحاب الحضور الطاغي والشخصيات القيادية.</p>
-                            <div class="flex items-center justify-between pt-2">
-                                <span class="text-2xl font-black text-orbit-gold">1,850 ر.س</span>
-                                <div class="flex items-center text-yellow-400 text-xs gap-1">
+                        <div class="p-5 sm:p-6 space-y-2.5">
+                            <h3 class="text-lg sm:text-xl font-bold">ساعة Orbit Royal Steel</h3>
+                            <p class="text-gray-400 text-xs sm:text-sm">ستانلس ستيل متين بلون أزرق معدني فريد يعكس قوة وحضور المرتدي.</p>
+                            <div class="flex items-center justify-between pt-1">
+                                <span class="text-xl sm:text-2xl font-black text-orbit-accent">1,450 ر.س</span>
+                                <div class="flex items-center text-amber-400 text-xs gap-1">
                                     <i class="fa-solid fa-star"></i>
-                                    <span class="text-gray-300 font-bold">5.0 (64 تقييم)</span>
+                                    <span class="text-gray-300 font-bold">5.0 (64)</span>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="p-6 pt-0">
-                        <button onclick="openCheckout('ساعة Orbit Royal Gold', '1,850 ر.س')" class="w-full bg-gradient-to-r from-orbit-gold to-yellow-600 hover:opacity-90 text-orbit-dark font-extrabold py-3 rounded-xl shadow-lg transition duration-200 flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-bag-shopping"></i> اشترِ الآن
+                    <div class="p-5 sm:p-6 pt-0 grid grid-cols-2 gap-3">
+                        <button onclick="addToCart('ساعة Orbit Royal Steel', 1450, 'https://images.unsplash.com/photo-1533139502658-0198f920d8e8?auto=format&fit=crop&q=80&w=800')" class="bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5 border border-white/10">
+                            <i class="fa-solid fa-cart-plus text-orbit-accent"></i> للسلة
+                        </button>
+                        <button onclick="buyNow('ساعة Orbit Royal Steel', 1450)" class="bg-gradient-to-r from-orbit-blue to-orbit-blueLight hover:opacity-90 text-white font-bold py-3 rounded-xl text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-bag-shopping"></i> اشترِ
                         </button>
                     </div>
                 </div>
@@ -241,20 +259,20 @@
     </section>
 
     <!-- Footer / Contact -->
-    <footer id="contact" class="bg-orbit-card border-t border-white/10 pt-16 pb-12">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+    <footer id="contact" class="bg-orbit-card border-t border-white/10 pt-16 pb-12 px-4 sm:px-6 lg:px-8 shadow-inner">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 mb-12">
             <div class="space-y-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-orbit-gold to-orbit-goldLight flex items-center justify-center text-orbit-dark font-black text-lg">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-orbit-blue to-orbit-blueLight flex items-center justify-center text-white font-black text-lg">
                         <i class="fa-solid fa-clock-rotate-left"></i>
                     </div>
-                    <span class="text-xl font-black tracking-wider text-white">Orbit Watches</span>
+                    <span class="text-lg font-black tracking-wider text-white">Orbit Watches</span>
                 </div>
-                <p class="text-gray-400 text-sm">وجهتك الأولى لاقتناء أرقى الساعات الفاخرة التي تعكس أناقتك وتفردك.</p>
+                <p class="text-gray-400 text-xs sm:text-sm leading-relaxed">وجهتك الأولى لاقتناء أرقى الساعات الفاخرة التي تعكس ذوقك الرفيع.</p>
             </div>
             <div>
-                <h4 class="font-bold text-lg mb-4 text-orbit-gold">روابط سريعة</h4>
-                <ul class="space-y-2 text-sm text-gray-400">
+                <h4 class="font-bold text-base mb-3 text-orbit-accent">روابط سريعة</h4>
+                <ul class="space-y-2 text-xs sm:text-sm text-gray-400">
                     <li><a href="#hero" class="hover:text-white transition">الرئيسية</a></li>
                     <li><a href="#features" class="hover:text-white transition">المميزات</a></li>
                     <li><a href="#products" class="hover:text-white transition">المنتجات</a></li>
@@ -262,65 +280,98 @@
                 </ul>
             </div>
             <div>
-                <h4 class="font-bold text-lg mb-4 text-orbit-gold">خدمة العملاء</h4>
-                <ul class="space-y-2 text-sm text-gray-400">
-                    <li><a href="#" class="hover:text-white transition">سياسة الاستبدال والاسترجاع</a></li>
+                <h4 class="font-bold text-base mb-3 text-orbit-accent">خدمة العملاء</h4>
+                <ul class="space-y-2 text-xs sm:text-sm text-gray-400">
+                    <li><a href="#" class="hover:text-white transition">سياسة الاستبدال</a></li>
                     <li><a href="#" class="hover:text-white transition">الشحن والتوصيل</a></li>
                     <li><a href="#" class="hover:text-white transition">الضمان والصيانة</a></li>
                 </ul>
             </div>
             <div>
-                <h4 class="font-bold text-lg mb-4 text-orbit-gold">ابق على تواصل</h4>
-                <p class="text-gray-400 text-sm mb-4">اشترك في نشرتنا البريدية لتصلك أحدث الإصدارات الحصرية.</p>
+                <h4 class="font-bold text-base mb-3 text-orbit-accent">النشرة البريدية</h4>
+                <p class="text-gray-400 text-xs sm:text-sm mb-3">اشترك لتصلك أحدث العروض والإصدارات.</p>
                 <form onsubmit="event.preventDefault(); alert('تم الاشتراك بنجاح في النشرة البريدية!');" class="flex gap-2">
-                    <input type="email" placeholder="بريدك الإلكتروني" required class="bg-orbit-dark border border-white/10 px-4 py-2 rounded-xl text-sm text-white focus:outline-none focus:border-orbit-gold w-full">
-                    <button type="submit" class="bg-orbit-gold text-orbit-dark px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition">انضم</button>
+                    <input type="email" placeholder="البريد الإلكتروني" required class="bg-orbit-dark border border-white/10 px-3 py-2.5 rounded-xl text-xs text-white focus:outline-none focus:border-orbit-blueLight w-full">
+                    <button type="submit" class="bg-orbit-blue text-white px-4 py-2.5 rounded-xl font-bold text-xs hover:opacity-90 transition">انضم</button>
                 </form>
             </div>
         </div>
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500">
+        <div class="max-w-7xl mx-auto pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-400">
             <p>&copy; 2025 Orbit Watches. جميع الحقوق محفوظة.</p>
-            <div class="flex gap-4 mt-4 sm:mt-0">
-                <a href="#" class="hover:text-orbit-gold transition"><i class="fa-brands fa-instagram text-base"></i></a>
-                <a href="#" class="hover:text-orbit-gold transition"><i class="fa-brands fa-twitter text-base"></i></a>
-                <a href="#" class="hover:text-orbit-gold transition"><i class="fa-brands fa-tiktok text-base"></i></a>
+            <div class="flex gap-4 mt-3 sm:mt-0">
+                <a href="#" class="hover:text-orbit-accent transition"><i class="fa-brands fa-instagram text-base"></i></a>
+                <a href="#" class="hover:text-orbit-accent transition"><i class="fa-brands fa-twitter text-base"></i></a>
+                <a href="#" class="hover:text-orbit-accent transition"><i class="fa-brands fa-tiktok text-base"></i></a>
             </div>
         </div>
     </footer>
 
-    <!-- Checkout Modal -->
-    <div id="checkoutModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
-        <div class="bg-orbit-card border border-orbit-gold/30 rounded-2xl max-w-md w-full p-6 sm:p-8 relative shadow-2xl animate-fade-in">
-            <button onclick="closeCheckout()" class="absolute top-4 left-4 text-gray-400 hover:text-white text-xl">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-            <h3 class="text-2xl font-black mb-2 text-orbit-gold">إتمام الشراء</h3>
-            <p class="text-gray-400 text-sm mb-6">أدخل بياناتك لتأكيد طلبك وسنتواصل معك خلال ساعات.</p>
-            
-            <div class="bg-orbit-dark/50 p-4 rounded-xl border border-white/10 mb-6 flex justify-between items-center">
-                <div>
-                    <h4 id="modalProductName" class="font-bold text-white">اسم الساعة</h4>
-                    <span id="modalProductPrice" class="text-orbit-gold text-sm font-bold">0 ر.س</span>
+    <!-- Slide-over Cart Drawer -->
+    <div id="cartDrawer" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden justify-end transition-opacity duration-300">
+        <div class="bg-orbit-card w-full max-w-md h-full flex flex-col justify-between border-l border-white/10 shadow-2xl p-6">
+            <div>
+                <div class="flex items-center justify-between pb-4 border-b border-white/10">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-cart-shopping text-orbit-accent"></i>
+                        <h3 class="text-xl font-black text-white">سلة الشراء</h3>
+                    </div>
+                    <button onclick="toggleCart()" class="text-gray-400 hover:text-white text-lg p-2">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
                 </div>
-                <div class="w-10 h-10 rounded-lg bg-orbit-gold/10 text-orbit-gold flex items-center justify-center">
-                    <i class="fa-solid fa-clock"></i>
+
+                <!-- Cart Items List -->
+                <div id="cartItemsContainer" class="py-4 space-y-3 max-h-[55vh] overflow-y-auto">
+                    <!-- Dynamic Cart Items go here -->
                 </div>
             </div>
 
-            <form onsubmit="handleOrder(event)" class="space-y-4">
+            <!-- Cart Footer -->
+            <div class="pt-4 border-t border-white/10 space-y-4">
+                <div class="flex items-center justify-between text-base font-bold">
+                    <span class="text-gray-300">الإجمالي:</span>
+                    <span id="cartTotalPrice" class="text-orbit-accent text-xl font-black">0 ر.س</span>
+                </div>
+                <button onclick="checkoutCart()" class="w-full bg-gradient-to-r from-orbit-blue to-orbit-blueLight text-white font-black py-3.5 rounded-xl shadow-lg hover:opacity-90 transition text-sm">
+                    إتمام الشراء والدفع
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div id="checkoutModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-orbit-card border border-orbit-blueLight/30 rounded-2xl max-w-md w-full p-6 sm:p-8 relative shadow-2xl">
+            <button onclick="closeCheckout()" class="absolute top-4 left-4 text-gray-400 hover:text-white text-xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-xl sm:text-2xl font-black mb-1.5 text-orbit-accent">إتمام الطلب</h3>
+            <p class="text-gray-400 text-xs sm:text-sm mb-5">أدخل بياناتك لتأكيد الطلب وسيتم التواصل معك قريباً.</p>
+            
+            <div class="bg-orbit-dark/60 p-3.5 rounded-xl border border-white/10 mb-5 flex justify-between items-center text-sm">
+                <div>
+                    <h4 id="modalOrderSummary" class="font-bold text-white">طلب ساعات Orbit</h4>
+                    <span id="modalOrderPrice" class="text-orbit-accent font-black">0 ر.س</span>
+                </div>
+                <div class="w-9 h-9 rounded-lg bg-orbit-blue/20 text-orbit-accent flex items-center justify-center">
+                    <i class="fa-solid fa-bag-shopping"></i>
+                </div>
+            </div>
+
+            <form onsubmit="handleOrderSubmit(event)" class="space-y-3.5">
                 <div>
                     <label class="block text-xs font-bold text-gray-300 mb-1">الاسم الكامل</label>
-                    <input type="text" id="orderName" required placeholder="أدخل اسمك الكريم" class="w-full bg-orbit-dark border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orbit-gold">
+                    <input type="text" id="orderName" required placeholder="أدخل اسمك الكريم" class="w-full bg-orbit-dark border border-white/10 rounded-xl px-3.5 py-3 text-xs sm:text-sm text-white focus:outline-none focus:border-orbit-blueLight">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-300 mb-1">رقم الجوال</label>
-                    <input type="tel" id="orderPhone" required placeholder="05xxxxxxxx" class="w-full bg-orbit-dark border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orbit-gold">
+                    <input type="tel" id="orderPhone" required placeholder="05xxxxxxxx" class="w-full bg-orbit-dark border border-white/10 rounded-xl px-3.5 py-3 text-xs sm:text-sm text-white focus:outline-none focus:border-orbit-blueLight">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-300 mb-1">عنوان التوصيل (المدينة / الحي)</label>
-                    <input type="text" id="orderAddress" required placeholder="مثال: الرياض، حي المروج" class="w-full bg-orbit-dark border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-orbit-gold">
+                    <input type="text" id="orderAddress" required placeholder="مثال: جدة، حي الروضة" class="w-full bg-orbit-dark border border-white/10 rounded-xl px-3.5 py-3 text-xs sm:text-sm text-white focus:outline-none focus:border-orbit-blueLight">
                 </div>
-                <button type="submit" class="w-full bg-gradient-to-r from-orbit-gold to-yellow-600 text-orbit-dark font-black py-3.5 rounded-xl shadow-lg hover:opacity-90 transition mt-2">
+                <button type="submit" class="w-full bg-gradient-to-r from-orbit-blue to-orbit-blueLight text-white font-black py-3.5 rounded-xl shadow-lg hover:opacity-90 transition text-sm mt-1">
                     تأكيد الطلب الآن
                 </button>
             </form>
@@ -329,27 +380,119 @@
 
     <!-- Success Modal -->
     <div id="successModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
-        <div class="bg-orbit-card border border-orbit-gold/30 rounded-2xl max-w-md w-full p-8 text-center space-y-4">
-            <div class="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center text-3xl mx-auto">
+        <div class="bg-orbit-card border border-orbit-blueLight/30 rounded-2xl max-w-md w-full p-8 text-center space-y-4 shadow-2xl">
+            <div class="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center text-3xl mx-auto">
                 <i class="fa-solid fa-check"></i>
             </div>
             <h3 class="text-2xl font-black text-white">تم استلام طلبك بنجاح!</h3>
-            <p class="text-gray-400 text-sm">شكراً لاختيارك Orbit Watches. سيقوم فريق خدمة العملاء بالتواصل معك قريباً لتأكيد الشحن.</p>
-            <button onclick="closeSuccess()" class="bg-orbit-gold text-orbit-dark font-bold px-6 py-2.5 rounded-xl hover:opacity-90 transition">
+            <p class="text-gray-400 text-xs sm:text-sm leading-relaxed">شكراً لاختيارك Orbit Watches. سيقوم فريق خدمة العملاء بالتواصل معك هاتفياً لتأكيد الشحن.</p>
+            <button onclick="closeSuccess()" class="bg-orbit-blue text-white font-bold px-6 py-2.5 rounded-xl hover:opacity-90 transition text-sm">
                 حسناً
             </button>
         </div>
     </div>
 
     <script>
-        let selectedProduct = '';
-        let selectedPrice = '';
+        // Cart State
+        let cart = [];
 
-        function openCheckout(name, price) {
-            selectedProduct = name;
-            selectedPrice = price;
-            document.getElementById('modalProductName').innerText = name;
-            document.getElementById('modalProductPrice').innerText = price;
+        function toggleCart() {
+            const drawer = document.getElementById('cartDrawer');
+            if (drawer.classList.contains('hidden')) {
+                drawer.classList.remove('hidden');
+                drawer.classList.add('flex');
+            } else {
+                drawer.classList.remove('flex');
+                drawer.classList.add('hidden');
+            }
+        }
+
+        function addToCart(name, price, image) {
+            const existingItem = cart.find(item => item.name === name);
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                cart.push({ name, price, image, quantity: 1 });
+            }
+            updateCartUI();
+            toggleCart();
+        }
+
+        function updateQuantity(name, change) {
+            const item = cart.find(i => i.name === name);
+            if (item) {
+                item.quantity += change;
+                if (item.quantity <= 0) {
+                    cart = cart.filter(i => i.name !== name);
+                }
+            }
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            const container = document.getElementById('cartItemsContainer');
+            const countBadge = document.getElementById('cartCount');
+            const totalPriceEl = document.getElementById('cartTotalPrice');
+
+            let totalCount = 0;
+            let totalPrice = 0;
+
+            if (cart.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-gray-400 space-y-2">
+                        <i class="fa-solid fa-cart-shopping text-3xl opacity-30"></i>
+                        <p class="text-sm">سلة الشراء فارغة حالياً</p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = cart.map(item => `
+                    <div class="flex items-center justify-between bg-orbit-dark/60 p-3 rounded-xl border border-white/5">
+                        <div class="flex items-center gap-3">
+                            <img src="${item.image}" alt="${item.name}" class="w-12 h-12 object-cover rounded-lg">
+                            <div>
+                                <h4 class="font-bold text-xs sm:text-sm text-white">${item.name}</h4>
+                                <span class="text-orbit-accent text-xs font-bold">${item.price} ر.س</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="updateQuantity('${item.name}', -1)" class="w-7 h-7 bg-white/10 rounded-lg flex items-center justify-center text-xs hover:bg-white/20">-</button>
+                            <span class="text-xs font-bold w-4 text-center">${item.quantity}</span>
+                            <button onclick="updateQuantity('${item.name}', 1)" class="w-7 h-7 bg-white/10 rounded-lg flex items-center justify-center text-xs hover:bg-white/20">+</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            cart.forEach(item => {
+                totalCount += item.quantity;
+                totalPrice += item.price * item.quantity;
+            });
+
+            countBadge.innerText = totalCount;
+            totalPriceEl.innerText = totalPrice + ' ر.س';
+        }
+
+        function buyNow(name, price) {
+            cart = [{ name, price, quantity: 1, image: '' }];
+            updateCartUI();
+            openCheckoutModal(name, price + ' ر.س');
+        }
+
+        function checkoutCart() {
+            if (cart.length === 0) {
+                alert('سلة الشراء فارغة!');
+                return;
+            }
+            toggleCart();
+            let total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            let summary = cart.map(i => `${i.name} (${i.quantity})`).join(', ');
+            openCheckoutModal(summary, total + ' ر.س');
+        }
+
+        function openCheckoutModal(summary, priceText) {
+            document.getElementById('modalOrderSummary').innerText = summary;
+            document.getElementById('modalOrderPrice').innerText, priceText;
+            document.getElementById('modalOrderPrice').innerText = priceText;
             document.getElementById('checkoutModal').classList.remove('hidden');
             document.getElementById('checkoutModal').classList.add('flex');
         }
@@ -359,9 +502,11 @@
             document.getElementById('checkoutModal').classList.add('hidden');
         }
 
-        function handleOrder(e) {
+        function handleOrderSubmit(e) {
             e.preventDefault();
             closeCheckout();
+            cart = [];
+            updateCartUI();
             document.getElementById('successModal').classList.remove('hidden');
             document.getElementById('successModal').classList.add('flex');
         }
