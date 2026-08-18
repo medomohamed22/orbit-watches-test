@@ -1,8 +1,12 @@
 {
-  "name": "nova-store",
+  "name": "orbit-watches",
   "version": "1.0.0",
-  "description": "Nova Store - Luxury Footwear Landing Page",
+  "description": "Orbit Watches - Luxury Timepieces Landing Page with AI Search Backend",
   "scripts": {
-    "start": "npx serve . -l 3000"
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^2.7.0"
   }
 }
