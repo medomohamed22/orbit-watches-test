@@ -286,12 +286,15 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
           </div>
           <div class="field full">
             <label>Base URL</label>
-            <input class="input" id="baseUrl" dir="ltr">
-            <div class="hint" id="urlHint">سيتم ضبطه تلقائياً حسب البروفايدر ويمكن تعديله.</div>
+            <input class="input" id="baseUrl" dir="ltr" placeholder="https://api.example.com/v1 أو الرابط الكامل /chat/completions">
+            <div class="hint" id="urlHint">يمكنك إدخال Base URL مثل https://api.example.com/v1 أو حتى رابط /chat/completions الكامل، وسيقوم AiWay بتصحيحه تلقائياً.</div>
+          </div>
+          <div class="field full">
+            <div class="hint" style="padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(139,92,246,.06)">مثال B.AI الصحيح: Base URL = <b dir="ltr">https://api.b.ai/v1</b>، واترك Models URL فارغاً. AiWay سيستخدم <b dir="ltr">/v1/models</b> تلقائياً.</div>
           </div>
           <div class="field full">
             <label>Models URL (اختياري للبروفايدر المخصص)</label>
-            <input class="input" id="modelsUrl" dir="ltr" placeholder="مثال: https://host.example/v1/models">
+            <input class="input" id="modelsUrl" dir="ltr" placeholder="اختياري — اتركه فارغاً ليتم اشتقاق /models تلقائياً">
           </div>
           <div class="field full">
             <div class="row">
@@ -489,6 +492,7 @@ function readSettings(){
  settings.systemPrompt=$('#systemPrompt').value;settings.assistantName=$('#assistantName').value.trim()||'AiWay';settings.customHeaders=$('#customHeaders').value;
  settings.saveKey=$('#saveKeySwitch').classList.contains('on');settings.sendHistory=$('#historySwitch').classList.contains('on');settings.autoTitle=$('#autoTitleSwitch').classList.contains('on');
  settings.model=$('#modelSelect').value||settings.model;
+ normalizeEndpointFields(false);
 }
 function renderModelSelect(){
  const sel=$('#modelSelect');sel.innerHTML='';
@@ -681,6 +685,47 @@ function scheduleStreamPaint(idx,final=false){
  };
  if(final)paint();else streamRAF=requestAnimationFrame(paint);
 }
+
+function stripQueryHash(url=''){
+ try{const u=new URL(url);u.search='';u.hash='';return u.toString().replace(/\/+$/,'')}catch{return String(url).trim().replace(/[?#].*$/,'').replace(/\/+$/,'')}
+}
+function normalizeOpenAIBase(url=''){
+ let u=stripQueryHash(url);
+ // Accept full endpoints pasted by users and reduce them to the API root.
+ u=u.replace(/\/(chat\/completions|responses|models)$/i,'');
+ return u.replace(/\/+$/,'');
+}
+function resolveCompatibleEndpoints(){
+ const rawBase=(settings.baseUrl||'').trim();
+ const rawModels=(settings.modelsUrl||'').trim();
+ const base=normalizeOpenAIBase(rawBase);
+ let chatUrl;
+ if(/\/chat\/completions\/?(?:[?#].*)?$/i.test(rawBase)) chatUrl=stripQueryHash(rawBase);
+ else chatUrl=base+'/chat/completions';
+ let modelsUrl;
+ if(rawModels){
+   // Common mistake: putting the chat endpoint in Models URL.
+   if(/\/chat\/completions\/?(?:[?#].*)?$/i.test(rawModels)) modelsUrl=normalizeOpenAIBase(rawModels)+'/models';
+   else if(/\/responses\/?(?:[?#].*)?$/i.test(rawModels)) modelsUrl=normalizeOpenAIBase(rawModels)+'/models';
+   else modelsUrl=stripQueryHash(rawModels);
+ }else modelsUrl=base+'/models';
+ return {base,chatUrl,modelsUrl};
+}
+function normalizeEndpointFields(showNotice=false){
+ if(settings.provider==='gemini')return;
+ const ep=resolveCompatibleEndpoints();
+ const oldBase=settings.baseUrl,oldModels=settings.modelsUrl;
+ settings.baseUrl=ep.base;
+ // If user pasted chat endpoint into Models URL, fix it; if blank keep blank in settings/UI so derivation remains automatic.
+ if(oldModels && /\/(chat\/completions|responses)\/?(?:[?#].*)?$/i.test(oldModels)) settings.modelsUrl=ep.modelsUrl;
+ const baseEl=$('#baseUrl'),modelsEl=$('#modelsUrl');
+ if(baseEl)baseEl.value=settings.baseUrl;
+ if(modelsEl)modelsEl.value=settings.modelsUrl||'';
+ if(showNotice && (oldBase!==settings.baseUrl || (oldModels||'')!==(settings.modelsUrl||''))){
+   toast('تم تصحيح روابط الـ API تلقائياً');
+ }
+}
+
 function headers(){
  const h={'Content-Type':'application/json'};
  if(settings.provider!=='gemini' && settings.apiKey)h.Authorization='Bearer '+settings.apiKey;
@@ -692,12 +737,16 @@ async function fetchModels(showToast=true){
  readSettings();
  if(!settings.baseUrl)throw new Error('أدخل Base URL');
  let url,h=headers();
- if(settings.provider==='gemini'){url=settings.modelsUrl||settings.baseUrl+'/models?key='+encodeURIComponent(settings.apiKey)}
- else url=settings.modelsUrl||settings.baseUrl+'/models';
+ if(settings.provider==='gemini'){
+   url=settings.modelsUrl||settings.baseUrl+'/models?key='+encodeURIComponent(settings.apiKey);
+ }else{
+   const ep=resolveCompatibleEndpoints();
+   url=ep.modelsUrl;
+ }
  $('#testText').textContent='جاري الاتصال...';$('#testDot').className='dot-status';
  try{
    const r=await fetch(url,{headers:h}); const text=await r.text();let data;try{data=JSON.parse(text)}catch{throw new Error('الرد ليس JSON — قد تكون هناك مشكلة CORS أو URL')}
-   if(!r.ok)throw new Error(data?.error?.message||data?.message||('HTTP '+r.status));
+   if(!r.ok)throw new Error((data?.error?.message||data?.message||('HTTP '+r.status))+' — Models URL: '+url);
    let arr=[];
    if(settings.provider==='gemini'){
      arr=(data.models||[]).filter(m=>(m.supportedGenerationMethods||m.supportedActions||[]).some(x=>/generateContent|generate_content/i.test(x))||!(m.supportedGenerationMethods||m.supportedActions)).map(m=>({id:(m.name||'').replace(/^models\//,''),name:m.displayName||m.name,context:m.inputTokenLimit||'',params:[]}));
@@ -806,7 +855,7 @@ async function sendGemini(){
  activeChat.messages[idx].streaming=false;scheduleStreamPaint(idx,true);
 }
 async function sendOpenAICompatible(){
- const url=settings.baseUrl+'/chat/completions';let body=openAIRequest();
+ const url=resolveCompatibleEndpoints().chatUrl;let body=openAIRequest();
  let r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});
  if(!r.ok && (body.reasoning||body.reasoning_effort)){
    const fallback={...body};delete fallback.reasoning;delete fallback.reasoning_effort;
@@ -849,10 +898,19 @@ function bind(){
  $('#attachInput').onchange=async e=>{await addAttachments(e.target.files||[]);e.target.value=''};
  $('#reasonBtn').onclick=cycleReasoning;
  $('#provider').onchange=e=>{const p=e.target.value;$('#baseUrl').value=providerDefaults[p];$('#modelsUrl').value='';};
- $('#testBtn').onclick=async()=>{try{await fetchModels()}catch(e){toast(e.message,'error')}};
+ $('#baseUrl').addEventListener('blur',()=>{readSettings();normalizeEndpointFields(true)});
+ $('#modelsUrl').addEventListener('blur',()=>{readSettings();normalizeEndpointFields(true)});
+ $('#testBtn').onclick=async()=>{try{
+   readSettings();normalizeEndpointFields(true);
+   if(settings.provider!=='gemini'){
+     const ep=resolveCompatibleEndpoints();
+     $('#urlHint').textContent=`Chat: ${ep.chatUrl} • Models: ${ep.modelsUrl}`;
+   }
+   await fetchModels();
+ }catch(e){toast(e.message,'error')}};
  $('#refreshModels').onclick=$('#modelsRefresh2').onclick=async()=>{try{readSettings();await fetchModels()}catch(e){toast(e.message,'error')}};
  $('#modelSelect').onchange=e=>{settings.model=e.target.value;$('#topModel').textContent=settings.model};
- $('#saveSettings').onclick=()=>{readSettings();persistSettings();renderModelSelect();updateReasonUI();closeModal('settingsModal');toast('تم حفظ الإعدادات')};
+ $('#saveSettings').onclick=()=>{readSettings();normalizeEndpointFields(true);persistSettings();renderModelSelect();updateReasonUI();closeModal('settingsModal');toast('تم حفظ الإعدادات')};
  [['saveKeySwitch'],['historySwitch'],['autoTitleSwitch']].forEach(([id])=>$('#'+id).onclick=()=>$('#'+id).classList.toggle('on'));
  $('#temperatureRange').oninput=e=>$('#temperature').value=e.target.value;$('#temperature').oninput=e=>$('#temperatureRange').value=e.target.value;$('#topPRange').oninput=e=>$('#topP').value=e.target.value;$('#topP').oninput=e=>$('#topPRange').value=e.target.value;
  $$('#settingsTabs .tab').forEach(t=>t.onclick=()=>{$$('#settingsTabs .tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');$$('.tabpane').forEach(p=>p.hidden=p.dataset.pane!==t.dataset.tab)});
