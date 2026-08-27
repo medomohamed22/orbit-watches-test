@@ -198,6 +198,38 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
 .code-block code{white-space:pre;display:block;min-width:max-content}
 .msg-actions .mini-btn.copied,.code-copy.copied{color:#fff;background:rgba(139,92,246,.20)}
 
+
+/* === AiWay thinking summaries + calm stream patch === */
+.thinking-shell{min-width:min(82%,520px);max-width:min(86%,620px)}
+.thinking-card{
+  position:relative;overflow:hidden;padding:13px 14px;border-radius:19px;
+  border:1px solid rgba(181,145,255,.20);
+  background:linear-gradient(145deg,rgba(255,255,255,.065),rgba(139,92,246,.055));
+  box-shadow:0 16px 46px rgba(37,13,77,.18),inset 0 1px 0 rgba(255,255,255,.055);
+  backdrop-filter:blur(20px)
+}
+.thinking-card:before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(105deg,transparent 18%,rgba(194,167,255,.075) 45%,transparent 72%);
+  translate:-100% 0;animation:thinkSweep 2.8s ease-in-out infinite
+}
+@keyframes thinkSweep{55%,100%{translate:100% 0}}
+.thinking-head{display:flex;align-items:center;gap:9px;position:relative;z-index:1}
+.thinking-orb{width:27px;height:27px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto;background:linear-gradient(145deg,#fff,#d8c7ff 36%,#8b5cf6);box-shadow:0 7px 22px rgba(139,92,246,.28)}
+.thinking-orb svg{width:15px;height:15px;stroke:#241334}
+.thinking-title{font-size:12px;font-weight:750;color:#f4efff}.thinking-time{font-size:9px;color:#8f879c;margin-inline-start:auto}
+.thinking-line{position:relative;z-index:1;margin-top:8px;color:#aaa2b8;font-size:11px;line-height:1.65;min-height:18px;transition:opacity .18s,transform .18s}
+.thinking-line.swap{opacity:.25;transform:translateY(2px)}
+.thinking-summary{position:relative;z-index:1;margin-top:9px;padding:8px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.075);background:rgba(8,6,13,.28);font-size:10px;line-height:1.65;color:#cec5da;max-height:74px;overflow:hidden}
+.thinking-summary:empty{display:none}
+.thinking-summary b{color:#eee7fa;font-weight:650}
+.thinking-dots{display:inline-flex;gap:3px;margin-inline-start:4px;vertical-align:middle}.thinking-dots i{width:3px;height:3px;border-radius:50%;background:#b68cff;animation:thinkDot 1.35s ease-in-out infinite}.thinking-dots i:nth-child(2){animation-delay:.15s}.thinking-dots i:nth-child(3){animation-delay:.3s}@keyframes thinkDot{50%{opacity:.25;transform:translateY(-2px)}}
+.stream-caret{animation:caretBlink 1.55s ease-in-out infinite!important;opacity:.72}
+.code-block.streaming-code{box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 10px 32px rgba(74,36,128,.08)}
+.code-block.streaming-code .code-head:after{content:"";width:36px;height:2px;border-radius:5px;margin-left:7px;background:linear-gradient(90deg,transparent,#b488ff,transparent);animation:codeProgress 1.6s ease-in-out infinite}
+@keyframes codeProgress{0%{opacity:.2;transform:translateX(-6px)}50%{opacity:.85}100%{opacity:.2;transform:translateX(6px)}}
+@media(max-width:600px){.thinking-shell{max-width:88%;min-width:70%}.thinking-card{padding:12px 13px;border-radius:17px}}
+
 </style>
 </head>
 <body>
@@ -416,6 +448,9 @@ let aborter = null;
 let isGenerating = false;
 let pendingAttachments = [];
 let streamRAF = 0;
+let streamPaintTimer = 0;
+let thinkingTimer = 0;
+let thinkingStartedAt = 0;
 let db;
 
 const providerDefaults = {
@@ -714,7 +749,7 @@ function geminiParts(m){
 }
 function applyReasoningOpenAI(body){
  const level=settings.reasoningLevel||'auto';if(level==='off'||level==='auto')return;
- if(settings.provider==='openrouter')body.reasoning={effort:level};
+ if(settings.provider==='openrouter')body.reasoning={effort:level,display:'summarized'};
  else if(settings.provider==='openai' || settings.provider==='compatible')body.reasoning_effort=level;
 }
 function applyReasoningGemini(body){
@@ -724,24 +759,30 @@ function applyReasoningGemini(body){
  if(model.includes('gemini-3'))body.generationConfig.thinkingConfig.thinkingLevel=level.toUpperCase();
  else body.generationConfig.thinkingConfig.thinkingBudget=level==='low'?1024:level==='medium'?4096:8192;
 }
-function scheduleStreamPaint(idx,final=false){
- if(final && streamRAF){
-   cancelAnimationFrame(streamRAF);
-   streamRAF=0;
- }
- if(streamRAF && !final)return;
- const paint=()=>{
-   streamRAF=0;
-   const row=$(`[data-index="${idx}"]`),el=row?.querySelector('.content');if(!el)return;
-   const m=activeChat.messages[idx];
-   el.innerHTML=markdown(m.content||'',!final)+(final?'':'<span class="stream-caret"></span>');
-   row.classList.toggle('streaming',!final);
-   bindCodeCopy(row);
-   scrollBottom(false);
- };
- if(final)paint();else streamRAF=requestAnimationFrame(paint);
+function hasOpenCodeFence(text=''){
+ return (String(text).match(/```/g)||[]).length%2===1;
 }
-
+function scheduleStreamPaint(idx,final=false){
+ if(final){
+   if(streamRAF){cancelAnimationFrame(streamRAF);streamRAF=0}
+   if(streamPaintTimer){clearTimeout(streamPaintTimer);streamPaintTimer=0}
+   if(streamPaintTimer){clearTimeout(streamPaintTimer);streamPaintTimer=0}
+ }
+ const paint=()=>{
+   streamPaintTimer=0;streamRAF=0;
+   const row=$(`[data-index="${idx}"]`),el=row?.querySelector('.content');if(!el)return;
+   const m=activeChat.messages[idx],openCode=hasOpenCodeFence(m.content||'');
+   el.innerHTML=markdown(m.content||'',!final)+((!final&&!openCode)?'<span class="stream-caret"></span>':'');
+   row.classList.toggle('streaming',!final);
+   row.querySelectorAll('.code-block').forEach(b=>b.classList.toggle('streaming-code',!final&&openCode));
+   bindCodeCopy(row);scrollBottom(false);
+ };
+ if(final){paint();return}
+ if(streamPaintTimer)return;
+ const m=activeChat.messages[idx];
+ const delay=hasOpenCodeFence(m?.content||'')?85:42;
+ streamPaintTimer=setTimeout(()=>{streamRAF=requestAnimationFrame(paint)},delay);
+}
 function stripQueryHash(url=''){
  try{const u=new URL(url);u.search='';u.hash='';return u.toString().replace(/\/+$/,'')}catch{return String(url).trim().replace(/[?#].*$/,'').replace(/\/+$/,'')}
 }
@@ -875,9 +916,9 @@ function anthropicRequest(){
  if(Number.isFinite(settings.topP))body.top_p=settings.topP;
  const stops=settings.stopSequences.split('\n').map(x=>x.trim()).filter(Boolean);if(stops.length)body.stop_sequences=stops;
  const level=settings.reasoningLevel||'auto';
- if(!['auto','off'].includes(level)){
-   body.thinking={type:'adaptive'};
-   body.output_config={effort:level};
+ if(level!=='off'){
+   body.thinking={type:'adaptive',display:'summarized'};
+   if(level!=='auto')body.output_config={effort:level};
  }
  return body;
 }
@@ -914,10 +955,37 @@ function extractUsage(data){
  if(providerProtocol()==='anthropic'){const u=data?.usage||{};return {prompt_tokens:u.input_tokens,completion_tokens:u.output_tokens,total_tokens:(u.input_tokens||0)+(u.output_tokens||0)}}
  return data?.usage||null;
 }
+function safeSummaryText(text=''){
+ return String(text||'').replace(/\s+/g,' ').trim().slice(0,280);
+}
+function thinkingFallbackPhrases(){
+ const model=(settings.model||'').toLowerCase();
+ const coding=/code|coder|deepseek|claude|gpt|gemini|qwen|mistral|kimi/.test(model) && /```|html|css|javascript|python|code|كود|برمج/i.test(activeChat?.messages?.at(-1)?.content||'');
+ return coding ? ['يحلل المطلوب ويجهّز البنية…','يرتّب أجزاء الحل قبل الكتابة…','يجهّز الكود بشكل منظم…','يراجع التفاصيل قبل بدء الإجابة…'] : ['يحلل سؤالك…','يرتّب أهم النقاط…','يختار أفضل طريقة للإجابة…','يجهّز الرد…'];
+}
 function addTyping(){
- const box=$('#messages');const el=document.createElement('div');el.id='typingRow';el.className='msg-row assistant';el.innerHTML=`<div class="avatar"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 14 10l7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" stroke="currentColor" stroke-width="1.4"/></svg></div><div class="bubble"><div class="typing"><i></i><i></i><i></i></div></div>`;box.appendChild(el);scrollBottom()}
+ const box=$('#messages');$('#typingRow')?.remove();thinkingStartedAt=Date.now();
+ const el=document.createElement('div');el.id='typingRow';el.className='msg-row assistant';
+ el.innerHTML=`<div class="avatar"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 14 10l7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" stroke="currentColor" stroke-width="1.4"/></svg></div><div class="thinking-shell"><div class="thinking-card"><div class="thinking-head"><span class="thinking-orb"><svg viewBox="0 0 24 24" fill="none"><path d="M12 4v2m0 12v2M4 12h2m12 0h2M6.3 6.3l1.4 1.4m8.6 8.6 1.4 1.4m0-11.4-1.4 1.4m-8.6 8.6-1.4 1.4M9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0Z" stroke-width="1.6" stroke-linecap="round"/></svg></span><span class="thinking-title">يفكّر<span class="thinking-dots"><i></i><i></i><i></i></span></span><span class="thinking-time" id="thinkingTime">0ث</span></div><div class="thinking-line" id="thinkingLine">${thinkingFallbackPhrases()[0]}</div><div class="thinking-summary" id="thinkingSummary"></div></div></div>`;
+ box.appendChild(el);scrollBottom();
+ const phrases=thinkingFallbackPhrases();let n=0;clearInterval(thinkingTimer);
+ thinkingTimer=setInterval(()=>{
+   const time=$('#thinkingTime');if(time)time.textContent=Math.max(0,Math.floor((Date.now()-thinkingStartedAt)/1000))+'ث';
+   const line=$('#thinkingLine');if(line && !line.dataset.official){line.classList.add('swap');setTimeout(()=>{if(!line||line.dataset.official)return;n=(n+1)%phrases.length;line.textContent=phrases[n];line.classList.remove('swap')},150)}
+ },1000);
+}
+function updateThinkingSummary(text,source='AI'){
+ const clean=safeSummaryText(text);if(!clean)return;
+ const line=$('#thinkingLine'),sum=$('#thinkingSummary');
+ if(line){line.dataset.official='1';line.textContent='ملخص تفكير متاح من النموذج';line.classList.remove('swap')}
+ if(sum){sum.innerHTML=`<b>${esc(source)}:</b> ${esc(clean)}`;scrollBottom(false)}
+}
+function finishThinkingUI(){
+ clearInterval(thinkingTimer);thinkingTimer=0;const el=$('#typingRow');if(!el)return;
+ el.style.transition='opacity .18s,transform .18s';el.style.opacity='0';el.style.transform='translateY(-3px)';setTimeout(()=>el.remove(),180);
+}
 function beginAssistantBubble(){
- $('#typingRow')?.remove();const m={role:'assistant',content:'',time:Date.now(),model:settings.model,streaming:true};activeChat.messages.push(m);
+ finishThinkingUI();const m={role:'assistant',content:'',time:Date.now(),model:settings.model,streaming:true};activeChat.messages.push(m);
  const idx=activeChat.messages.length-1;const box=$('#messages');box.insertAdjacentHTML('beforeend',messageHtml(m,idx));bindMsgActions();scrollBottom();return idx;
 }
 function setGenerating(on){
@@ -941,7 +1009,7 @@ async function send(){
    else if(proto==='anthropic')await sendAnthropic();
    else await sendOpenAICompatible();
  }catch(e){
-   $('#typingRow')?.remove();
+   finishThinkingUI();
    const last=activeChat?.messages?.[activeChat.messages.length-1];
    if(last?.role==='assistant'&&last.streaming){last.streaming=false;scheduleStreamPaint(activeChat.messages.length-1,true)}
    if(e.name==='AbortError')toast('تم إيقاف التوليد');
@@ -961,8 +1029,9 @@ async function sendAnthropic(){
    r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(fallback),signal:aborter.signal});
  }
  if(!r.ok){let err;try{err=await r.json()}catch{};throw new Error(err?.error?.message||err?.message||('Anthropic HTTP '+r.status))}
- const idx=beginAssistantBubble(),reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم في هذا المتصفح أو البروفايدر');
- const dec=new TextDecoder();let buf='',done=false;
+ const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم في هذا المتصفح أو البروفايدر');
+ const dec=new TextDecoder();let buf='',done=false,idx=-1,currentBlock='';
+ const ensure=()=>{if(idx<0)idx=beginAssistantBubble();return idx};
  while(!done){
    const chunk=await reader.read();done=chunk.done;buf+=dec.decode(chunk.value||new Uint8Array(),{stream:!done});
    const lines=buf.split('\n');buf=lines.pop()||'';
@@ -970,39 +1039,51 @@ async function sendAnthropic(){
      const line=raw.trim();if(!line.startsWith('data:'))continue;const payload=line.slice(5).trim();if(!payload)continue;
      try{
        const j=JSON.parse(payload);
-       if(j.type==='content_block_delta' && j.delta?.type==='text_delta' && j.delta.text){
-         activeChat.messages[idx].content+=j.delta.text;scheduleStreamPaint(idx);
+       if(j.type==='content_block_start')currentBlock=j.content_block?.type||'';
+       if(j.type==='content_block_delta' && j.delta?.type==='thinking_delta' && j.delta.thinking){
+         updateThinkingSummary(j.delta.thinking,'Claude');
        }
-       if(j.type==='message_start' && j.message?.usage)activeChat.messages[idx].usage=extractUsage(j.message);
-       if(j.type==='message_delta' && j.usage){
-         const prev=activeChat.messages[idx].usage||{};
-         activeChat.messages[idx].usage={...prev,completion_tokens:j.usage.output_tokens,total_tokens:(prev.prompt_tokens||0)+(j.usage.output_tokens||0)};
+       if(j.type==='content_block_delta' && j.delta?.type==='text_delta' && j.delta.text){
+         const i=ensure();activeChat.messages[i].content+=j.delta.text;scheduleStreamPaint(i);
+       }
+       if(j.type==='message_start' && j.message?.usage && idx>=0)activeChat.messages[idx].usage=extractUsage(j.message);
+       if(j.type==='message_delta' && j.usage && idx>=0){
+         const prev=activeChat.messages[idx].usage||{};activeChat.messages[idx].usage={...prev,completion_tokens:j.usage.output_tokens,total_tokens:(prev.prompt_tokens||0)+(j.usage.output_tokens||0)};
        }
        if(j.type==='message_stop'){done=true;break}
        if(j.type==='error')throw new Error(j.error?.message||'Anthropic stream error');
      }catch(e){if(e?.message&&e.message!=='Anthropic stream error'&&!/JSON/.test(e.message))throw e}
    }
  }
+ if(idx<0){idx=beginAssistantBubble();activeChat.messages[idx].content='[لم يُرجع النموذج نصًا]'}
  activeChat.messages[idx].streaming=false;scheduleStreamPaint(idx,true);
 }
 async function sendGemini(){
  const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(settings.apiKey)}`;
  let r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(geminiRequest()),signal:aborter.signal});
  if(!r.ok && settings.reasoningLevel!=='auto' && settings.reasoningLevel!=='off'){
-   const body=geminiRequest(); if(body.generationConfig)delete body.generationConfig.thinkingConfig;
+   const body=geminiRequest();if(body.generationConfig)delete body.generationConfig.thinkingConfig;
    r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});
  }
  if(!r.ok){let err;try{err=await r.json()}catch{};throw new Error(err?.error?.message||('Gemini HTTP '+r.status))}
- const idx=beginAssistantBubble(),reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم هنا');
- const dec=new TextDecoder();let buf='',done=false;
+ const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم هنا');
+ const dec=new TextDecoder();let buf='',done=false,idx=-1;const ensure=()=>{if(idx<0)idx=beginAssistantBubble();return idx};
  while(!done){
    const chunk=await reader.read();done=chunk.done;buf+=dec.decode(chunk.value||new Uint8Array(),{stream:!done});
    const lines=buf.split('\n');buf=lines.pop()||'';
    for(const raw of lines){
      const line=raw.trim();if(!line.startsWith('data:'))continue;const payload=line.slice(5).trim();if(!payload)continue;
-     try{const j=JSON.parse(payload),delta=j?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';if(delta){activeChat.messages[idx].content+=delta;scheduleStreamPaint(idx)}if(j.usageMetadata)activeChat.messages[idx].usage=extractUsage(j)}catch{}
+     try{
+       const j=JSON.parse(payload),parts=j?.candidates?.[0]?.content?.parts||[];
+       const thought=parts.filter(p=>p.thought===true&&p.text).map(p=>p.text).join('');
+       if(thought)updateThinkingSummary(thought,'Gemini');
+       const delta=parts.filter(p=>p.thought!==true).map(p=>p.text||'').join('');
+       if(delta){const i=ensure();activeChat.messages[i].content+=delta;scheduleStreamPaint(i)}
+       if(j.usageMetadata&&idx>=0)activeChat.messages[idx].usage=extractUsage(j);
+     }catch{}
    }
  }
+ if(idx<0){idx=beginAssistantBubble();activeChat.messages[idx].content='[لم يُرجع النموذج نصًا]'}
  activeChat.messages[idx].streaming=false;scheduleStreamPaint(idx,true);
 }
 async function sendOpenAICompatible(){
@@ -1013,24 +1094,27 @@ async function sendOpenAICompatible(){
    r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(fallback),signal:aborter.signal});
  }
  if(!r.ok){let err;try{err=await r.json()}catch{};throw new Error(err?.error?.message||err?.message||('HTTP '+r.status))}
- const idx=beginAssistantBubble(),reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم في هذا المتصفح أو البروفايدر');
- const dec=new TextDecoder();let buf='',done=false;
+ const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم في هذا المتصفح أو البروفايدر');
+ const dec=new TextDecoder();let buf='',done=false,idx=-1;const ensure=()=>{if(idx<0)idx=beginAssistantBubble();return idx};
  while(!done){
    const chunk=await reader.read();done=chunk.done;buf+=dec.decode(chunk.value||new Uint8Array(),{stream:!done});
    const lines=buf.split('\n');buf=lines.pop()||'';
    for(const line0 of lines){
      const line=line0.trim();if(!line||!line.startsWith('data:'))continue;const payload=line.slice(5).trim();if(payload==='[DONE]'){done=true;break}
      try{
-       const j=JSON.parse(payload);
-       const delta=j.choices?.[0]?.delta?.content ?? j.choices?.[0]?.text ?? '';
-       if(delta){activeChat.messages[idx].content+=delta;scheduleStreamPaint(idx)}
-       if(j.usage)activeChat.messages[idx].usage=j.usage;
+       const j=JSON.parse(payload),d=j.choices?.[0]?.delta||{};
+       const details=Array.isArray(d.reasoning_details)?d.reasoning_details:[];
+       const summaries=details.filter(x=>x?.type==='reasoning.summary'&&x.summary).map(x=>x.summary).join(' ');
+       if(summaries)updateThinkingSummary(summaries,settings.provider==='openrouter'?'OpenRouter':'AI');
+       const delta=d.content ?? j.choices?.[0]?.text ?? '';
+       if(delta){const i=ensure();activeChat.messages[i].content+=delta;scheduleStreamPaint(i)}
+       if(j.usage&&idx>=0)activeChat.messages[idx].usage=j.usage;
      }catch{}
    }
  }
+ if(idx<0){idx=beginAssistantBubble();activeChat.messages[idx].content='[لم يُرجع النموذج نصًا]'}
  activeChat.messages[idx].streaming=false;scheduleStreamPaint(idx,true);
 }
-
 async function exportAll(){
  const data={version:1,exportedAt:new Date().toISOString(),settings:{...settings,apiKey:''},chats:await dbAll()};
  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='aiway-chat-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
