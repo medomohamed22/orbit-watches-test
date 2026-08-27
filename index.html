@@ -274,10 +274,30 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
           <div class="field">
             <label>نوع البروفايدر</label>
             <select class="select" id="provider">
-              <option value="openai">OpenAI</option>
-              <option value="openrouter">OpenRouter</option>
-              <option value="gemini">Google Gemini</option>
-              <option value="compatible">OpenAI-Compatible / Custom</option>
+              <optgroup label="Providers الرسمية">
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic / Claude</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="gemini">Google Gemini — Native</option>
+                <option value="gemini_openai">Google Gemini — OpenAI Compatible</option>
+              </optgroup>
+              <optgroup label="AgentRouter">
+                <option value="agentrouter_anthropic">AgentRouter — Anthropic (Claude)</option>
+                <option value="agentrouter_openai">AgentRouter — OpenAI Compatible</option>
+              </optgroup>
+              <optgroup label="OpenAI-Compatible presets">
+                <option value="deepseek">DeepSeek</option>
+                <option value="groq">Groq</option>
+                <option value="together">Together AI</option>
+                <option value="mistral">Mistral AI</option>
+                <option value="xai">xAI</option>
+                <option value="fireworks">Fireworks AI</option>
+                <option value="cerebras">Cerebras</option>
+              </optgroup>
+              <optgroup label="Custom">
+                <option value="compatible">Custom — OpenAI Compatible</option>
+                <option value="anthropic_compatible">Custom — Anthropic Compatible</option>
+              </optgroup>
             </select>
           </div>
           <div class="field">
@@ -290,7 +310,7 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
             <div class="hint" id="urlHint">يمكنك إدخال Base URL مثل https://api.example.com/v1 أو حتى رابط /chat/completions الكامل، وسيقوم AiWay بتصحيحه تلقائياً.</div>
           </div>
           <div class="field full">
-            <div class="hint" style="padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(139,92,246,.06)">مثال B.AI الصحيح: Base URL = <b dir="ltr">https://api.b.ai/v1</b>، واترك Models URL فارغاً. AiWay سيستخدم <b dir="ltr">/v1/models</b> تلقائياً.</div>
+            <div class="hint" id="protocolHint" style="padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(139,92,246,.06)">AiWay يحدد البروتوكول تلقائياً حسب الاختيار. OpenAI-compatible يستخدم Chat Completions، وAnthropic-compatible يستخدم Messages API.</div>
           </div>
           <div class="field full">
             <label>Models URL (اختياري للبروفايدر المخصص)</label>
@@ -298,13 +318,18 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
           </div>
           <div class="field full">
             <div class="row">
-              <button class="btn grow" id="testBtn">اختبار الاتصال وجلب الموديلات</button>
+              <button class="btn grow" id="testBtn">اختبار الاتصال / جلب الموديلات</button>
               <span class="status"><i class="dot-status" id="testDot"></i><span id="testText">لم يتم الاختبار</span></span>
             </div>
           </div>
           <div class="field full">
             <label>النموذج</label>
             <div class="row"><select class="select grow" id="modelSelect"></select><button class="btn" id="refreshModels">↻</button></div>
+            <div class="hint" style="margin-top:6px">لو البروفايدر يمنع <span dir="ltr">/models</span>، اكتب Model ID يدويًا هنا وسيعمل الشات بدون جلب القائمة.</div>
+          </div>
+          <div class="field full">
+            <label>Model ID يدوي</label>
+            <input class="input" id="manualModel" dir="ltr" placeholder="مثال: claude-opus-4-8 أو gpt-5.5 أو model-id">
           </div>
           <div class="field full">
             <label class="row"><span class="grow">حفظ API Key محلياً</span><span class="switch" id="saveKeySwitch"></span></label>
@@ -337,7 +362,7 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
 
       <div class="tabpane" data-pane="storage" hidden>
         <div class="grid">
-          <div class="field full"><div class="notice" style="margin:0">المحادثات تُحفظ في IndexedDB، وهو أنسب من localStorage لسجل أكبر. إعدادات الواجهة تُحفظ محلياً، مع إمكانية عدم حفظ المفتاح.<br><br>جاهز للاستضافة كصفحة Static على Vercel. بعد النشر ستظل كل إعدادات Provider وAPI Key والنموذج من داخل الصفحة نفسها.</div></div>
+          <div class="field full"><div class="notice" style="margin:0">المحادثات تُحفظ في IndexedDB، وهو أنسب من localStorage لسجل أكبر. إعدادات الواجهة تُحفظ محلياً، مع إمكانية عدم حفظ المفتاح.<br><br>جاهز للاستضافة كصفحة Static على Vercel. يدعم OpenAI Chat Completions وAnthropic Messages وGemini Native، وكل إعدادات Provider وAPI Key والنموذج تظل من داخل الصفحة.</div></div>
           <div class="field full"><button class="btn danger" id="clearChatsBtn">حذف كل سجل المحادثات</button></div>
           <div class="field full"><button class="btn danger" id="resetSettingsBtn">إعادة الإعدادات للوضع الافتراضي</button></div>
         </div>
@@ -395,10 +420,37 @@ let db;
 
 const providerDefaults = {
   openai:'https://api.openai.com/v1',
+  anthropic:'https://api.anthropic.com',
   openrouter:'https://openrouter.ai/api/v1',
   gemini:'https://generativelanguage.googleapis.com/v1beta',
-  compatible:''
+  gemini_openai:'https://generativelanguage.googleapis.com/v1beta/openai',
+  agentrouter_anthropic:'https://co.agentrouter.org',
+  agentrouter_openai:'https://co.agentrouter.org/v1',
+  deepseek:'https://api.deepseek.com/v1',
+  groq:'https://api.groq.com/openai/v1',
+  together:'https://api.together.xyz/v1',
+  mistral:'https://api.mistral.ai/v1',
+  xai:'https://api.x.ai/v1',
+  fireworks:'https://api.fireworks.ai/inference/v1',
+  cerebras:'https://api.cerebras.ai/v1',
+  compatible:'',
+  anthropic_compatible:''
 };
+function providerProtocol(p=settings.provider){
+  if(['anthropic','agentrouter_anthropic','anthropic_compatible'].includes(p))return 'anthropic';
+  if(p==='gemini')return 'gemini';
+  return 'openai';
+}
+function isCustomProvider(p=settings.provider){return p==='compatible'||p==='anthropic_compatible'}
+function updateProtocolHint(){
+ const el=$('#protocolHint'); if(!el)return;
+ const p=settings.provider||$('#provider')?.value, proto=providerProtocol(p);
+ if(p==='agentrouter_anthropic') el.innerHTML='AgentRouter + Claude: بروتوكول <b>Anthropic Messages</b>، وBase URL الصحيح <b dir="ltr">https://co.agentrouter.org</b> بدون /v1.';
+ else if(p==='agentrouter_openai') el.innerHTML='AgentRouter + GPT/Kimi/GLM: بروتوكول <b>OpenAI Chat Completions</b>، وBase URL الصحيح <b dir="ltr">https://co.agentrouter.org/v1</b>.';
+ else if(proto==='anthropic') el.innerHTML='بروتوكول <b>Anthropic Messages API</b>. AiWay يرسل إلى <span dir="ltr">/v1/messages</span> ويستخدم headers المتوافقة مع Anthropic.';
+ else if(proto==='gemini') el.innerHTML='بروتوكول <b>Gemini Native</b> باستخدام streamGenerateContent.';
+ else el.innerHTML='بروتوكول <b>OpenAI Chat Completions</b>. AiWay يشتق <span dir="ltr">/chat/completions</span> و<span dir="ltr">/models</span> تلقائياً.';
+}
 
 function toast(msg, type=''){ const d=document.createElement('div');d.className='toast '+type;d.textContent=msg;$('#toastWrap').appendChild(d);setTimeout(()=>{d.style.opacity='0';d.style.transform='translateY(8px)';setTimeout(()=>d.remove(),250)},3000);}
 function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
@@ -481,9 +533,9 @@ function fillSettings(){
  $('#modelsUrl').value=settings.modelsUrl||'';$('#temperature').value=settings.temperature;$('#temperatureRange').value=settings.temperature;
  $('#topP').value=settings.topP;$('#topPRange').value=settings.topP;$('#maxTokens').value=settings.maxTokens;$('#seed').value=settings.seed;
  $('#presencePenalty').value=settings.presencePenalty;$('#frequencyPenalty').value=settings.frequencyPenalty;$('#stopSequences').value=settings.stopSequences;
- $('#systemPrompt').value=settings.systemPrompt;$('#assistantName').value=settings.assistantName;$('#customHeaders').value=settings.customHeaders||'';
+ $('#systemPrompt').value=settings.systemPrompt;$('#assistantName').value=settings.assistantName;$('#customHeaders').value=settings.customHeaders||'';$('#manualModel').value=settings.model||'';
  setSwitch($('#saveKeySwitch'),settings.saveKey);setSwitch($('#historySwitch'),settings.sendHistory);setSwitch($('#autoTitleSwitch'),settings.autoTitle);updateReasonUI();
- renderModelSelect();
+ renderModelSelect();updateProtocolHint();
 }
 function readSettings(){
  settings.provider=$('#provider').value;settings.apiKey=$('#apiKey').value.trim();settings.baseUrl=$('#baseUrl').value.trim().replace(/\/+$/,'');settings.modelsUrl=$('#modelsUrl').value.trim();
@@ -491,21 +543,25 @@ function readSettings(){
  settings.presencePenalty=+$('#presencePenalty').value||0;settings.frequencyPenalty=+$('#frequencyPenalty').value||0;settings.stopSequences=$('#stopSequences').value;
  settings.systemPrompt=$('#systemPrompt').value;settings.assistantName=$('#assistantName').value.trim()||'AiWay';settings.customHeaders=$('#customHeaders').value;
  settings.saveKey=$('#saveKeySwitch').classList.contains('on');settings.sendHistory=$('#historySwitch').classList.contains('on');settings.autoTitle=$('#autoTitleSwitch').classList.contains('on');
- settings.model=$('#modelSelect').value||settings.model;
+ settings.model=$('#manualModel').value.trim()||$('#modelSelect').value||settings.model;
  normalizeEndpointFields(false);
 }
 function renderModelSelect(){
  const sel=$('#modelSelect');sel.innerHTML='';
- if(!settings.models?.length){sel.add(new Option(settings.model||'— لا توجد موديلات محملة —',settings.model||''));}
- else settings.models.forEach(m=>sel.add(new Option(m.name||m.id,m.id)));
+ if(!settings.models?.length){sel.add(new Option(settings.model||'— استخدم Model ID اليدوي —',settings.model||''));}
+ else{
+   if(settings.model && !settings.models.some(m=>m.id===settings.model))sel.add(new Option('يدوي · '+settings.model,settings.model));
+   settings.models.forEach(m=>sel.add(new Option(m.name||m.id,m.id)));
+ }
  if(settings.model && [...sel.options].some(o=>o.value===settings.model))sel.value=settings.model;
+ const manual=$('#manualModel');if(manual && document.activeElement!==manual)manual.value=settings.model||'';
  $('#topModel').textContent=settings.model||'اختر نموذج';
  renderModelsModal();
 }
 function renderModelsModal(filter=''){
  const box=$('#modelsList');if(!box)return; const q=filter.trim().toLowerCase();
  const arr=(settings.models||[]).filter(m=>(m.name+' '+m.id).toLowerCase().includes(q));
- if(!arr.length){box.innerHTML='<div class="empty">لا توجد نتائج. جرّب تحديث قائمة الموديلات من الإعدادات.</div>';return}
+ if(!arr.length){box.innerHTML='<div class="empty">لا توجد نتائج. يمكنك كتابة Model ID يدويًا من الإعدادات حتى لو /models غير متاح.</div>';return}
  box.innerHTML=arr.slice(0,600).map(m=>`<div class="model-item ${m.id===settings.model?'active':''}" data-model="${esc(m.id)}"><div class="model-name">${esc(m.name||m.id)}</div><div class="model-meta"><span class="badge">${esc(m.id)}</span>${m.context?`<span>Context: ${Number(m.context).toLocaleString()}</span>`:''}${m.params?.length?`<span>${m.params.slice(0,5).map(esc).join(' · ')}</span>`:''}</div></div>`).join('');
  $$('.model-item').forEach(x=>x.onclick=()=>{settings.model=x.dataset.model;persistSettings();renderModelSelect();closeModal('modelsModal');toast('تم اختيار النموذج')});
 }
@@ -711,60 +767,119 @@ function resolveCompatibleEndpoints(){
  }else modelsUrl=base+'/models';
  return {base,chatUrl,modelsUrl};
 }
+function normalizeAnthropicBase(raw=''){
+ let x=stripQueryHash(raw).replace(/\/+$/,'');
+ x=x.replace(/\/v1\/messages\/?$/i,'').replace(/\/v1\/models\/?$/i,'');
+ return x.replace(/\/+$/,'');
+}
+function resolveAnthropicEndpoints(){
+ const rawBase=(settings.baseUrl||'').trim(),rawModels=(settings.modelsUrl||'').trim();
+ const base=normalizeAnthropicBase(rawBase);
+ const messagesUrl=/\/v1\/messages\/?(?:[?#].*)?$/i.test(rawBase)?stripQueryHash(rawBase):base+'/v1/messages';
+ let modelsUrl;
+ if(rawModels){
+   if(/\/v1\/messages\/?(?:[?#].*)?$/i.test(rawModels))modelsUrl=normalizeAnthropicBase(rawModels)+'/v1/models';
+   else modelsUrl=stripQueryHash(rawModels);
+ }else modelsUrl=base+'/v1/models';
+ return {base,messagesUrl,modelsUrl};
+}
+function resolveCurrentEndpoints(){
+ const proto=providerProtocol();
+ if(proto==='anthropic')return resolveAnthropicEndpoints();
+ if(proto==='openai')return resolveCompatibleEndpoints();
+ return {base:settings.baseUrl,modelsUrl:(settings.modelsUrl||settings.baseUrl+'/models')};
+}
 function normalizeEndpointFields(showNotice=false){
- if(settings.provider==='gemini')return;
- const ep=resolveCompatibleEndpoints();
+ const proto=providerProtocol();
+ if(proto==='gemini'){updateProtocolHint();return}
  const oldBase=settings.baseUrl,oldModels=settings.modelsUrl;
+ const ep=proto==='anthropic'?resolveAnthropicEndpoints():resolveCompatibleEndpoints();
  settings.baseUrl=ep.base;
- // If user pasted chat endpoint into Models URL, fix it; if blank keep blank in settings/UI so derivation remains automatic.
- if(oldModels && /\/(chat\/completions|responses)\/?(?:[?#].*)?$/i.test(oldModels)) settings.modelsUrl=ep.modelsUrl;
+ if(oldModels){
+   if(proto==='anthropic' && /\/v1\/messages\/?(?:[?#].*)?$/i.test(oldModels))settings.modelsUrl=ep.modelsUrl;
+   if(proto==='openai' && /\/(chat\/completions|responses)\/?(?:[?#].*)?$/i.test(oldModels))settings.modelsUrl=ep.modelsUrl;
+ }
  const baseEl=$('#baseUrl'),modelsEl=$('#modelsUrl');
  if(baseEl)baseEl.value=settings.baseUrl;
  if(modelsEl)modelsEl.value=settings.modelsUrl||'';
- if(showNotice && (oldBase!==settings.baseUrl || (oldModels||'')!==(settings.modelsUrl||''))){
-   toast('تم تصحيح روابط الـ API تلقائياً');
- }
+ updateProtocolHint();
+ if(showNotice && (oldBase!==settings.baseUrl || (oldModels||'')!==(settings.modelsUrl||'')))toast('تم تصحيح روابط الـ API تلقائياً');
 }
 
 function headers(){
- const h={'Content-Type':'application/json'};
- if(settings.provider!=='gemini' && settings.apiKey)h.Authorization='Bearer '+settings.apiKey;
+ const h={'Content-Type':'application/json'},proto=providerProtocol();
+ if(proto==='anthropic'){
+   if(settings.apiKey)h['x-api-key']=settings.apiKey;
+   h['anthropic-version']='2023-06-01';
+ }else if(proto==='gemini'){
+   // Gemini native uses the key in the query string.
+ }else if(settings.apiKey)h.Authorization='Bearer '+settings.apiKey;
  if(settings.provider==='openrouter'){h['HTTP-Referer']=location.origin==='null'?'https://localhost':location.origin;h['X-Title']='AiWay'}
- if(settings.provider==='compatible'&&settings.customHeaders.trim()){try{Object.assign(h,JSON.parse(settings.customHeaders))}catch{throw new Error('Custom headers ليست JSON صحيحة')}}
+ if(isCustomProvider()&&settings.customHeaders.trim()){try{Object.assign(h,JSON.parse(settings.customHeaders))}catch{throw new Error('Custom headers ليست JSON صحيحة')}}
  return h;
 }
+
 async function fetchModels(showToast=true){
  readSettings();
  if(!settings.baseUrl)throw new Error('أدخل Base URL');
- let url,h=headers();
- if(settings.provider==='gemini'){
-   url=settings.modelsUrl||settings.baseUrl+'/models?key='+encodeURIComponent(settings.apiKey);
- }else{
-   const ep=resolveCompatibleEndpoints();
-   url=ep.modelsUrl;
- }
+ const proto=providerProtocol();let url,h=headers();
+ if(proto==='gemini')url=settings.modelsUrl||settings.baseUrl+'/models?key='+encodeURIComponent(settings.apiKey);
+ else url=(proto==='anthropic'?resolveAnthropicEndpoints():resolveCompatibleEndpoints()).modelsUrl;
  $('#testText').textContent='جاري الاتصال...';$('#testDot').className='dot-status';
  try{
-   const r=await fetch(url,{headers:h}); const text=await r.text();let data;try{data=JSON.parse(text)}catch{throw new Error('الرد ليس JSON — قد تكون هناك مشكلة CORS أو URL')}
+   const r=await fetch(url,{headers:h});const text=await r.text();let data;try{data=JSON.parse(text)}catch{throw new Error('الرد ليس JSON — قد تكون هناك مشكلة CORS أو URL')}
    if(!r.ok)throw new Error((data?.error?.message||data?.message||('HTTP '+r.status))+' — Models URL: '+url);
    let arr=[];
-   if(settings.provider==='gemini'){
+   if(proto==='gemini'){
      arr=(data.models||[]).filter(m=>(m.supportedGenerationMethods||m.supportedActions||[]).some(x=>/generateContent|generate_content/i.test(x))||!(m.supportedGenerationMethods||m.supportedActions)).map(m=>({id:(m.name||'').replace(/^models\//,''),name:m.displayName||m.name,context:m.inputTokenLimit||'',params:[]}));
-   } else {
-     arr=(data.data||data.models||data||[]).map(m=>typeof m==='string'?{id:m,name:m}:{id:m.id||m.name,name:m.name||m.id,context:m.context_length||m.context_window||'',params:m.supported_parameters||[]}).filter(m=>m.id);
+   }else{
+     arr=(data.data||data.models||data||[]).map(m=>typeof m==='string'?{id:m,name:m}:{id:m.id||m.name,name:m.display_name||m.displayName||m.name||m.id,context:m.context_length||m.context_window||'',params:m.supported_parameters||[]}).filter(m=>m.id);
    }
    settings.models=arr;
-   if(!settings.model||!arr.some(x=>x.id===settings.model))settings.model=arr[0]?.id||settings.model;
+   if(!settings.model||!arr.some(x=>x.id===settings.model))settings.model=settings.model||arr[0]?.id||'';
    $('#testDot').className='dot-status ok';$('#testText').textContent=`متصل · ${arr.length} نموذج`;$('#connDot').className='dot-status ok';$('#connText').textContent='متصل';
    persistSettings();renderModelSelect();if(showToast)toast(`تم تحميل ${arr.length} نموذج`);
    return arr;
- }catch(e){$('#testDot').className='dot-status bad';$('#testText').textContent='فشل الاتصال';$('#connDot').className='dot-status bad';$('#connText').textContent='خطأ';throw e}
+ }catch(e){
+   $('#testDot').className='dot-status bad';$('#testText').textContent='قائمة الموديلات غير متاحة';$('#connDot').className=settings.model?'dot-status ok':'dot-status bad';$('#connText').textContent=settings.model?'Model ID يدوي':'غير متصل';
+   // Do not erase a manually entered model. Some providers intentionally do not expose /models.
+   if(settings.model){
+     persistSettings();renderModelSelect();
+     if(showToast)toast('تعذر جلب /models — يمكنك متابعة الشات بالـ Model ID اليدوي');
+     return [];
+   }
+   throw e;
+ }
 }
 
 function historyForRequest(){
  let msgs=(activeChat?.messages||[]).filter(m=>['user','assistant'].includes(m.role));
  if(!settings.sendHistory)msgs=msgs.slice(-1);
  return msgs.map(m=>({role:m.role,content:m.content,attachments:m.attachments||[]}));
+}
+function anthropicContent(m){
+ const parts=[];const text=appendTextAttachments(m.content||'',m.attachments||[]);if(text)parts.push({type:'text',text});
+ for(const a of (m.attachments||[])){
+   if(a.dataUrl&&a.type?.startsWith('image/')){
+     parts.push({type:'image',source:{type:'base64',media_type:a.type,data:(a.dataUrl.split(',')[1]||'')}});
+   }else if(a.dataUrl&&a.type==='application/pdf'){
+     parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:(a.dataUrl.split(',')[1]||'')}});
+   }
+ }
+ return parts.length?parts:[{type:'text',text:m.content||''}];
+}
+function anthropicRequest(){
+ const body={model:settings.model,max_tokens:settings.maxTokens||2048,stream:true,messages:historyForRequest().map(m=>({role:m.role,content:anthropicContent(m)}))};
+ if(settings.systemPrompt.trim())body.system=settings.systemPrompt.trim();
+ if(Number.isFinite(settings.temperature))body.temperature=Math.min(1,Math.max(0,settings.temperature));
+ if(Number.isFinite(settings.topP))body.top_p=settings.topP;
+ const stops=settings.stopSequences.split('\n').map(x=>x.trim()).filter(Boolean);if(stops.length)body.stop_sequences=stops;
+ const level=settings.reasoningLevel||'auto';
+ if(!['auto','off'].includes(level)){
+   body.thinking={type:'adaptive'};
+   body.output_config={effort:level};
+ }
+ return body;
 }
 function openAIRequest(){
  const body={model:settings.model,messages:[]};
@@ -790,11 +905,13 @@ function geminiRequest(){
  return body;
 }
 function extractText(data){
- if(settings.provider==='gemini')return data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
+ if(providerProtocol()==='gemini')return data?.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
+ if(providerProtocol()==='anthropic')return (data?.content||[]).filter(x=>x.type==='text').map(x=>x.text||'').join('');
  return data?.choices?.[0]?.message?.content ?? data?.output_text ?? data?.choices?.[0]?.text ?? '';
 }
 function extractUsage(data){
- if(settings.provider==='gemini'){const u=data?.usageMetadata||{};return {prompt_tokens:u.promptTokenCount,completion_tokens:u.candidatesTokenCount,total_tokens:u.totalTokenCount}}
+ if(providerProtocol()==='gemini'){const u=data?.usageMetadata||{};return {prompt_tokens:u.promptTokenCount,completion_tokens:u.candidatesTokenCount,total_tokens:u.totalTokenCount}}
+ if(providerProtocol()==='anthropic'){const u=data?.usage||{};return {prompt_tokens:u.input_tokens,completion_tokens:u.output_tokens,total_tokens:(u.input_tokens||0)+(u.output_tokens||0)}}
  return data?.usage||null;
 }
 function addTyping(){
@@ -812,14 +929,16 @@ function setGenerating(on){
 async function send(){
  if(isGenerating){aborter?.abort();return}
  const text=$('#prompt').value.trim();if(!text&&!pendingAttachments.length)return;
- if(!settings.apiKey && settings.provider!=='compatible'){toast('أضف API Key من الإعدادات','error');modal('settingsModal');return}
+ if(!settings.apiKey && !isCustomProvider()){toast('أضف API Key من الإعدادات','error');modal('settingsModal');return}
  if(!settings.model){toast('اختر نموذج أولاً','error');modal('settingsModal');return}
  if(!activeChat)await newChat();
  const sentAttachments=pendingAttachments.map(a=>({...a}));activeChat.messages.push({role:'user',content:text,time:Date.now(),attachments:sentAttachments});
  if(settings.autoTitle && (activeChat.title==='محادثة جديدة'||!activeChat.title))activeChat.title=text.replace(/\s+/g,' ').slice(0,46)+(text.length>46?'…':'');
  $('#prompt').value='';pendingAttachments=[];renderAttachPreview();autoGrow();renderMessages();await saveChat();addTyping();setGenerating(true);aborter=new AbortController();
  try{
-   if(settings.provider==='gemini')await sendGemini();
+   const proto=providerProtocol();
+   if(proto==='gemini')await sendGemini();
+   else if(proto==='anthropic')await sendAnthropic();
    else await sendOpenAICompatible();
  }catch(e){
    $('#typingRow')?.remove();
@@ -833,6 +952,38 @@ async function send(){
    if(last?.role==='assistant'&&last.streaming){last.streaming=false;scheduleStreamPaint(activeChat.messages.length-1,true)}
    setGenerating(false);aborter=null;await saveChat()
  }
+}
+async function sendAnthropic(){
+ const url=resolveAnthropicEndpoints().messagesUrl;let body=anthropicRequest();
+ let r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});
+ if(!r.ok && (body.thinking||body.output_config)){
+   const fallback={...body};delete fallback.thinking;delete fallback.output_config;
+   r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(fallback),signal:aborter.signal});
+ }
+ if(!r.ok){let err;try{err=await r.json()}catch{};throw new Error(err?.error?.message||err?.message||('Anthropic HTTP '+r.status))}
+ const idx=beginAssistantBubble(),reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم في هذا المتصفح أو البروفايدر');
+ const dec=new TextDecoder();let buf='',done=false;
+ while(!done){
+   const chunk=await reader.read();done=chunk.done;buf+=dec.decode(chunk.value||new Uint8Array(),{stream:!done});
+   const lines=buf.split('\n');buf=lines.pop()||'';
+   for(const raw of lines){
+     const line=raw.trim();if(!line.startsWith('data:'))continue;const payload=line.slice(5).trim();if(!payload)continue;
+     try{
+       const j=JSON.parse(payload);
+       if(j.type==='content_block_delta' && j.delta?.type==='text_delta' && j.delta.text){
+         activeChat.messages[idx].content+=j.delta.text;scheduleStreamPaint(idx);
+       }
+       if(j.type==='message_start' && j.message?.usage)activeChat.messages[idx].usage=extractUsage(j.message);
+       if(j.type==='message_delta' && j.usage){
+         const prev=activeChat.messages[idx].usage||{};
+         activeChat.messages[idx].usage={...prev,completion_tokens:j.usage.output_tokens,total_tokens:(prev.prompt_tokens||0)+(j.usage.output_tokens||0)};
+       }
+       if(j.type==='message_stop'){done=true;break}
+       if(j.type==='error')throw new Error(j.error?.message||'Anthropic stream error');
+     }catch(e){if(e?.message&&e.message!=='Anthropic stream error'&&!/JSON/.test(e.message))throw e}
+   }
+ }
+ activeChat.messages[idx].streaming=false;scheduleStreamPaint(idx,true);
 }
 async function sendGemini(){
  const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(settings.apiKey)}`;
@@ -897,19 +1048,30 @@ function bind(){
  $('#attachBtn').onclick=()=>$('#attachInput').click();
  $('#attachInput').onchange=async e=>{await addAttachments(e.target.files||[]);e.target.value=''};
  $('#reasonBtn').onclick=cycleReasoning;
- $('#provider').onchange=e=>{const p=e.target.value;$('#baseUrl').value=providerDefaults[p];$('#modelsUrl').value='';};
+ $('#provider').onchange=e=>{
+   const p=e.target.value;settings.provider=p;
+   $('#baseUrl').value=providerDefaults[p]||'';$('#modelsUrl').value='';
+   settings.baseUrl=providerDefaults[p]||'';settings.modelsUrl='';settings.models=[];
+   updateProtocolHint();renderModelSelect();
+ };
  $('#baseUrl').addEventListener('blur',()=>{readSettings();normalizeEndpointFields(true)});
  $('#modelsUrl').addEventListener('blur',()=>{readSettings();normalizeEndpointFields(true)});
  $('#testBtn').onclick=async()=>{try{
    readSettings();normalizeEndpointFields(true);
-   if(settings.provider!=='gemini'){
+   const proto=providerProtocol();
+   if(proto==='anthropic'){
+     const ep=resolveAnthropicEndpoints();
+     $('#urlHint').textContent=`Messages: ${ep.messagesUrl} • Models: ${ep.modelsUrl}`;
+   }else if(proto==='openai'){
      const ep=resolveCompatibleEndpoints();
      $('#urlHint').textContent=`Chat: ${ep.chatUrl} • Models: ${ep.modelsUrl}`;
-   }
+   }else $('#urlHint').textContent='Gemini Native API';
    await fetchModels();
  }catch(e){toast(e.message,'error')}};
  $('#refreshModels').onclick=$('#modelsRefresh2').onclick=async()=>{try{readSettings();await fetchModels()}catch(e){toast(e.message,'error')}};
- $('#modelSelect').onchange=e=>{settings.model=e.target.value;$('#topModel').textContent=settings.model};
+ $('#modelSelect').onchange=e=>{settings.model=e.target.value;$('#manualModel').value=settings.model;$('#topModel').textContent=settings.model};
+ $('#manualModel').addEventListener('input',e=>{settings.model=e.target.value.trim();$('#topModel').textContent=settings.model||'اختر نموذج'});
+ $('#manualModel').addEventListener('blur',()=>{settings.model=$('#manualModel').value.trim()||settings.model;renderModelSelect()});
  $('#saveSettings').onclick=()=>{readSettings();normalizeEndpointFields(true);persistSettings();renderModelSelect();updateReasonUI();closeModal('settingsModal');toast('تم حفظ الإعدادات')};
  [['saveKeySwitch'],['historySwitch'],['autoTitleSwitch']].forEach(([id])=>$('#'+id).onclick=()=>$('#'+id).classList.toggle('on'));
  $('#temperatureRange').oninput=e=>$('#temperature').value=e.target.value;$('#temperature').oninput=e=>$('#temperatureRange').value=e.target.value;$('#topPRange').oninput=e=>$('#topP').value=e.target.value;$('#topP').oninput=e=>$('#topPRange').value=e.target.value;
