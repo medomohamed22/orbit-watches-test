@@ -174,6 +174,7 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
   .tool-btn.reason span{display:none}.tool-btn.reason{width:40px;padding:0}.bubble{max-width:91%}
 }
 
+
 /* === Streaming/code-copy reliability patch === */
 .code-block{
   margin:12px 0;border:1px solid rgba(255,255,255,.12);border-radius:15px;overflow:hidden;
@@ -200,6 +201,7 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
 }
 .code-block code{white-space:pre;display:block;min-width:max-content}
 .msg-actions .mini-btn.copied,.code-copy.copied{color:#fff;background:rgba(139,92,246,.20)}
+
 
 /* === AiWay thinking summaries + calm stream patch === */
 .thinking-shell{min-width:min(82%,520px);max-width:min(86%,620px)}
@@ -282,6 +284,14 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
 .code-copy{margin-inline-start:auto}
 .code-block.streaming-code .code-head:after{margin-inline-start:7px}
 
+
+/* === AiWay fast-stream + web-search UX === */
+.tool-btn.search-tool{width:auto;min-width:40px;padding:0 10px;gap:6px}.tool-btn.search-tool.active{background:rgba(139,92,246,.20);border-color:rgba(174,134,255,.45);color:#fff}.tool-btn.search-tool.active svg{filter:drop-shadow(0 0 6px rgba(174,134,255,.45))}
+.model-short{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d9ddea}.token-count{font-variant-numeric:tabular-nums;color:#b9c2d2}.stream-start{color:#9fa8b8;font-size:12px}
+.bubble,.bubble .content,.code-block{min-width:0;max-width:100%}.code-block{width:100%;overflow:hidden}.code-block pre{width:100%;max-width:100%;overflow-x:auto!important;overflow-y:hidden;white-space:pre!important;word-break:normal!important;overflow-wrap:normal!important}.code-block code{display:block;min-width:max-content;white-space:pre!important;word-break:normal!important;overflow-wrap:normal!important}
+.sources-box{margin-top:12px;border:1px solid rgba(255,255,255,.09);border-radius:13px;background:rgba(255,255,255,.035);overflow:hidden}.sources-box summary{cursor:pointer;padding:9px 11px;font-size:11px;color:#d9d2e6;list-style:none;display:flex;gap:6px;align-items:center}.sources-box summary::-webkit-details-marker{display:none}.sources-box summary span{color:#968da4}.sources-list{display:grid;gap:6px;padding:0 8px 8px}.source-card{display:grid;gap:3px;padding:8px 9px;border-radius:10px;background:rgba(8,6,13,.32);border:1px solid rgba(255,255,255,.06);text-decoration:none!important;color:#ece7f5!important}.source-card:hover{border-color:rgba(174,134,255,.28);background:rgba(139,92,246,.08)}.source-card b{font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.source-card small{font-size:9px;color:#9fa7b5;direction:ltr;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:600px){.tool-btn.search-tool span{display:inline;font-size:10px}.model-short{max-width:105px}.code-block{max-width:100%}}
+
 </style>
 </head>
 <body>
@@ -311,7 +321,7 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
     <div class="composer-bottom">
       <button class="tool-btn" id="attachBtn" title="إرفاق صورة أو ملف" aria-label="إرفاق"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
       <input type="file" id="attachInput" multiple accept="image/*,.pdf,.txt,.md,.csv,.json,.js,.ts,.jsx,.tsx,.html,.css,.py,.java,.c,.cpp,.h,.xml,.yaml,.yml" hidden>
-      <button class="tool-btn reason active" id="reasonBtn" title="مستوى التفكير — توافق تلقائي حسب البروفايدر"><svg viewBox="0 0 24 24" fill="none"><path d="M9.5 4.5A4.5 4.5 0 0 0 5 9c0 .6.12 1.17.34 1.68A4 4 0 0 0 7 18.3V20h4v-3h2v3h4v-1.7a4 4 0 0 0 1.66-7.62A4.5 4.5 0 0 0 14.5 4.5 4.2 4.2 0 0 0 12 5.3a4.2 4.2 0 0 0-2.5-.8Z" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/><path d="M9 10.5h6M10 13.5h4" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/></svg><span id="reasonLabel">تلقائي</span></button>
+      <button class="tool-btn search-tool" id="searchBtn" title="البحث في الويب عبر Exa" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.6"/><path d="m16 16 4 4M8.5 11h5M11 8.5v5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span id="searchLabel">بحث</span></button>
       <div class="status"><i class="dot-status" id="connDot"></i><span id="connText">غير متصل</span></div>
       <button class="send" id="sendBtn" aria-label="إرسال"><svg viewBox="0 0 24 24" fill="none"><path d="m5 12 14-7-4.5 14-3-5.5L5 12Z" stroke="white" stroke-width="1.7" stroke-linejoin="round"/><path d="m11.5 13.5 3-3" stroke="white" stroke-width="1.7"/></svg></button>
     </div>
@@ -476,6 +486,7 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
   </div>
 </div>
 
+
 <script>
 (() => {
 'use strict';
@@ -496,6 +507,7 @@ const DEFAULTS = {
   frequencyPenalty:0,
   stopSequences:'',
   reasoningLevel:'auto',
+  webSearch:false,
   systemPrompt:'أنت مساعد ذكي، مفيد، دقيق، وتجيب بلغة المستخدم.',
   assistantName:'AiWay',
   sendHistory:true,
@@ -510,6 +522,8 @@ let pendingAttachments = [];
 let confirmResolver = null; // عقدة حوار التأكيد المخصص لاستبدال window.confirm
 let streamRAF = 0;
 let streamPaintTimer = 0;
+let streamAssistantIdx = -1;
+let transientSearchContext = '';
 let thinkingTimer = 0;
 let thinkingStartedAt = 0;
 let db;
@@ -631,7 +645,7 @@ function fillSettings(){
  $('#topP').value=settings.topP;$('#topPRange').value=settings.topP;$('#maxTokens').value=settings.maxTokens;$('#seed').value=settings.seed;
  $('#presencePenalty').value=settings.presencePenalty;$('#frequencyPenalty').value=settings.frequencyPenalty;$('#stopSequences').value=settings.stopSequences;
  $('#systemPrompt').value=settings.systemPrompt;$('#assistantName').value=settings.assistantName;$('#customHeaders').value=settings.customHeaders||'';$('#manualModel').value=settings.model||'';
- setSwitch($('#saveKeySwitch'),settings.saveKey);setSwitch($('#historySwitch'),settings.sendHistory);setSwitch($('#autoTitleSwitch'),settings.autoTitle);updateReasonUI();
+ setSwitch($('#saveKeySwitch'),settings.saveKey);setSwitch($('#historySwitch'),settings.sendHistory);setSwitch($('#autoTitleSwitch'),settings.autoTitle);updateSearchUI();
  renderModelSelect();updateProtocolHint();
 }
 function readSettings(){
@@ -643,6 +657,14 @@ function readSettings(){
  settings.model=$('#manualModel').value.trim()||$('#modelSelect').value||settings.model;
  normalizeEndpointFields(false);
 }
+function shortModelName(id=''){
+ const raw=String(id||'').split('/').pop().trim();if(!raw)return 'اختر نموذج';
+ return raw.replace(/^(openai|anthropic|google|meta-llama|mistralai)[/:_-]?/i,'').replace(/-20\d{2}[-.]?\d{2}[-.]?\d{2}$/,'').slice(0,24);
+}
+function estimateTokens(text=''){return Math.max(0,Math.ceil(String(text||'').length/4))}
+function currentPromptTokens(){
+ const msgs=historyForRequest?.()||[];return msgs.reduce((n,m)=>n+estimateTokens(typeof m.content==='string'?m.content:JSON.stringify(m.content||'')),0)+estimateTokens(settings.systemPrompt||'');
+}
 function renderModelSelect(){
  const sel=$('#modelSelect');sel.innerHTML='';
  if(!settings.models?.length){sel.add(new Option(settings.model||'— استخدم Model ID اليدوي —',settings.model||''));}
@@ -652,7 +674,7 @@ function renderModelSelect(){
  }
  if(settings.model && [...sel.options].some(o=>o.value===settings.model))sel.value=settings.model;
  const manual=$('#manualModel');if(manual && document.activeElement!==manual)manual.value=settings.model||'';
- $('#topModel').textContent=settings.model||'اختر نموذج';
+ $('#topModel').textContent=shortModelName(settings.model);
  renderModelsModal();
 }
 function renderModelsModal(filter=''){
@@ -676,11 +698,11 @@ async function saveChat(){if(!activeChat)return;activeChat.updatedAt=Date.now();
 async function renderHistory(){
  const list=$('#historyList'), chats=await dbAll();
  list.innerHTML=chats.length?chats.map(c=>`<div class="history-item ${activeChat?.id===c.id?'active':''}" data-id="${c.id}"><div class="history-info"><div class="history-name">${esc(c.title||'محادثة')}</div><div class="history-date">${fmtDate(c.updatedAt)} · ${c.messages?.length||0} رسائل</div></div><button class="mini-btn delete-chat" data-del="${c.id}" title="حذف"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 11v6m4-6v6M9 7l1-2h4l1 2m-8 0 1 13h8l1-13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>`).join(''):'<div class="empty">لا توجد محادثات محفوظة</div>';
- $$('.history-item').forEach(x=>x.onclick=e=>{if(!e.target.closest('[data-del]'))loadChat(x.dataset.id)});
- $$('[data-del]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(await customConfirm('حذف هذه المحادثة؟')){await dbDelete(b.dataset.del);if(activeChat?.id===b.dataset.del)await newChat();else renderHistory()}});
+ $('.history-item').forEach(x=>x.onclick=e=>{if(!e.target.closest('[data-del]'))loadChat(x.dataset.id)});
+ $('[data-del]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(await customConfirm('حذف هذه المحادثة؟')){await dbDelete(b.dataset.del);if(activeChat?.id===b.dataset.del)await newChat();else renderHistory()}});
 }
 function heroHtml(){
- return `<div class="hero"><div class="hero-inner"><div class="orb"><svg role="img" aria-label="شعار AiWay" viewBox="0 0 24 24" fill="none" width="38"><path d="M12 2.8 14.2 9.8 21.2 12l-7 2.2L12 21.2l-2.2-7L2.8 12l7-2.2L12 2.8Z" stroke="white" stroke-width="1.25"/></svg></div><h1>اختبر أي نموذج AI<br>من مكان واحد</h1><p>واجهة زجاجية سريعة لـ OpenAI وOpenRouter وGemini وأي Provider متوافق، مع مرفقات وتفكير ذكي وسجل محلي.</p><div class="chips"><button class="chip" data-prompt="اشرح لي هذا النموذج وما أفضل استخداماته.">تعرف على النموذج</button><button class="chip" data-prompt="اكتب لي مثال JavaScript احترافي مع شرح مختصر.">جرّب البرمجة</button><button class="chip" data-prompt="حلل الفكرة التالية بشكل عميق وأعطني المزايا والعيوب: ">تحليل فكرة</button></div></div></div>`;
+ return `<div class="hero"><div class="hero-inner"><div class="orb"><svg role="img" aria-label="شعار AiWay" viewBox="0 0 24 24" fill="none" width="38"><path d="M12 2.8 14.2 9.8 21.2 12l-7 2.2L12 21.2l-2.2-7L2.8 12l7-2.2L12 2.8Z" stroke="white" stroke-width="1.25"/></svg></div><h1>اختبر أي نموذج AI<br>من مكان واحد</h1><p>واجهة زجاجية سريعة لـ OpenAI وOpenRouter وGemini وأي Provider متوافق، مع مرفقات وبحث ويب اختياري وسجل محلي.</p><div class="chips"><button class="chip" data-prompt="اشرح لي هذا النموذج وما أفضل استخداماته.">تعرف على النموذج</button><button class="chip" data-prompt="اكتب لي مثال JavaScript احترافي مع شرح مختصر.">جرّب البرمجة</button><button class="chip" data-prompt="حلل الفكرة التالية بشكل عميق وأعطني المزايا والعيوب: ">تحليل فكرة</button></div></div></div>`;
 }
 function renderMessages(){
  const box=$('#messages');
@@ -688,13 +710,19 @@ function renderMessages(){
  box.innerHTML=activeChat.messages.map((m,i)=>messageHtml(m,i)).join('');
  bindMsgActions();scrollBottom(false);
 }
+function sourcesHtml(sources=[]){
+ if(!sources?.length)return '';
+ return `<details class="sources-box"><summary>المصادر <span>${sources.length}</span></summary><div class="sources-list">${sources.map((x,n)=>`<a class="source-card" href="${esc(x.url||'#')}" target="_blank" rel="noopener noreferrer"><b>${n+1}. ${esc(x.title||x.url||'مصدر')}</b><small>${esc(x.domain||'')}${x.publishedDate?` · ${esc(String(x.publishedDate).slice(0,10))}`:''}</small></a>`).join('')}</div></details>`;
+}
 function messageHtml(m,i){
  const user=m.role==='user';const icon=user?`<path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`:`<path d="M12 3 14 10l7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" stroke="currentColor" stroke-width="1.4"/>`;
  const atts=(m.attachments||[]).map(a=>a.type?.startsWith('image/')&&a.dataUrl?`<img class="attachment-img" src="${a.dataUrl}" alt="${esc(a.name)}">`:`<div class="attachment-chip">📎 <span>${esc(a.name)}</span></div>`).join('');
- const followChips=!user && !m.streaming ? `<div class="follow-chips" data-attach-follow="${i}"><button class="follow-chip" data-follow="شرح أعمق">🔍 شرح أعمق</button><button class="follow-chip" data-follow="أعد الكتابة">✍️ أعد الكتابة</button><button class="follow-chip" data-follow="لخّص الإجابة">📋 لخّصها</button></div>`:'';
- const feedback=!user && !m.streaming ? `<button class="mini-btn" data-like="${i}" title="مفيد" aria-label="مفيد"><svg viewBox="0 0 24 24" fill="none"><path d="M7 10v10H4V10h3Zm0 10h8a2 2 0 0 0 2-1.4l2-6.4A2 2 0 0 0 17 10h-4l1-4a2 2 0 0 0-2-2l-2 5"/><path d="M7 20H4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button class="mini-btn" data-dislike="${i}" title="غير مفيد" aria-label="غير مفيد"><svg viewBox="0 0 24 24" fill="none"><path d="M17 14V4h3v10h-3Zm0-10H9a2 2 0 0 0-2 1.4L5 11.8A2 2 0 0 0 7 14h4l-1 4a2 2 0 0 0 2 2l2-5"/><path d="M17 4h3a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`:'';
- return `<div class="msg-row ${user?'user':'assistant'} ${m.streaming?'streaming':''}" data-index="${i}">${!user?`<div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div>`:''}<div class="bubble"><div class="content">${markdown(m.content||'',!!m.streaming)}${m.streaming?'<span class="stream-caret"></span>':''}</div>${atts?`<div class="attachment-list">${atts}</div>`:''}${followChips}<div class="msg-meta"><span>${fmtTime(m.time||Date.now())}</span>${m.model?`<span>· ${esc(m.model)}</span>`:''}${m.usage?.total_tokens?`<span>· ${m.usage.total_tokens} tokens</span>`:''}${feedback}<span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div></div>${user?`<div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div>`:''}</div>`;
+ const tokens=m.usage?.total_tokens||m.liveTokens||0;
+ const meta=!user?`<div class="msg-meta"><span class="model-short" title="${esc(m.model||'')}">${esc(shortModelName(m.model))}</span><span>·</span><span class="token-count">${m.streaming?'≈ ':''}${Number(tokens).toLocaleString('en-US')} tokens</span><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`:`<div class="msg-meta"><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`;
+ const emptyState=!user&&m.streaming&&!m.content?`<span class="stream-start">${m.searching?'يبحث في الويب…':'يبدأ الرد…'}</span>`:'';
+ return `<div class="msg-row ${user?'user':'assistant'} ${m.streaming?'streaming':''}" data-index="${i}">${!user?`<div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div>`:''}<div class="bubble"><div class="content">${emptyState}${markdown(m.content||'',!!m.streaming)}${m.streaming?'<span class="stream-caret"></span>':''}</div>${atts?`<div class="attachment-list">${atts}</div>`:''}${!user?sourcesHtml(m.sources):''}${meta}</div>${user?`<div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div>`:''}</div>`;
 }
+
 async function copyText(text){
   const value=String(text??'');
   try{
@@ -743,50 +771,33 @@ function bindMsgActions(){
       else toast('تعذر النسخ في هذا المتصفح','error');
     };
   });
-  $$('[data-edit]').forEach(b=>{
+  $('[data-edit]').forEach(b=>{
     if(b.dataset.bound==='1')return;b.dataset.bound='1';
     b.onclick=()=>{$('#prompt').value=activeChat.messages[+b.dataset.edit].content;autoGrow();$('#prompt').focus()};
   });
-  $$('[data-like]').forEach(b=>{
-    if(b.dataset.bound==='1')return;b.dataset.bound='1';
-    b.onclick=()=>{b.classList.add('liked');toast('شكراً على تقييمك 👍');disableFeedbackSiblings(b,'like')};
-  });
-  $$('[data-dislike]').forEach(b=>{
-    if(b.dataset.bound==='1')return;b.dataset.bound='1';
-    b.onclick=()=>{b.classList.add('liked');toast('أبلغنا الملاحظات، وسنحسّن الإجابات 🙏');disableFeedbackSiblings(b,'dislike')};
-  });
-  $$('[data-follow]').forEach(b=>{
-    if(b.dataset.bound==='1')return;b.dataset.bound='1';
-    b.onclick=()=>{
-      const idx=+b.closest('[data-attach-follow]').dataset.attachFollow;
-      const base=activeChat.messages[idx]?.content||'';
-      const promptMap={'شرح أعمق':`اشرح بشكل أعمق وبتفاصيل أكثر: ${base.slice(0,400)}`,'أعد الكتابة':'أعد كتابة الإجابة بشكل أبسط وواضح','لخّص الإجابة':'لخّص الإجابة السابقة في نقاط موجزة'};
-      const value=promptMap[b.dataset.follow]||b.dataset.follow;
-      const input=$('#prompt');if(input){input.value=value;autoGrow();input.focus();scrollBottom(false)}
-    };
-  });
   bindCodeCopy(document);
-}
-function disableFeedbackSiblings(btn,which){
-  const row=btn.closest('.msg-meta');if(!row)return;
-  row.querySelectorAll('[data-like],[data-dislike]').forEach(x=>{x.disabled=true;x.classList.add('disabled')});
 }
 function scrollBottom(smooth=true){requestAnimationFrame(()=>$('#messages').scrollTo({top:$('#messages').scrollHeight,behavior:smooth?'smooth':'auto'}))}
 function autoGrow(){const t=$('#prompt');t.style.height='auto';t.style.height=Math.min(t.scrollHeight,155)+'px'}
 
-function updateReasonUI(){
- const map={auto:'تلقائي',low:'منخفض',medium:'متوسط',high:'عالي',off:'بدون'};
- const v=settings.reasoningLevel||'auto';
- const label=$('#reasonLabel'); if(label)label.textContent=map[v]||'تلقائي';
- const b=$('#reasonBtn'); if(b)b.classList.toggle('active',v!=='off');
+
+function updateSearchUI(){
+ const b=$('#searchBtn');if(!b)return;b.classList.toggle('active',!!settings.webSearch);b.setAttribute('aria-pressed',settings.webSearch?'true':'false');
+ const label=$('#searchLabel');if(label)label.textContent=settings.webSearch?'بحث مفعل':'بحث';
 }
-function cycleReasoning(){
- const levels=['auto','low','medium','high','off'];
- settings.reasoningLevel=levels[(levels.indexOf(settings.reasoningLevel||'auto')+1)%levels.length];
- persistSettings();updateReasonUI();
- const map={auto:'التفكير تلقائي حسب النموذج',low:'تفكير منخفض',medium:'تفكير متوسط',high:'تفكير عالي',off:'تم تعطيل إعداد التفكير'};
- toast(map[settings.reasoningLevel]);
+function toggleWebSearch(){settings.webSearch=!settings.webSearch;persistSettings();updateSearchUI();toast(settings.webSearch?'تم تشغيل البحث في الويب':'تم إيقاف البحث في الويب')}
+async function searchWeb(query){
+ const r=await fetch('/api/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query,numResults:6}),signal:aborter?.signal});
+ let data={};try{data=await r.json()}catch{}
+ if(!r.ok)throw new Error(data?.error||'تعذر البحث في الويب');
+ return Array.isArray(data.results)?data.results:[];
 }
+function searchContextText(results=[]){
+ if(!results.length)return '';
+ const rows=results.map((r,i)=>`[${i+1}] ${r.title||'Source'}\nURL: ${r.url||''}\n${r.text||''}`).join('\n\n');
+ return `\n\n[WEB SEARCH CONTEXT]\nUse the following current web sources when relevant. Cite factual web claims inline as [1], [2], etc. Do not invent sources.\n${rows}\n[/WEB SEARCH CONTEXT]`;
+}
+
 function dataUrlFromFile(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(file)})}
 function textFromFile(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsText(file)})}
 function isTextFile(file){
@@ -832,41 +843,31 @@ function geminiParts(m){
  for(const a of (m.attachments||[])){if(a.dataUrl&&(a.type?.startsWith('image/')||a.type==='application/pdf')){const base64=a.dataUrl.split(',')[1]||'';parts.push({inlineData:{mimeType:a.type,data:base64}})}}
  return parts;
 }
-function applyReasoningOpenAI(body){
- const level=settings.reasoningLevel||'auto';if(level==='off'||level==='auto')return;
- if(settings.provider==='openrouter')body.reasoning={effort:level,display:'summarized'};
- else if(settings.provider==='openai' || settings.provider==='compatible')body.reasoning_effort=level;
-}
-function applyReasoningGemini(body){
- const level=settings.reasoningLevel||'auto';if(level==='off'||level==='auto')return;
- const model=(settings.model||'').toLowerCase();
- body.generationConfig.thinkingConfig={};
- if(model.includes('gemini-3'))body.generationConfig.thinkingConfig.thinkingLevel=level.toUpperCase();
- else body.generationConfig.thinkingConfig.thinkingBudget=level==='low'?1024:level==='medium'?4096:8192;
-}
+function applyReasoningOpenAI(body){ return body; }
+function applyReasoningGemini(body){ return body; }
 function hasOpenCodeFence(text=''){
  return (String(text).match(/```/g)||[]).length%2===1;
 }
 function scheduleStreamPaint(idx,final=false){
- if(final){
-   if(streamRAF){cancelAnimationFrame(streamRAF);streamRAF=0}
-   if(streamPaintTimer){clearTimeout(streamPaintTimer);streamPaintTimer=0}
- }
+ if(final){if(streamRAF){cancelAnimationFrame(streamRAF);streamRAF=0}if(streamPaintTimer){clearTimeout(streamPaintTimer);streamPaintTimer=0}}
  const paint=()=>{
    streamPaintTimer=0;streamRAF=0;
    const row=$(`[data-index="${idx}"]`),el=row?.querySelector('.content');if(!el)return;
    const m=activeChat.messages[idx],openCode=hasOpenCodeFence(m.content||'');
-   el.innerHTML=markdown(m.content||'',!final)+((!final&&!openCode)?'<span class="stream-caret"></span>':'');
+   if(!m.usage?.total_tokens)m.liveTokens=(m.promptTokenEstimate||0)+estimateTokens(m.content||'');
+   const empty=!m.content&&m.streaming?`<span class="stream-start">${m.searching?'يبحث في الويب…':'يبدأ الرد…'}</span>`:'';
+   el.innerHTML=empty+markdown(m.content||'',!final)+((!final&&!openCode)?'<span class="stream-caret"></span>':'');
    row.classList.toggle('streaming',!final);
    row.querySelectorAll('.code-block').forEach(b=>b.classList.toggle('streaming-code',!final&&openCode));
+   const tc=row.querySelector('.token-count');if(tc){const n=m.usage?.total_tokens||m.liveTokens||0;tc.textContent=(m.streaming&&!m.usage?.total_tokens?'≈ ':'')+Number(n).toLocaleString('en-US')+' tokens'}
+   const sources=row.querySelector('.sources-box');if(!sources&&m.sources?.length){row.querySelector('.msg-meta')?.insertAdjacentHTML('beforebegin',sourcesHtml(m.sources))}
    bindCodeCopy(row);scrollBottom(false);
  };
  if(final){paint();return}
  if(streamPaintTimer)return;
- const m=activeChat.messages[idx];
- const delay=hasOpenCodeFence(m?.content||'')?85:42;
- streamPaintTimer=setTimeout(()=>{streamRAF=requestAnimationFrame(paint)},delay);
+ streamPaintTimer=setTimeout(()=>{streamRAF=requestAnimationFrame(paint)},16);
 }
+
 function stripQueryHash(url=''){
  try{const u=new URL(url);u.search='';u.hash='';return u.toString().replace(/\/+$/,'')}catch{return String(url).trim().replace(/[?#].*$/,'').replace(/\/+$/,'')}
 }
@@ -948,11 +949,7 @@ async function fetchModels(showToast=true){
  readSettings();
  if(!settings.baseUrl)throw new Error('أدخل Base URL');
  const proto=providerProtocol();let url,h=headers();
- if(proto==='gemini'){
-   // FIX: دمج ?key= بأمان حتى لو كان Models URL مخصصاً (كان المفتاح يضيع)
-   url=settings.modelsUrl||settings.baseUrl+'/models';
-   url+=(url.includes('?')?'&':'?')+'key='+encodeURIComponent(settings.apiKey);
- }
+ if(proto==='gemini')url=settings.modelsUrl||settings.baseUrl+'/models?key='+encodeURIComponent(settings.apiKey);
  else url=(proto==='anthropic'?resolveAnthropicEndpoints():resolveCompatibleEndpoints()).modelsUrl;
  $('#testText').textContent='جاري الاتصال...';$('#testDot').className='dot-status';
  try{
@@ -999,23 +996,15 @@ function anthropicContent(m){
 }
 function anthropicRequest(){
  const body={model:settings.model,max_tokens:settings.maxTokens||2048,stream:true,messages:historyForRequest().map(m=>({role:m.role,content:anthropicContent(m)}))};
- if(settings.systemPrompt.trim())body.system=settings.systemPrompt.trim();
+ if(settings.systemPrompt.trim()||transientSearchContext)body.system=(settings.systemPrompt.trim()+transientSearchContext).trim();
  if(Number.isFinite(settings.temperature))body.temperature=Math.min(1,Math.max(0,settings.temperature));
  if(Number.isFinite(settings.topP))body.top_p=settings.topP;
  const stops=settings.stopSequences.split('\n').map(x=>x.trim()).filter(Boolean);if(stops.length)body.stop_sequences=stops;
- // FIX: صيغة thinking صحيحة — تُرسل فقط عند اختيار مستوى صريح (وليس auto)
- const level=settings.reasoningLevel||'auto';
- if(level!=='off'&&level!=='auto'){
-   const budget=level==='low'?2048:level==='medium'?8192:16384;
-   body.thinking={type:'enabled',budget_tokens:budget};
-   body.max_tokens=Math.max(settings.maxTokens||2048,budget+1024); // يجب أن يتسع max_tokens للـ budget
-   body.temperature=1;delete body.top_p; // Anthropic يشترط temperature=1 وبدون top_p مع التفكير
- }
  return body;
 }
 function openAIRequest(){
  const body={model:settings.model,messages:[]};
- if(settings.systemPrompt.trim())body.messages.push({role:'system',content:settings.systemPrompt.trim()});
+ if(settings.systemPrompt.trim()||transientSearchContext)body.messages.push({role:'system',content:(settings.systemPrompt.trim()+transientSearchContext).trim()});
  body.messages.push(...historyForRequest().map(m=>({role:m.role,content:openAIContent(m)})));
  if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;
  if(Number.isFinite(settings.topP))body.top_p=settings.topP;
@@ -1031,7 +1020,7 @@ function openAIRequest(){
 function geminiRequest(){
  const msgs=historyForRequest();
  const body={contents:msgs.map(m=>({role:m.role==='assistant'?'model':'user',parts:geminiParts(m)})),generationConfig:{temperature:settings.temperature,topP:settings.topP,maxOutputTokens:settings.maxTokens}};
- if(settings.systemPrompt.trim())body.systemInstruction={parts:[{text:settings.systemPrompt.trim()}]};
+ if(settings.systemPrompt.trim()||transientSearchContext)body.systemInstruction={parts:[{text:(settings.systemPrompt.trim()+transientSearchContext).trim()}]};
  const stops=settings.stopSequences.split('\n').map(x=>x.trim()).filter(Boolean);if(stops.length)body.generationConfig.stopSequences=stops;
  applyReasoningGemini(body);
  return body;
@@ -1075,9 +1064,9 @@ function finishThinkingUI(){
  clearInterval(thinkingTimer);thinkingTimer=0;const el=$('#typingRow');if(!el)return;
  el.style.transition='opacity .18s,transform .18s';el.style.opacity='0';el.style.transform='translateY(-3px)';setTimeout(()=>el.remove(),180);
 }
-function beginAssistantBubble(){
- finishThinkingUI();const m={role:'assistant',content:'',time:Date.now(),model:settings.model,streaming:true};activeChat.messages.push(m);
- const idx=activeChat.messages.length-1;const box=$('#messages');box.insertAdjacentHTML('beforeend',messageHtml(m,idx));bindMsgActions();scrollBottom();return idx;
+function beginAssistantBubble(searching=false){
+ finishThinkingUI();const m={role:'assistant',content:'',time:Date.now(),model:settings.model,streaming:true,searching,promptTokenEstimate:currentPromptTokens(),liveTokens:0,sources:[]};activeChat.messages.push(m);
+ const idx=activeChat.messages.length-1;streamAssistantIdx=idx;const box=$('#messages');box.insertAdjacentHTML('beforeend',messageHtml(m,idx));bindMsgActions();scrollBottom(false);return idx;
 }
 function setGenerating(on){
  isGenerating=on;const b=$('#sendBtn');
@@ -1093,8 +1082,9 @@ async function send(){
  if(!activeChat)await newChat();
  const sentAttachments=pendingAttachments.map(a=>({...a}));activeChat.messages.push({role:'user',content:text,time:Date.now(),attachments:sentAttachments});
  if(settings.autoTitle && (activeChat.title==='محادثة جديدة'||!activeChat.title))activeChat.title=text.replace(/\s+/g,' ').slice(0,46)+(text.length>46?'…':'');
- $('#prompt').value='';pendingAttachments=[];renderAttachPreview();autoGrow();renderMessages();await saveChat();addTyping();setGenerating(true);aborter=new AbortController();
+ $('#prompt').value='';pendingAttachments=[];renderAttachPreview();autoGrow();renderMessages();await saveChat();setGenerating(true);aborter=new AbortController();transientSearchContext='';const assistantIdx=beginAssistantBubble(!!settings.webSearch);
  try{
+   if(settings.webSearch){const results=await searchWeb(text);const m=activeChat.messages[assistantIdx];m.sources=results.map(r=>({title:r.title,url:r.url,domain:r.domain,publishedDate:r.publishedDate}));m.searching=false;transientSearchContext=searchContextText(results);scheduleStreamPaint(assistantIdx,false)}
    const proto=providerProtocol();
    if(proto==='gemini')await sendGemini();
    else if(proto==='anthropic')await sendAnthropic();
@@ -1109,7 +1099,7 @@ async function send(){
    if(streamRAF){cancelAnimationFrame(streamRAF);streamRAF=0}
    const last=activeChat?.messages?.[activeChat.messages.length-1];
    if(last?.role==='assistant'&&last.streaming){last.streaming=false;scheduleStreamPaint(activeChat.messages.length-1,true)}
-   setGenerating(false);aborter=null;await saveChat()
+   setGenerating(false);aborter=null;streamAssistantIdx=-1;transientSearchContext='';await saveChat()
  }
 }
 async function sendAnthropic(){
@@ -1121,8 +1111,8 @@ async function sendAnthropic(){
  }
  if(!r.ok){let err;try{err=await r.json()}catch(err){err={}};throw new Error(err?.error?.message||err?.message||('Anthropic HTTP '+r.status))}
  const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم في هذا المتصفح أو البروفايدر');
- const dec=new TextDecoder();let buf='',done=false,idx=-1,currentBlock='';
- const ensure=()=>{if(idx<0)idx=beginAssistantBubble();return idx};
+ const dec=new TextDecoder();let buf='',done=false,idx=streamAssistantIdx,currentBlock='';
+ const ensure=()=>idx>=0?idx:(idx=beginAssistantBubble(false));
  while(!done){
    const chunk=await reader.read();done=chunk.done;buf+=dec.decode(chunk.value||new Uint8Array(),{stream:!done});
    const lines=buf.split('\n');buf=lines.pop()||'';
@@ -1137,16 +1127,16 @@ async function sendAnthropic(){
        if(j.type==='content_block_delta' && j.delta?.type==='text_delta' && j.delta.text){
          const i=ensure();activeChat.messages[i].content+=j.delta.text;scheduleStreamPaint(i);
        }
-       if(j.type==='message_start' && j.message?.usage && idx>=0)activeChat.messages[idx].usage=extractUsage(j.message);
+       if(j.type==='message_start' && j.message?.usage && idx>=0)activeChat.messages[idx].usage=extractUsage(j.message);scheduleStreamPaint(idx,false);
        if(j.type==='message_delta' && j.usage && idx>=0){
-         const prev=activeChat.messages[idx].usage||{};activeChat.messages[idx].usage={...prev,completion_tokens:j.usage.output_tokens,total_tokens:(prev.prompt_tokens||0)+(j.usage.output_tokens||0)};
+         const prev=activeChat.messages[idx].usage||{};activeChat.messages[idx].usage={...prev,completion_tokens:j.usage.output_tokens,total_tokens:(prev.prompt_tokens||0)+(j.usage.output_tokens||0)};scheduleStreamPaint(idx,false);
        }
        if(j.type==='message_stop'){done=true;break}
        if(j.type==='error')throw new Error(j.error?.message||'Anthropic stream error');
      }catch(e){if(e?.message&&e.message!=='Anthropic stream error'&&!/JSON/.test(e.message))throw e}
    }
  }
- if(idx<0){idx=beginAssistantBubble();activeChat.messages[idx].content='[لم يُرجع النموذج نصًا]'}
+ if(idx<0)idx=beginAssistantBubble(false);if(!activeChat.messages[idx].content)activeChat.messages[idx].content='[لم يُرجع النموذج نصًا]'
  activeChat.messages[idx].streaming=false;scheduleStreamPaint(idx,true);
 }
 async function sendGemini(){
@@ -1156,9 +1146,9 @@ async function sendGemini(){
    const body=geminiRequest();if(body.generationConfig)delete body.generationConfig.thinkingConfig;
    r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});
  }
- if(!r.ok){let err;try{err=await r.json()}catch(errParse){err={}};throw new Error(err?.error?.message||('Gemini HTTP '+r.status))}
+ if(!r.ok){let err;try{err=await r.json()}catch(err){err={}};throw new Error(err?.error?.message||('Gemini HTTP '+r.status))}
  const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم هنا');
- const dec=new TextDecoder();let buf='',done=false,idx=-1;const ensure=()=>{if(idx<0)idx=beginAssistantBubble();return idx};
+ const dec=new TextDecoder();let buf='',done=false,idx=streamAssistantIdx;const ensure=()=>idx>=0?idx:(idx=beginAssistantBubble(false));
  while(!done){
    const chunk=await reader.read();done=chunk.done;buf+=dec.decode(chunk.value||new Uint8Array(),{stream:!done});
    const lines=buf.split('\n');buf=lines.pop()||'';
@@ -1170,42 +1160,23 @@ async function sendGemini(){
        if(thought)updateThinkingSummary(thought,'Gemini');
        const delta=parts.filter(p=>p.thought!==true).map(p=>p.text||'').join('');
        if(delta){const i=ensure();activeChat.messages[i].content+=delta;scheduleStreamPaint(i)}
-       if(j.usageMetadata&&idx>=0)activeChat.messages[idx].usage=extractUsage(j);
+       if(j.usageMetadata&&idx>=0)activeChat.messages[idx].usage=extractUsage(j);scheduleStreamPaint(idx,false);
      }catch(errParse){if(!(errParse instanceof SyntaxError))throw errParse}
    }
  }
- if(idx<0){idx=beginAssistantBubble();activeChat.messages[idx].content='[لم يُرجع النموذج نصًا]'}
+ if(idx<0)idx=beginAssistantBubble(false);if(!activeChat.messages[idx].content)activeChat.messages[idx].content='[لم يُرجع النموذج نصًا]'
  activeChat.messages[idx].streaming=false;scheduleStreamPaint(idx,true);
-}
-async function readErrBody(r){
- // FIX: إظهار رسالة الخطأ الحقيقية من السيرفر بدلاً من "HTTP 400" فقط
- let t='';
- try{t=await r.text()}catch(_){}
- try{const j=JSON.parse(t);return j?.error?.message||j?.message||('HTTP '+r.status)}catch(_){return 'HTTP '+r.status+(t?' — '+t.slice(0,180):'')}
 }
 async function sendOpenAICompatible(){
  const url=resolveCompatibleEndpoints().chatUrl;let body=openAIRequest();
- const doFetch=()=>fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});
- let r=await doFetch();
+ let r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});
  if(!r.ok && (body.reasoning||body.reasoning_effort)){
-   const fallback={...body};delete fallback.reasoning;delete fallback.reasoning_effort;body=fallback;r=await doFetch();
+   const fallback={...body};delete fallback.reasoning;delete fallback.reasoning_effort;
+   r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(fallback),signal:aborter.signal});
  }
- if(!r.ok){
-   let msg=await readErrBody(r);
-   // FIX: موديلات o-series/gpt-5 ترفض max_tokens → تحويل تلقائي إلى max_completion_tokens
-   if(/max_completion_tokens/i.test(msg)&&body.max_tokens){
-     body.max_completion_tokens=body.max_tokens;delete body.max_tokens;r=await doFetch();
-     if(!r.ok)msg=await readErrBody(r);
-   }
-   // FIX: بعض الموديلات ترفض temperature → حذفه تلقائياً وإعادة المحاولة
-   else if(/temperature/i.test(msg)&&'temperature' in body){
-     delete body.temperature;r=await doFetch();
-     if(!r.ok)msg=await readErrBody(r);
-   }
-   if(!r.ok)throw new Error(msg);
- }
+ if(!r.ok){let err=null;try{err=await r.json()}catch(errParse){err=null};throw new Error(err?.error?.message||err?.message||('HTTP '+r.status))}
  const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم في هذا المتصفح أو البروفايدر');
- const dec=new TextDecoder();let buf='',done=false,idx=-1;const ensure=()=>{if(idx<0)idx=beginAssistantBubble();return idx};
+ const dec=new TextDecoder();let buf='',done=false,idx=streamAssistantIdx;const ensure=()=>idx>=0?idx:(idx=beginAssistantBubble(false));
  while(!done){
    const chunk=await reader.read();done=chunk.done;buf+=dec.decode(chunk.value||new Uint8Array(),{stream:!done});
    const lines=buf.split('\n');buf=lines.pop()||'';
@@ -1218,11 +1189,11 @@ async function sendOpenAICompatible(){
        if(summaries)updateThinkingSummary(summaries,settings.provider==='openrouter'?'OpenRouter':'AI');
        const delta=d.content ?? j.choices?.[0]?.text ?? '';
        if(delta){const i=ensure();activeChat.messages[i].content+=delta;scheduleStreamPaint(i)}
-       if(j.usage&&idx>=0)activeChat.messages[idx].usage=j.usage;
+       if(j.usage&&idx>=0)activeChat.messages[idx].usage=j.usage;scheduleStreamPaint(idx,false);
      }catch(errParse){if(!(errParse instanceof SyntaxError))throw errParse}
    }
  }
- if(idx<0){idx=beginAssistantBubble();activeChat.messages[idx].content='[لم يُرجع النموذج نصًا]'}
+ if(idx<0)idx=beginAssistantBubble(false);if(!activeChat.messages[idx].content)activeChat.messages[idx].content='[لم يُرجع النموذج نصًا]'
  activeChat.messages[idx].streaming=false;scheduleStreamPaint(idx,true);
 }
 async function exportAll(){
@@ -1255,7 +1226,7 @@ function bind(){
  $('#sendBtn').onclick=send;
  $('#attachBtn').onclick=()=>$('#attachInput').click();
  $('#attachInput').onchange=async e=>{await addAttachments(e.target.files||[]);e.target.value=''};
- $('#reasonBtn').onclick=cycleReasoning;
+ $('#searchBtn').onclick=toggleWebSearch;
  $('#provider').onchange=e=>{
    const p=e.target.value;settings.provider=p;
    $('#baseUrl').value=providerDefaults[p]||'';$('#modelsUrl').value='';
@@ -1277,10 +1248,10 @@ function bind(){
    await fetchModels();
  }catch(e){toast(e.message,'error')}};
  $('#refreshModels').onclick=$('#modelsRefresh2').onclick=async()=>{try{readSettings();await fetchModels()}catch(e){toast(e.message,'error')}};
- $('#modelSelect').onchange=e=>{settings.model=e.target.value;$('#manualModel').value=settings.model;$('#topModel').textContent=settings.model};
- $('#manualModel').addEventListener('input',e=>{settings.model=e.target.value.trim();$('#topModel').textContent=settings.model||'اختر نموذج'});
+ $('#modelSelect').onchange=e=>{settings.model=e.target.value;$('#manualModel').value=settings.model;$('#topModel').textContent=shortModelName(settings.model)};
+ $('#manualModel').addEventListener('input',e=>{settings.model=e.target.value.trim();$('#topModel').textContent=shortModelName(settings.model)});
  $('#manualModel').addEventListener('blur',()=>{settings.model=$('#manualModel').value.trim()||settings.model;renderModelSelect()});
- $('#saveSettings').onclick=()=>{readSettings();normalizeEndpointFields(true);persistSettings();renderModelSelect();updateReasonUI();closeModal('settingsModal');toast('تم حفظ الإعدادات')};
+ $('#saveSettings').onclick=()=>{readSettings();normalizeEndpointFields(true);persistSettings();renderModelSelect();updateSearchUI();closeModal('settingsModal');toast('تم حفظ الإعدادات')};
  [['saveKeySwitch'],['historySwitch'],['autoTitleSwitch']].forEach(([id])=>$('#'+id).onclick=()=>$('#'+id).classList.toggle('on'));
  $('#temperatureRange').oninput=e=>$('#temperature').value=e.target.value;$('#temperature').oninput=e=>$('#temperatureRange').value=e.target.value;$('#topPRange').oninput=e=>$('#topP').value=e.target.value;$('#topP').oninput=e=>$('#topPRange').value=e.target.value;
  $$('#settingsTabs .tab').forEach(t=>t.onclick=()=>{$$('#settingsTabs .tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');$$('.tabpane').forEach(p=>p.hidden=p.dataset.pane!==t.dataset.tab)});
@@ -1291,10 +1262,10 @@ function bind(){
 }
 
 async function init(){
- loadSettings();await openDB();bind();fillSettings();updateReasonUI();
+ loadSettings();await openDB();bind();fillSettings();updateSearchUI();
  const chats=await dbAll();if(chats.length)activeChat=chats[0];else await newChat();
  renderMessages();renderHistory();
- if(settings.model){$('#topModel').textContent=settings.model;$('#connText').textContent='جاهز'}
+ if(settings.model){$('#topModel').textContent=shortModelName(settings.model);$('#connText').textContent='جاهز'}
 }
 init().catch(e=>{console.error(e);toast('خطأ في بدء التطبيق: '+e.message,'error')});
 })();

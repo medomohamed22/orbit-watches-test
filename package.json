@@ -1,0 +1,8 @@
+{
+  "name": "aiway-vercel",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "exa-js": "^2.19.0"
+  }
+}
