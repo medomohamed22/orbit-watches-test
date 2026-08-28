@@ -667,7 +667,8 @@ function currentPromptTokens(){
 }
 function renderModelSelect(){
  const sel=$('#modelSelect');sel.innerHTML='';
- if(!settings.models?.length){sel.add(new Option(settings.model||'— استخدم Model ID اليدوي —',settings.model||''));}
+ if(!Array.isArray(settings.models))settings.models=[];
+ if(!settings.models.length){sel.add(new Option(settings.model||'— استخدم Model ID اليدوي —',settings.model||''));}
  else{
    if(settings.model && !settings.models.some(m=>m.id===settings.model))sel.add(new Option('يدوي · '+settings.model,settings.model));
    settings.models.forEach(m=>sel.add(new Option(m.name||m.id,m.id)));
@@ -679,7 +680,7 @@ function renderModelSelect(){
 }
 function renderModelsModal(filter=''){
  const box=$('#modelsList');if(!box)return; const q=filter.trim().toLowerCase();
- const arr=(settings.models||[]).filter(m=>(m.name+' '+m.id).toLowerCase().includes(q));
+ const arr=(Array.isArray(settings.models)?settings.models:[]).filter(m=>(m.name+' '+m.id).toLowerCase().includes(q));
  if(!arr.length){box.innerHTML='<div class="empty">لا توجد نتائج. يمكنك كتابة Model ID يدويًا من الإعدادات حتى لو /models غير متاح.</div>';return}
  box.innerHTML=arr.slice(0,600).map(m=>`<div class="model-item ${m.id===settings.model?'active':''}" data-model="${esc(m.id)}"><div class="model-name">${esc(m.name||m.id)}</div><div class="model-meta"><span class="badge">${esc(m.id)}</span>${m.context?`<span>Context: ${Number(m.context).toLocaleString()}</span>`:''}${m.params?.length?`<span>${m.params.slice(0,5).map(esc).join(' · ')}</span>`:''}</div></div>`).join('');
  $$('.model-item').forEach(x=>x.onclick=()=>{settings.model=x.dataset.model;persistSettings();renderModelSelect();closeModal('modelsModal');toast('تم اختيار النموذج')});
@@ -698,8 +699,8 @@ async function saveChat(){if(!activeChat)return;activeChat.updatedAt=Date.now();
 async function renderHistory(){
  const list=$('#historyList'), chats=await dbAll();
  list.innerHTML=chats.length?chats.map(c=>`<div class="history-item ${activeChat?.id===c.id?'active':''}" data-id="${c.id}"><div class="history-info"><div class="history-name">${esc(c.title||'محادثة')}</div><div class="history-date">${fmtDate(c.updatedAt)} · ${c.messages?.length||0} رسائل</div></div><button class="mini-btn delete-chat" data-del="${c.id}" title="حذف"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 11v6m4-6v6M9 7l1-2h4l1 2m-8 0 1 13h8l1-13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>`).join(''):'<div class="empty">لا توجد محادثات محفوظة</div>';
- $('.history-item').forEach(x=>x.onclick=e=>{if(!e.target.closest('[data-del]'))loadChat(x.dataset.id)});
- $('[data-del]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(await customConfirm('حذف هذه المحادثة؟')){await dbDelete(b.dataset.del);if(activeChat?.id===b.dataset.del)await newChat();else renderHistory()}});
+ $$('.history-item').forEach(x=>x.onclick=e=>{if(!e.target.closest('[data-del]'))loadChat(x.dataset.id)});
+ $$('[data-del]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(await customConfirm('حذف هذه المحادثة؟')){await dbDelete(b.dataset.del);if(activeChat?.id===b.dataset.del)await newChat();else renderHistory()}});
 }
 function heroHtml(){
  return `<div class="hero"><div class="hero-inner"><div class="orb"><svg role="img" aria-label="شعار AiWay" viewBox="0 0 24 24" fill="none" width="38"><path d="M12 2.8 14.2 9.8 21.2 12l-7 2.2L12 21.2l-2.2-7L2.8 12l7-2.2L12 2.8Z" stroke="white" stroke-width="1.25"/></svg></div><h1>اختبر أي نموذج AI<br>من مكان واحد</h1><p>واجهة زجاجية سريعة لـ OpenAI وOpenRouter وGemini وأي Provider متوافق، مع مرفقات وبحث ويب اختياري وسجل محلي.</p><div class="chips"><button class="chip" data-prompt="اشرح لي هذا النموذج وما أفضل استخداماته.">تعرف على النموذج</button><button class="chip" data-prompt="اكتب لي مثال JavaScript احترافي مع شرح مختصر.">جرّب البرمجة</button><button class="chip" data-prompt="حلل الفكرة التالية بشكل عميق وأعطني المزايا والعيوب: ">تحليل فكرة</button></div></div></div>`;
@@ -711,7 +712,7 @@ function renderMessages(){
  bindMsgActions();scrollBottom(false);
 }
 function sourcesHtml(sources=[]){
- if(!sources?.length)return '';
+ if(!Array.isArray(sources)||!sources.length)return '';
  return `<details class="sources-box"><summary>المصادر <span>${sources.length}</span></summary><div class="sources-list">${sources.map((x,n)=>`<a class="source-card" href="${esc(x.url||'#')}" target="_blank" rel="noopener noreferrer"><b>${n+1}. ${esc(x.title||x.url||'مصدر')}</b><small>${esc(x.domain||'')}${x.publishedDate?` · ${esc(String(x.publishedDate).slice(0,10))}`:''}</small></a>`).join('')}</div></details>`;
 }
 function messageHtml(m,i){
@@ -771,7 +772,7 @@ function bindMsgActions(){
       else toast('تعذر النسخ في هذا المتصفح','error');
     };
   });
-  $('[data-edit]').forEach(b=>{
+  $$('[data-edit]').forEach(b=>{
     if(b.dataset.bound==='1')return;b.dataset.bound='1';
     b.onclick=()=>{$('#prompt').value=activeChat.messages[+b.dataset.edit].content;autoGrow();$('#prompt').focus()};
   });
