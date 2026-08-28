@@ -292,6 +292,30 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
 .sources-box{margin-top:12px;border:1px solid rgba(255,255,255,.09);border-radius:13px;background:rgba(255,255,255,.035);overflow:hidden}.sources-box summary{cursor:pointer;padding:9px 11px;font-size:11px;color:#d9d2e6;list-style:none;display:flex;gap:6px;align-items:center}.sources-box summary::-webkit-details-marker{display:none}.sources-box summary span{color:#968da4}.sources-list{display:grid;gap:6px;padding:0 8px 8px}.source-card{display:grid;gap:3px;padding:8px 9px;border-radius:10px;background:rgba(8,6,13,.32);border:1px solid rgba(255,255,255,.06);text-decoration:none!important;color:#ece7f5!important}.source-card:hover{border-color:rgba(174,134,255,.28);background:rgba(139,92,246,.08)}.source-card b{font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.source-card small{font-size:9px;color:#9fa7b5;direction:ltr;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:600px){.tool-btn.search-tool span{display:inline;font-size:10px}.model-short{max-width:105px}.code-block{max-width:100%}}
 
+/* === AiWay 2026 ChatGPT-like streaming, scroll follow + source bubbles === */
+.chat{position:relative}
+.messages{overflow-anchor:none}
+.jump-bottom{position:absolute;left:50%;bottom:112px;z-index:18;width:42px;height:42px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(18,16,25,.92);backdrop-filter:blur(18px);color:#f8f5ff;display:grid;place-items:center;box-shadow:0 12px 36px rgba(0,0,0,.34);cursor:pointer;opacity:0;pointer-events:none;transform:translate(-50%,10px) scale(.92);transition:opacity .18s,transform .18s,background .18s}
+.jump-bottom.show{opacity:1;pointer-events:auto;transform:translate(-50%,0) scale(1)}
+.jump-bottom:hover{background:rgba(139,92,246,.20)}
+.jump-bottom svg{width:19px;height:19px}
+.search-indicator{width:7px;height:7px;border-radius:50%;display:inline-block;flex:0 0 auto;background:#494451;opacity:.45;box-shadow:none;transition:.2s}
+.search-tool.active .search-indicator{background:#50e3b1;opacity:1;box-shadow:0 0 12px rgba(80,227,177,.68)}
+.assistant.streaming .content{contain:inline-size}
+.sources-strip{margin-top:12px;display:flex;align-items:center;min-width:0}
+.sources-summary-btn{width:100%;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.035);border-radius:15px;padding:9px 10px;color:#e8e5ee;display:flex;align-items:center;gap:8px;cursor:pointer;text-align:start;min-width:0;transition:.18s}
+.sources-summary-btn:hover{background:rgba(255,255,255,.06);border-color:rgba(174,134,255,.24)}
+.sources-summary-text{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.source-orbs{display:flex;align-items:center;direction:ltr;flex:0 0 auto}
+.source-orb{width:25px;height:25px;border-radius:50%;display:grid;place-items:center;background:#fff;border:2px solid #17131f;overflow:hidden;margin-left:-6px;position:relative;color:#17131f;font-size:10px;font-weight:800}
+.source-orb:first-child{margin-left:0}.source-orb img{width:100%;height:100%;object-fit:cover;background:#fff;position:relative;z-index:1}.source-orb .source-letter{position:absolute;inset:0;display:grid;place-items:center;z-index:0}
+.source-more{font-size:10px;color:#b9b2c7;white-space:nowrap;flex:0 0 auto}.sources-chevron{margin-inline-start:auto;width:15px;height:15px;opacity:.65;flex:0 0 auto}
+.sources-popup-layer{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.42);backdrop-filter:blur(5px);display:grid;place-items:center;padding:16px;opacity:0;pointer-events:none;transition:.18s}
+.sources-popup-layer.show{opacity:1;pointer-events:auto}.sources-popup-card{width:min(92vw,520px);max-height:min(76dvh,640px);display:grid;grid-template-rows:auto 1fr;background:linear-gradient(160deg,rgba(19,16,27,.99),rgba(10,9,15,.99));border:1px solid rgba(255,255,255,.12);border-radius:22px;box-shadow:0 28px 90px rgba(0,0,0,.55);overflow:hidden;transform:translateY(10px) scale(.98);transition:.18s}.sources-popup-layer.show .sources-popup-card{transform:none}
+.sources-popup-head{padding:13px 14px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:8px}.sources-popup-head b{font-size:14px}.sources-popup-close{margin-inline-start:auto;width:36px;height:36px;border-radius:11px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);color:#fff;cursor:pointer}.sources-popup-list{overflow:auto;padding:9px;display:grid;gap:7px}
+.source-popup-item{display:grid;grid-template-columns:34px minmax(0,1fr) 24px;gap:9px;align-items:center;padding:9px;border-radius:13px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.035);color:#f0edf5!important;text-decoration:none!important}.source-popup-item:hover{background:rgba(139,92,246,.09);border-color:rgba(174,134,255,.22)}.source-popup-item .source-orb{width:32px;height:32px;margin:0;border-color:rgba(255,255,255,.10)}.source-popup-copy{min-width:0;display:grid;gap:3px}.source-popup-title{font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.source-popup-domain{font-size:9px;color:#a9a2b5;direction:ltr;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.source-popup-open{font-size:16px;color:#aaa2b8}
+@media(max-width:600px){.jump-bottom{bottom:105px}.sources-summary-btn{padding:8px}.sources-summary-text{font-size:10.5px}.source-orb{width:23px;height:23px}.sources-popup-layer{place-items:end center;padding:0}.sources-popup-card{width:100%;max-width:none;max-height:72dvh;border-radius:24px 24px 0 0;border-bottom:0}}
+
 </style>
 </head>
 <body>
@@ -314,6 +338,7 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
 <main class="main">
 <section class="chat">
 <div class="messages" id="messages"></div>
+<button class="jump-bottom" id="jumpBottomBtn" type="button" aria-label="الانتقال إلى أحدث رد" title="الانتقال للأسفل"><svg viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 <div class="composer-wrap">
   <div class="composer">
     <div class="attach-preview" id="attachPreview"></div>
@@ -321,7 +346,7 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
     <div class="composer-bottom">
       <button class="tool-btn" id="attachBtn" title="إرفاق صورة أو ملف" aria-label="إرفاق"><svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
       <input type="file" id="attachInput" multiple accept="image/*,.pdf,.txt,.md,.csv,.json,.js,.ts,.jsx,.tsx,.html,.css,.py,.java,.c,.cpp,.h,.xml,.yaml,.yml" hidden>
-      <button class="tool-btn search-tool" id="searchBtn" title="البحث في الويب عبر Exa" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.6"/><path d="m16 16 4 4M8.5 11h5M11 8.5v5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span id="searchLabel">بحث</span></button>
+      <button class="tool-btn search-tool" id="searchBtn" title="البحث في الويب عبر Exa" aria-pressed="false"><span class="search-indicator" aria-hidden="true"></span><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.6"/><path d="m16 16 4 4M8.5 11h5M11 8.5v5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span id="searchLabel">بحث</span></button>
       <div class="status"><i class="dot-status" id="connDot"></i><span id="connText">غير متصل</span></div>
       <button class="send" id="sendBtn" aria-label="إرسال"><svg viewBox="0 0 24 24" fill="none"><path d="m5 12 14-7-4.5 14-3-5.5L5 12Z" stroke="white" stroke-width="1.7" stroke-linejoin="round"/><path d="m11.5 13.5 3-3" stroke="white" stroke-width="1.7"/></svg></button>
     </div>
@@ -476,6 +501,13 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
 </div>
 </div>
 
+<div class="sources-popup-layer" id="sourcesPopupLayer" aria-hidden="true">
+  <div class="sources-popup-card" role="dialog" aria-modal="true" aria-labelledby="sourcesPopupTitle">
+    <div class="sources-popup-head"><b id="sourcesPopupTitle">المصادر</b><button class="sources-popup-close" id="sourcesPopupClose" type="button" aria-label="إغلاق">×</button></div>
+    <div class="sources-popup-list" id="sourcesPopupList"></div>
+  </div>
+</div>
+
 <div class="toast-wrap" id="toastWrap"></div>
 
 <div class="modal" id="confirmModal" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
@@ -523,6 +555,9 @@ let confirmResolver = null; // عقدة حوار التأكيد المخصص ل�
 let streamRAF = 0;
 let streamPaintTimer = 0;
 let streamAssistantIdx = -1;
+let autoFollow = true;
+let lastStreamPaintAt = 0;
+const STREAM_PAINT_MS = 34;
 let transientSearchContext = '';
 let thinkingTimer = 0;
 let thinkingStartedAt = 0;
@@ -711,17 +746,40 @@ function renderMessages(){
  box.innerHTML=activeChat.messages.map((m,i)=>messageHtml(m,i)).join('');
  bindMsgActions();scrollBottom(false);
 }
-function sourcesHtml(sources=[]){
- if(!Array.isArray(sources)||!sources.length)return '';
- return `<details class="sources-box"><summary>المصادر <span>${sources.length}</span></summary><div class="sources-list">${sources.map((x,n)=>`<a class="source-card" href="${esc(x.url||'#')}" target="_blank" rel="noopener noreferrer"><b>${n+1}. ${esc(x.title||x.url||'مصدر')}</b><small>${esc(x.domain||'')}${x.publishedDate?` · ${esc(String(x.publishedDate).slice(0,10))}`:''}</small></a>`).join('')}</div></details>`;
+function safeHttpUrl(url=''){
+ try{const u=new URL(String(url));return /^https?:$/.test(u.protocol)?u.href:'#'}catch{return '#'}
 }
+function sourceDomain(url='',fallback=''){
+ try{return new URL(url).hostname.replace(/^www\./,'')}catch{return fallback||''}
+}
+function faviconUrl(url='',domain=''){
+ const d=domain||sourceDomain(url);return d?`https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=64`:'';
+}
+function sourceOrbHtml(x={}){
+ const domain=x.domain||sourceDomain(x.url||'');const letter=(domain||x.title||'?').trim().charAt(0).toUpperCase();const fav=faviconUrl(x.url||'',domain);
+ return `<span class="source-orb" title="${esc(domain||x.title||'مصدر')}"><span class="source-letter">${esc(letter||'?')}</span>${fav?`<img src="${esc(fav)}" alt="" loading="lazy" onerror="this.remove()">`:''}</span>`;
+}
+function sourcesHtml(sources=[],messageIndex=-1){
+ if(!Array.isArray(sources)||!sources.length)return '';
+ const valid=sources.filter(x=>safeHttpUrl(x?.url||'')!=='#');if(!valid.length)return '';
+ const shown=valid.slice(0,3),more=Math.max(0,valid.length-shown.length);
+ return `<div class="sources-strip"><button type="button" class="sources-summary-btn" data-open-sources="${messageIndex}"><span class="sources-summary-text">تم البحث في ${valid.length.toLocaleString('ar-EG')} من مواقع الويب</span><span class="source-orbs">${shown.map(sourceOrbHtml).join('')}</span>${more?`<span class="source-more">${more.toLocaleString('ar-EG')} مواقع أخرى</span>`:''}<svg class="sources-chevron" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>`;
+}
+function openSourcesPopup(messageIndex){
+ const sources=activeChat?.messages?.[Number(messageIndex)]?.sources||[];const list=$('#sourcesPopupList');if(!list||!sources.length)return;
+ list.innerHTML=sources.map((x,n)=>{const href=safeHttpUrl(x.url||'');if(href==='#')return '';const domain=x.domain||sourceDomain(href);return `<a class="source-popup-item" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${sourceOrbHtml({...x,domain})}<span class="source-popup-copy"><span class="source-popup-title">${esc(x.title||domain||`مصدر ${n+1}`)}</span><span class="source-popup-domain">${esc(domain||href)}</span></span><span class="source-popup-open">↗</span></a>`}).join('');
+ const layer=$('#sourcesPopupLayer');layer?.classList.add('show');layer?.setAttribute('aria-hidden','false');
+}
+function closeSourcesPopup(){const layer=$('#sourcesPopupLayer');layer?.classList.remove('show');layer?.setAttribute('aria-hidden','true')}
+function bindSourceUI(root=document){root.querySelectorAll('[data-open-sources]').forEach(b=>{if(b.dataset.bound==='1')return;b.dataset.bound='1';b.onclick=()=>openSourcesPopup(b.dataset.openSources)})}
+
 function messageHtml(m,i){
  const user=m.role==='user';const icon=user?`<path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`:`<path d="M12 3 14 10l7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" stroke="currentColor" stroke-width="1.4"/>`;
  const atts=(m.attachments||[]).map(a=>a.type?.startsWith('image/')&&a.dataUrl?`<img class="attachment-img" src="${a.dataUrl}" alt="${esc(a.name)}">`:`<div class="attachment-chip">📎 <span>${esc(a.name)}</span></div>`).join('');
  const tokens=m.usage?.total_tokens||m.liveTokens||0;
  const meta=!user?`<div class="msg-meta"><span class="model-short" title="${esc(m.model||'')}">${esc(shortModelName(m.model))}</span><span>·</span><span class="token-count">${m.streaming?'≈ ':''}${Number(tokens).toLocaleString('en-US')} tokens</span><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`:`<div class="msg-meta"><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`;
  const emptyState=!user&&m.streaming&&!m.content?`<span class="stream-start">${m.searching?'يبحث في الويب…':'يبدأ الرد…'}</span>`:'';
- return `<div class="msg-row ${user?'user':'assistant'} ${m.streaming?'streaming':''}" data-index="${i}">${!user?`<div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div>`:''}<div class="bubble"><div class="content">${emptyState}${markdown(m.content||'',!!m.streaming)}${m.streaming?'<span class="stream-caret"></span>':''}</div>${atts?`<div class="attachment-list">${atts}</div>`:''}${!user?sourcesHtml(m.sources):''}${meta}</div>${user?`<div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div>`:''}</div>`;
+ return `<div class="msg-row ${user?'user':'assistant'} ${m.streaming?'streaming':''}" data-index="${i}">${!user?`<div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div>`:''}<div class="bubble"><div class="content">${emptyState}${markdown(m.content||'',!!m.streaming)}${m.streaming?'<span class="stream-caret"></span>':''}</div>${atts?`<div class="attachment-list">${atts}</div>`:''}${!user?sourcesHtml(m.sources,i):''}${meta}</div>${user?`<div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div>`:''}</div>`;
 }
 
 async function copyText(text){
@@ -777,14 +835,19 @@ function bindMsgActions(){
     b.onclick=()=>{$('#prompt').value=activeChat.messages[+b.dataset.edit].content;autoGrow();$('#prompt').focus()};
   });
   bindCodeCopy(document);
+  bindSourceUI(document);
 }
-function scrollBottom(smooth=true){requestAnimationFrame(()=>$('#messages').scrollTo({top:$('#messages').scrollHeight,behavior:smooth?'smooth':'auto'}))}
+function isNearBottom(threshold=84){const box=$('#messages');if(!box)return true;return box.scrollHeight-box.scrollTop-box.clientHeight<=threshold}
+function updateJumpBottom(){const b=$('#jumpBottomBtn');if(!b)return;const show=!isNearBottom(84);b.classList.toggle('show',show);b.setAttribute('aria-hidden',show?'false':'true')}
+function handleMessagesScroll(){autoFollow=isNearBottom(84);updateJumpBottom()}
+function scrollBottom(smooth=true){autoFollow=true;requestAnimationFrame(()=>{const box=$('#messages');if(!box)return;box.scrollTo({top:box.scrollHeight,behavior:smooth?'smooth':'auto'});requestAnimationFrame(updateJumpBottom)})}
+function followStreamBottom(){if(!autoFollow){updateJumpBottom();return}requestAnimationFrame(()=>{const box=$('#messages');if(!box)return;box.scrollTop=box.scrollHeight;updateJumpBottom()})}
 function autoGrow(){const t=$('#prompt');t.style.height='auto';t.style.height=Math.min(t.scrollHeight,155)+'px'}
 
 
 function updateSearchUI(){
  const b=$('#searchBtn');if(!b)return;b.classList.toggle('active',!!settings.webSearch);b.setAttribute('aria-pressed',settings.webSearch?'true':'false');
- const label=$('#searchLabel');if(label)label.textContent=settings.webSearch?'بحث مفعل':'بحث';
+ const label=$('#searchLabel');if(label)label.textContent='بحث';
 }
 function toggleWebSearch(){settings.webSearch=!settings.webSearch;persistSettings();updateSearchUI();toast(settings.webSearch?'تم تشغيل البحث في الويب':'تم إيقاف البحث في الويب')}
 async function searchWeb(query){
@@ -852,7 +915,7 @@ function hasOpenCodeFence(text=''){
 function scheduleStreamPaint(idx,final=false){
  if(final){if(streamRAF){cancelAnimationFrame(streamRAF);streamRAF=0}if(streamPaintTimer){clearTimeout(streamPaintTimer);streamPaintTimer=0}}
  const paint=()=>{
-   streamPaintTimer=0;streamRAF=0;
+   streamPaintTimer=0;streamRAF=0;lastStreamPaintAt=performance.now();
    const row=$(`[data-index="${idx}"]`),el=row?.querySelector('.content');if(!el)return;
    const m=activeChat.messages[idx],openCode=hasOpenCodeFence(m.content||'');
    if(!m.usage?.total_tokens)m.liveTokens=(m.promptTokenEstimate||0)+estimateTokens(m.content||'');
@@ -861,12 +924,16 @@ function scheduleStreamPaint(idx,final=false){
    row.classList.toggle('streaming',!final);
    row.querySelectorAll('.code-block').forEach(b=>b.classList.toggle('streaming-code',!final&&openCode));
    const tc=row.querySelector('.token-count');if(tc){const n=m.usage?.total_tokens||m.liveTokens||0;tc.textContent=(m.streaming&&!m.usage?.total_tokens?'≈ ':'')+Number(n).toLocaleString('en-US')+' tokens'}
-   const sources=row.querySelector('.sources-box');if(!sources&&m.sources?.length){row.querySelector('.msg-meta')?.insertAdjacentHTML('beforebegin',sourcesHtml(m.sources))}
-   bindCodeCopy(row);scrollBottom(false);
+   const oldSources=row.querySelector('.sources-strip');
+   if(!oldSources&&m.sources?.length){row.querySelector('.msg-meta')?.insertAdjacentHTML('beforebegin',sourcesHtml(m.sources,idx));bindSourceUI(row)}
+   bindCodeCopy(row);followStreamBottom();
  };
  if(final){paint();return}
- if(streamPaintTimer)return;
- streamPaintTimer=setTimeout(()=>{streamRAF=requestAnimationFrame(paint)},16);
+ if(streamPaintTimer||streamRAF)return;
+ const m=activeChat?.messages?.[idx];const firstText=!!m?.content&&!m?._firstTextPainted;
+ if(firstText){m._firstTextPainted=true;streamRAF=requestAnimationFrame(paint);return}
+ const wait=Math.max(0,STREAM_PAINT_MS-(performance.now()-lastStreamPaintAt));
+ streamPaintTimer=setTimeout(()=>{streamRAF=requestAnimationFrame(paint)},wait);
 }
 
 function stripQueryHash(url=''){
@@ -1067,7 +1134,7 @@ function finishThinkingUI(){
 }
 function beginAssistantBubble(searching=false){
  finishThinkingUI();const m={role:'assistant',content:'',time:Date.now(),model:settings.model,streaming:true,searching,promptTokenEstimate:currentPromptTokens(),liveTokens:0,sources:[]};activeChat.messages.push(m);
- const idx=activeChat.messages.length-1;streamAssistantIdx=idx;const box=$('#messages');box.insertAdjacentHTML('beforeend',messageHtml(m,idx));bindMsgActions();scrollBottom(false);return idx;
+ const idx=activeChat.messages.length-1;streamAssistantIdx=idx;autoFollow=true;const box=$('#messages');box.insertAdjacentHTML('beforeend',messageHtml(m,idx));bindMsgActions();scrollBottom(false);return idx;
 }
 function setGenerating(on){
  isGenerating=on;const b=$('#sendBtn');
@@ -1228,6 +1295,11 @@ function bind(){
  $('#attachBtn').onclick=()=>$('#attachInput').click();
  $('#attachInput').onchange=async e=>{await addAttachments(e.target.files||[]);e.target.value=''};
  $('#searchBtn').onclick=toggleWebSearch;
+ $('#messages').addEventListener('scroll',handleMessagesScroll,{passive:true});
+ $('#jumpBottomBtn').onclick=()=>scrollBottom(true);
+ $('#sourcesPopupClose').onclick=closeSourcesPopup;
+ $('#sourcesPopupLayer').onclick=e=>{if(e.target===$('#sourcesPopupLayer'))closeSourcesPopup()};
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSourcesPopup()});
  $('#provider').onchange=e=>{
    const p=e.target.value;settings.provider=p;
    $('#baseUrl').value=providerDefaults[p]||'';$('#modelsUrl').value='';
