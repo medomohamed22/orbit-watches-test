@@ -174,7 +174,6 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
   .tool-btn.reason span{display:none}.tool-btn.reason{width:40px;padding:0}.bubble{max-width:91%}
 }
 
-
 /* === Streaming/code-copy reliability patch === */
 .code-block{
   margin:12px 0;border:1px solid rgba(255,255,255,.12);border-radius:15px;overflow:hidden;
@@ -201,7 +200,6 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
 }
 .code-block code{white-space:pre;display:block;min-width:max-content}
 .msg-actions .mini-btn.copied,.code-copy.copied{color:#fff;background:rgba(139,92,246,.20)}
-
 
 /* === AiWay thinking summaries + calm stream patch === */
 .thinking-shell{min-width:min(82%,520px);max-width:min(86%,620px)}
@@ -478,7 +476,6 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
   </div>
 </div>
 
-
 <script>
 (() => {
 'use strict';
@@ -679,8 +676,8 @@ async function saveChat(){if(!activeChat)return;activeChat.updatedAt=Date.now();
 async function renderHistory(){
  const list=$('#historyList'), chats=await dbAll();
  list.innerHTML=chats.length?chats.map(c=>`<div class="history-item ${activeChat?.id===c.id?'active':''}" data-id="${c.id}"><div class="history-info"><div class="history-name">${esc(c.title||'محادثة')}</div><div class="history-date">${fmtDate(c.updatedAt)} · ${c.messages?.length||0} رسائل</div></div><button class="mini-btn delete-chat" data-del="${c.id}" title="حذف"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 11v6m4-6v6M9 7l1-2h4l1 2m-8 0 1 13h8l1-13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>`).join(''):'<div class="empty">لا توجد محادثات محفوظة</div>';
- $('.history-item').forEach(x=>x.onclick=e=>{if(!e.target.closest('[data-del]'))loadChat(x.dataset.id)});
- $('[data-del]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(await customConfirm('حذف هذه المحادثة؟')){await dbDelete(b.dataset.del);if(activeChat?.id===b.dataset.del)await newChat();else renderHistory()}});
+ $$('.history-item').forEach(x=>x.onclick=e=>{if(!e.target.closest('[data-del]'))loadChat(x.dataset.id)});
+ $$('[data-del]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(await customConfirm('حذف هذه المحادثة؟')){await dbDelete(b.dataset.del);if(activeChat?.id===b.dataset.del)await newChat();else renderHistory()}});
 }
 function heroHtml(){
  return `<div class="hero"><div class="hero-inner"><div class="orb"><svg role="img" aria-label="شعار AiWay" viewBox="0 0 24 24" fill="none" width="38"><path d="M12 2.8 14.2 9.8 21.2 12l-7 2.2L12 21.2l-2.2-7L2.8 12l7-2.2L12 2.8Z" stroke="white" stroke-width="1.25"/></svg></div><h1>اختبر أي نموذج AI<br>من مكان واحد</h1><p>واجهة زجاجية سريعة لـ OpenAI وOpenRouter وGemini وأي Provider متوافق، مع مرفقات وتفكير ذكي وسجل محلي.</p><div class="chips"><button class="chip" data-prompt="اشرح لي هذا النموذج وما أفضل استخداماته.">تعرف على النموذج</button><button class="chip" data-prompt="اكتب لي مثال JavaScript احترافي مع شرح مختصر.">جرّب البرمجة</button><button class="chip" data-prompt="حلل الفكرة التالية بشكل عميق وأعطني المزايا والعيوب: ">تحليل فكرة</button></div></div></div>`;
@@ -746,19 +743,19 @@ function bindMsgActions(){
       else toast('تعذر النسخ في هذا المتصفح','error');
     };
   });
-  $('[data-edit]').forEach(b=>{
+  $$('[data-edit]').forEach(b=>{
     if(b.dataset.bound==='1')return;b.dataset.bound='1';
     b.onclick=()=>{$('#prompt').value=activeChat.messages[+b.dataset.edit].content;autoGrow();$('#prompt').focus()};
   });
-  $('[data-like]').forEach(b=>{
+  $$('[data-like]').forEach(b=>{
     if(b.dataset.bound==='1')return;b.dataset.bound='1';
     b.onclick=()=>{b.classList.add('liked');toast('شكراً على تقييمك 👍');disableFeedbackSiblings(b,'like')};
   });
-  $('[data-dislike]').forEach(b=>{
+  $$('[data-dislike]').forEach(b=>{
     if(b.dataset.bound==='1')return;b.dataset.bound='1';
     b.onclick=()=>{b.classList.add('liked');toast('أبلغنا الملاحظات، وسنحسّن الإجابات 🙏');disableFeedbackSiblings(b,'dislike')};
   });
-  $('[data-follow]').forEach(b=>{
+  $$('[data-follow]').forEach(b=>{
     if(b.dataset.bound==='1')return;b.dataset.bound='1';
     b.onclick=()=>{
       const idx=+b.closest('[data-attach-follow]').dataset.attachFollow;
@@ -776,7 +773,6 @@ function disableFeedbackSiblings(btn,which){
 }
 function scrollBottom(smooth=true){requestAnimationFrame(()=>$('#messages').scrollTo({top:$('#messages').scrollHeight,behavior:smooth?'smooth':'auto'}))}
 function autoGrow(){const t=$('#prompt');t.style.height='auto';t.style.height=Math.min(t.scrollHeight,155)+'px'}
-
 
 function updateReasonUI(){
  const map={auto:'تلقائي',low:'منخفض',medium:'متوسط',high:'عالي',off:'بدون'};
@@ -854,7 +850,6 @@ function hasOpenCodeFence(text=''){
 function scheduleStreamPaint(idx,final=false){
  if(final){
    if(streamRAF){cancelAnimationFrame(streamRAF);streamRAF=0}
-   if(streamPaintTimer){clearTimeout(streamPaintTimer);streamPaintTimer=0}
    if(streamPaintTimer){clearTimeout(streamPaintTimer);streamPaintTimer=0}
  }
  const paint=()=>{
@@ -953,7 +948,11 @@ async function fetchModels(showToast=true){
  readSettings();
  if(!settings.baseUrl)throw new Error('أدخل Base URL');
  const proto=providerProtocol();let url,h=headers();
- if(proto==='gemini')url=settings.modelsUrl||settings.baseUrl+'/models?key='+encodeURIComponent(settings.apiKey);
+ if(proto==='gemini'){
+   // FIX: دمج ?key= بأمان حتى لو كان Models URL مخصصاً (كان المفتاح يضيع)
+   url=settings.modelsUrl||settings.baseUrl+'/models';
+   url+=(url.includes('?')?'&':'?')+'key='+encodeURIComponent(settings.apiKey);
+ }
  else url=(proto==='anthropic'?resolveAnthropicEndpoints():resolveCompatibleEndpoints()).modelsUrl;
  $('#testText').textContent='جاري الاتصال...';$('#testDot').className='dot-status';
  try{
@@ -1004,10 +1003,13 @@ function anthropicRequest(){
  if(Number.isFinite(settings.temperature))body.temperature=Math.min(1,Math.max(0,settings.temperature));
  if(Number.isFinite(settings.topP))body.top_p=settings.topP;
  const stops=settings.stopSequences.split('\n').map(x=>x.trim()).filter(Boolean);if(stops.length)body.stop_sequences=stops;
+ // FIX: صيغة thinking صحيحة — تُرسل فقط عند اختيار مستوى صريح (وليس auto)
  const level=settings.reasoningLevel||'auto';
- if(level!=='off'){
-   body.thinking={type:'adaptive',display:'summarized'};
-   if(level!=='auto')body.output_config={effort:level};
+ if(level!=='off'&&level!=='auto'){
+   const budget=level==='low'?2048:level==='medium'?8192:16384;
+   body.thinking={type:'enabled',budget_tokens:budget};
+   body.max_tokens=Math.max(settings.maxTokens||2048,budget+1024); // يجب أن يتسع max_tokens للـ budget
+   body.temperature=1;delete body.top_p; // Anthropic يشترط temperature=1 وبدون top_p مع التفكير
  }
  return body;
 }
@@ -1154,7 +1156,7 @@ async function sendGemini(){
    const body=geminiRequest();if(body.generationConfig)delete body.generationConfig.thinkingConfig;
    r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});
  }
- if(!r.ok){let err;try{err=await r.json()}catch(err){err={}};throw new Error(err?.error?.message||('Gemini HTTP '+r.status))}
+ if(!r.ok){let err;try{err=await r.json()}catch(errParse){err={}};throw new Error(err?.error?.message||('Gemini HTTP '+r.status))}
  const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم هنا');
  const dec=new TextDecoder();let buf='',done=false,idx=-1;const ensure=()=>{if(idx<0)idx=beginAssistantBubble();return idx};
  while(!done){
@@ -1175,14 +1177,33 @@ async function sendGemini(){
  if(idx<0){idx=beginAssistantBubble();activeChat.messages[idx].content='[لم يُرجع النموذج نصًا]'}
  activeChat.messages[idx].streaming=false;scheduleStreamPaint(idx,true);
 }
+async function readErrBody(r){
+ // FIX: إظهار رسالة الخطأ الحقيقية من السيرفر بدلاً من "HTTP 400" فقط
+ let t='';
+ try{t=await r.text()}catch(_){}
+ try{const j=JSON.parse(t);return j?.error?.message||j?.message||('HTTP '+r.status)}catch(_){return 'HTTP '+r.status+(t?' — '+t.slice(0,180):'')}
+}
 async function sendOpenAICompatible(){
  const url=resolveCompatibleEndpoints().chatUrl;let body=openAIRequest();
- let r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});
+ const doFetch=()=>fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});
+ let r=await doFetch();
  if(!r.ok && (body.reasoning||body.reasoning_effort)){
-   const fallback={...body};delete fallback.reasoning;delete fallback.reasoning_effort;
-   r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(fallback),signal:aborter.signal});
+   const fallback={...body};delete fallback.reasoning;delete fallback.reasoning_effort;body=fallback;r=await doFetch();
  }
- if(!r.ok){let err=null;try{err=await r.json()}catch(errParse){err=null};throw new Error(err?.error?.message||err?.message||('HTTP '+r.status))}
+ if(!r.ok){
+   let msg=await readErrBody(r);
+   // FIX: موديلات o-series/gpt-5 ترفض max_tokens → تحويل تلقائي إلى max_completion_tokens
+   if(/max_completion_tokens/i.test(msg)&&body.max_tokens){
+     body.max_completion_tokens=body.max_tokens;delete body.max_tokens;r=await doFetch();
+     if(!r.ok)msg=await readErrBody(r);
+   }
+   // FIX: بعض الموديلات ترفض temperature → حذفه تلقائياً وإعادة المحاولة
+   else if(/temperature/i.test(msg)&&'temperature' in body){
+     delete body.temperature;r=await doFetch();
+     if(!r.ok)msg=await readErrBody(r);
+   }
+   if(!r.ok)throw new Error(msg);
+ }
  const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم في هذا المتصفح أو البروفايدر');
  const dec=new TextDecoder();let buf='',done=false,idx=-1;const ensure=()=>{if(idx<0)idx=beginAssistantBubble();return idx};
  while(!done){
