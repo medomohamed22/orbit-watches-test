@@ -529,7 +529,7 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
         </div>
         <div class="tools-master-row"><div class="grow"><b>تمكين محرك الأدوات الذكي</b><small>Patch-first للتعديلات المباشرة · Agent محدود للمهام المعقدة</small></div><span class="tool-count" id="toolsEnabledCount">0/10</span><span class="switch" id="toolsMasterSwitch"></span></div>
         <div class="coding-tools-list" id="codingToolsList">
-          <div class="coding-tool-card" data-tool-card="smartPatch"><div class="coding-tool-icon">✎</div><div class="coding-tool-copy"><b>Smart File Patch <span class="tool-badge">Function</span></b><small>تعديل الجزء المطلوب فقط داخل الملف عبر exact patch بدل إعادة كتابة الملف كاملًا.</small></div><span class="switch coding-tool-switch" data-tool="smartPatch"></span></div>
+          <div class="coding-tool-card" data-tool-card="smartPatch"><div class="coding-tool-icon">✎</div><div class="coding-tool-copy"><b>Smart File Patch <span class="tool-badge">Semantic</span></b><small>محرك تعديل دلالي: CSS/HTML/text operations محلية وآمنة، مع Patch تقليدي كخطة احتياطية.</small></div><span class="switch coding-tool-switch" data-tool="smartPatch"></span></div>
           <div class="coding-tool-card" data-tool-card="workspace"><div class="coding-tool-icon">▦</div><div class="coding-tool-copy"><b>Project Workspace + File Tree <span class="tool-badge local">Local</span></b><small>مساحة مشروع مستمرة للملفات المرفوعة مع قائمة ملفات قابلة للتنزيل.</small></div><span class="switch coding-tool-switch" data-tool="workspace"></span></div>
           <div class="coding-tool-card" data-tool-card="selectiveRead"><div class="coding-tool-icon">⌕</div><div class="coding-tool-copy"><b>Selective File Reading / Search <span class="tool-badge">Function</span></b><small>بحث وقراءة نطاق أسطر محدد فقط لتقليل الـcontext والتوكنز.</small></div><span class="switch coding-tool-switch" data-tool="selectiveRead"></span></div>
           <div class="coding-tool-card" data-tool-card="diffViewer"><div class="coding-tool-icon">±</div><div class="coding-tool-copy"><b>Diff Viewer <span class="tool-badge local">Local</span></b><small>حفظ وعرض الفرق قبل/بعد كل تعديل مع عدد الأسطر المتغيرة.</small></div><span class="switch coding-tool-switch" data-tool="diffViewer"></span></div>
@@ -1478,6 +1478,147 @@ function fastEditTerms(text=''){
  if(/header|هيدر/.test(raw))add(['header','topbar']);if(/chat|شات/.test(raw))add(['chat','composer','message']);
  return [...terms].slice(0,24);
 }
+
+function semanticEditCandidate(text){
+ const t=String(text||'').toLowerCase();
+ return /(لون|الوان|ألوان|ثيم|خلفي|واجهة|زر|نص|حجم|خط|border|background|color|colour|theme|white|black|purple|font|radius|spacing|css|style)/i.test(t);
+}
+function cssSourcesForFile(f){
+ const path=String(f.path||''),src=String(f.text||''),out=[];
+ if(/\.css$/i.test(path))out.push({kind:'css',offset:0,text:src});
+ if(/\.html?$/i.test(path)){
+  const re=/<style\b[^>]*>([\s\S]*?)<\/style>/gi;let m;
+  while((m=re.exec(src)))out.push({kind:'style',offset:m.index+m[0].indexOf(m[1]),text:m[1]});
+ }
+ return out;
+}
+function collectCssInventory(ws,text){
+ const req=String(text||'').toLowerCase(),rows=[],vars=[];
+ const colorReq=/(لون|الوان|ألوان|color|colour|white|black|purple|ابيض|أبيض|اسود|أسود|ارجوان|أرجوان|theme|ثيم|خلفي|background)/i.test(req);
+ for(const f of (ws?.files||[])){
+  for(const source of cssSourcesForFile(f)){
+   const ruleRe=/([^{}]+)\{([^{}]*)\}/g;let rm;
+   while((rm=ruleRe.exec(source.text))){
+    const selector=rm[1].trim().replace(/\s+/g,' ').slice(0,180);if(!selector||selector.startsWith('@keyframes'))continue;
+    const body=rm[2],decRe=/(--[\w-]+|[-\w]+)\s*:\s*([^;{}]+)\s*;?/g;let dm;
+    while((dm=decRe.exec(body))){
+     const property=dm[1].trim(),value=dm[2].trim();
+     let score=0;if(property.startsWith('--'))score+=8;
+     if(/^(background|background-color|color|border|border-color|box-shadow|fill|stroke|outline|outline-color)$/i.test(property))score+=colorReq?8:3;
+     if(/#(?:[0-9a-f]{3,8})\b|\brgba?\(|\bhsla?\(|\b(?:white|black|purple|transparent)\b/i.test(value))score+=colorReq?7:2;
+     if(/body|:root|html|app|container|sidebar|header|composer|button|btn|message|bubble/i.test(selector))score+=3;
+     if(score){const row={path:f.path,selector,property,value,score};rows.push(row);if(property.startsWith('--'))vars.push(row)}
+    }
+   }
+  }
+ }
+ rows.sort((a,b)=>b.score-a.score||a.path.localeCompare(b.path));
+ const uniq=[],seen=new Set();for(const r of rows){const k=`${r.path}|${r.selector}|${r.property}|${r.value}`;if(seen.has(k))continue;seen.add(k);uniq.push(r);if(uniq.length>=120)break}
+ return {rows:uniq,vars:vars.slice(0,80)};
+}
+function semanticContextText(ws,text){
+ const inv=collectCssInventory(ws,text),lines=[];
+ for(const r of inv.rows)lines.push(`CSS ${r.path} :: ${r.selector} :: ${r.property}: ${r.value}`);
+ // Add exact user-visible string hits for simple text/label edits without shipping whole files.
+ const terms=fastEditTerms(text).filter(x=>x.length>=3).slice(0,8);let hitCount=0;
+ for(const f of (ws?.files||[])){
+  const arr=String(f.text||'').split(/\r?\n/);
+  for(let i=0;i<arr.length&&hitCount<40;i++)if(terms.some(t=>arr[i].toLowerCase().includes(t))){lines.push(`TEXT ${f.path}:${i+1} :: ${arr[i].trim().slice(0,260)}`);hitCount++}
+ }
+ return lines.slice(0,150).join('\n');
+}
+function semanticPatchSystem(ws){return `You are AiWay Semantic File Editor. Return ONLY one JSON object, no markdown. Plan deterministic local edit operations over the inventory supplied by the user. Schema: {"operations":[...],"summary":"short result"}. Allowed operations:\n1) {"op":"set_css_var","path":"file","selector":"exact selector from inventory","name":"--var","value":"new css value"}\n2) {"op":"set_css_property","path":"file","selector":"exact selector from inventory","property":"property from inventory","value":"new css value"}\n3) {"op":"replace_literal","path":"file","old":"exact literal visible in inventory/excerpts","new":"replacement","max_matches":20}\n4) {"op":"replace_text","path":"file","old":"exact text","new":"replacement","max_matches":10}.\nUse semantic CSS operations whenever possible. Never use line numbers. Never rewrite an entire file. Never invent selectors, CSS variable names, paths, or old literals not visible in the inventory. For broad theme changes, prefer changing existing :root variables first; only then change explicit CSS properties that are clearly background/surface/text/accent related. Preserve readability/contrast: light backgrounds need dark text; purple remains accent. Return all required operations in ONE response. Workspace manifest:\n${workspaceManifest(ws)}`}
+function extractSemanticPlan(raw){
+ let v=raw;if(v&&typeof v==='object'&&!Array.isArray(v)&&Array.isArray(v.operations))return v;
+ let t=String(v||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a<0||b<=a)return null;
+ try{const o=JSON.parse(t.slice(a,b+1));return Array.isArray(o?.operations)?o:null}catch{return null}
+}
+function replaceLimited(src,oldv,newv,maxMatches=20){
+ if(!oldv||oldv===newv)return {ok:false,error:'Invalid literal replacement'};let count=0,pos=0,out='';
+ while(true){const i=src.indexOf(oldv,pos);if(i<0)break;count++;if(count>maxMatches)return {ok:false,error:`Literal appears more than max_matches (${maxMatches})`};out+=src.slice(pos,i)+newv;pos=i+oldv.length}
+ if(!count)return {ok:false,error:'Exact literal not found'};out+=src.slice(pos);return {ok:true,text:out,count}
+}
+function editCssText(css,op){
+ let changed=0,error='';
+ if(op.op==='set_css_var'){
+  const name=String(op.name||''),targetSel=String(op.selector||'').trim().replace(/\s+/g,' ');if(!/^--[\w-]+$/.test(name))return {ok:false,error:'Invalid CSS variable name'};
+  const ruleRe=/([^{}]+)\{([^{}]*)\}/g;let last=0,out='',m;
+  while((m=ruleRe.exec(css))){out+=css.slice(last,m.index);let sel=m[1],body=m[2],norm=sel.trim().replace(/\s+/g,' ');if(!targetSel||norm===targetSel){const re=new RegExp(`(${name.replace(/[.*+?^${}()|[\\]\\]/g,'\\$&')}\\s*:\\s*)([^;{}]+)`,'g');body=body.replace(re,(mm,p,v)=>{changed++;return p+String(op.value??'')})}out+=sel+'{'+body+'}';last=ruleRe.lastIndex}
+  out+=css.slice(last);return changed?{ok:true,text:out,count:changed}:{ok:false,error:`CSS variable not found${targetSel?' under '+targetSel:''}: ${name}`}
+ }
+ if(op.op==='set_css_property'){
+  const selector=String(op.selector||'').trim(),property=String(op.property||'').trim();if(!selector||!/^--[\w-]+$|^[-\w]+$/.test(property))return {ok:false,error:'Invalid CSS property operation'};
+  const ruleRe=/([^{}]+)\{([^{}]*)\}/g;let last=0,out='',m;
+  while((m=ruleRe.exec(css))){out+=css.slice(last,m.index);let sel=m[1],body=m[2];if(sel.trim().replace(/\s+/g,' ')===selector.replace(/\s+/g,' ')){
+    const propRe=new RegExp(`(${property.replace(/[.*+?^${}()|[\\]\\]/g,'\\$&')}\\s*:\\s*)([^;{}]+)`,'g');let local=0;body=body.replace(propRe,(mm,p,v)=>{local++;changed++;return p+String(op.value??'')});
+    if(!local)error=`Property ${property} not found under ${selector}`;
+   }out+=sel+'{'+body+'}';last=ruleRe.lastIndex}
+  out+=css.slice(last);return changed?{ok:true,text:out,count:changed}:{ok:false,error:error||`Selector not found: ${selector}`}
+ }
+ return {ok:false,error:'Unsupported CSS operation'};
+}
+async function applySemanticPlan(plan){
+ if(!plan?.operations?.length)return {ok:false,error:'The model returned no semantic operations'};const ws=await getWorkspace(false);if(!ws)return {ok:false,error:'Workspace unavailable'};
+ const snapshots=new Map(),working=new Map();for(const op of plan.operations.slice(0,32)){
+  const path=normalizePath(String(op.path||'')),f=ws.files.find(x=>x.path===path);if(!f)return {ok:false,error:`File not found: ${path}`};if(!snapshots.has(path)){snapshots.set(path,String(f.text||''));working.set(path,String(f.text||''))}
+  let src=working.get(path),res=null;
+  if(op.op==='replace_literal'||op.op==='replace_text')res=replaceLimited(src,String(op.old??''),String(op.new??''),Math.max(1,Math.min(50,Number(op.max_matches)||20)));
+  else if(op.op==='set_css_var'||op.op==='set_css_property'){
+   if(/\.css$/i.test(path))res=editCssText(src,op);else if(/\.html?$/i.test(path)){
+    let changed=0,failed=null;const out=src.replace(/(<style\b[^>]*>)([\s\S]*?)(<\/style>)/gi,(all,a,css,b)=>{const rr=editCssText(css,op);if(rr.ok){changed+=rr.count;return a+rr.text+b}failed=failed||rr.error;return all});res=changed?{ok:true,text:out,count:changed}:{ok:false,error:failed||'No matching style block'};
+   }else res={ok:false,error:'Semantic CSS operation requires .css or .html'};
+  }else return {ok:false,error:`Unsupported semantic op: ${op.op}`};
+  if(!res.ok)return {ok:false,error:`${path}: ${res.error}`};working.set(path,res.text);
+ }
+ const changed=[];for(const [path,before] of snapshots){const after=working.get(path);if(after===before)continue;const f=ws.files.find(x=>x.path===path),rev={id:uid(),type:'edit',path,before,after,createdAt:Date.now(),semanticPatch:true};if(toolOn('versions'))ws.revisions.push(rev);f.text=after;f.hash=quickHash(after);f.size=after.length;f.modifiedAt=Date.now();lastAgentChanges.push({path,before,after,revisionId:rev.id});changed.push({path,new_hash:f.hash})}
+ if(!changed.length)return {ok:false,error:'Semantic plan produced no file changes'};ws.updatedAt=Date.now();ws.cache={};ws.revisions=ws.revisions.slice(-30);await dbWorkspacePut(ws);workspaceReadCache.clear();await updateWorkspaceChip();return {ok:true,atomic:true,operation_count:plan.operations.length,changed_files:changed};
+}
+
+function localLightPurpleThemePlan(ws,text){
+ const t=String(text||'');
+ const wantsLight=/(ابيض|أبيض|white|فاتح|light)/i.test(t),wantsPurple=/(ارجوان|أرجوان|بنفسج|purple|violet)/i.test(t),awayDark=/(بدل\s*(?:ال)?اسود|بدل\s*(?:ال)?أسود|black|داكن|dark)/i.test(t);
+ if(!wantsLight||(!wantsPurple&&!awayDark))return null;
+ const inv=collectCssInventory(ws,text),ops=[],seen=new Set();
+ function push(row,value){const key=`${row.path}|${row.selector}|${row.property}`;if(seen.has(key))return;seen.add(key);ops.push({op:'set_css_var',path:row.path,selector:row.selector,name:row.property,value})}
+ for(const r of inv.rows){
+  if(!r.property.startsWith('--'))continue;const n=r.property.toLowerCase();
+  // Prefer root/theme variable declarations; do not touch status colors such as success/error/warning.
+  if(!/:root|html|theme/i.test(r.selector))continue;
+  if(/good|success|bad|danger|error|warn|warning|green|red|yellow/.test(n))continue;
+  if(/^--(?:bg|background)$/.test(n))push(r,'#fbfaff');
+  else if(/^--(?:bg2|background-?2)$/.test(n))push(r,'#f5f1ff');
+  else if(/--(?:panel|surface|card)$/.test(n))push(r,'rgba(255,255,255,.92)');
+  else if(/--(?:panel2|surface2|card2)$/.test(n))push(r,'rgba(139,92,246,.055)');
+  else if(/--(?:text|fg|foreground)$/.test(n))push(r,'#1b1525');
+  else if(/--(?:muted|secondary|subtext)$/.test(n))push(r,'#71677f');
+  else if(/--(?:line|border|divider)$/.test(n))push(r,'rgba(92,62,132,.14)');
+  else if(/--shadow$/.test(n))push(r,'0 24px 70px rgba(91,52,145,.13)');
+  else if(/--accent2$/.test(n)&&wantsPurple)push(r,'#a78bfa');
+  else if(/--accent$/.test(n)&&wantsPurple)push(r,'#8b5cf6');
+ }
+ return ops.length>=3?{operations:ops,summary:'Applied a light white/purple theme using existing semantic CSS variables',localFallback:true}:null;
+}
+
+async function runSemanticEdit(text,ws,assistantIdx){
+ const inventory=semanticContextText(ws,text);if(!inventory.trim())return null;const proto=providerProtocol();let totalUsage=null;
+ async function call(repair=''){
+  const prompt=`REQUEST:\n${text}\n\nSEMANTIC INVENTORY (exact paths/selectors/properties/values):\n${inventory}${repair?`\n\nLOCAL VALIDATION ERROR:\n${repair}\nReturn a corrected semantic plan using only inventory entries.`:''}`;let raw='',usage=null;
+  setAgentStage(assistantIdx,repair?'أصحح خطة التعديل الدلالية مرة واحدة…':'أجهز تعديل دلالي مباشر…');
+  if(proto==='anthropic'){
+   const body={model:settings.model,max_tokens:Math.min(settings.maxTokens||1600,1800),system:semanticPatchSystem(ws),messages:[{role:'user',content:prompt}],stream:false,temperature:Math.min(.15,Math.max(0,settings.temperature??.15))};bumpAIRequest(assistantIdx);const r=await fetch(resolveAnthropicEndpoints().messagesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d?.error?.message||`Semantic patch HTTP ${r.status}`);usage=extractUsage(d);raw=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text||'').join('');
+  }else if(proto==='gemini'){
+   const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;const body={contents:[{role:'user',parts:[{text:prompt}]}],systemInstruction:{parts:[{text:semanticPatchSystem(ws)}]},generationConfig:{temperature:Math.min(.15,settings.temperature??.15),topP:Math.min(1,settings.topP??1),maxOutputTokens:Math.min(settings.maxTokens||1600,1800),responseMimeType:'application/json'}};bumpAIRequest(assistantIdx);const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d?.error?.message||`Semantic patch HTTP ${r.status}`);usage=extractUsage(d);raw=(d?.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
+  }else{
+   const body={model:settings.model,messages:[{role:'system',content:semanticPatchSystem(ws)},{role:'user',content:prompt}],stream:false,max_tokens:Math.min(settings.maxTokens||1600,1800),temperature:Math.min(.15,settings.temperature??.15)};applyReasoningOpenAI(body);bumpAIRequest(assistantIdx);const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d?.error?.message||d?.message||`Semantic patch HTTP ${r.status}`);usage=d.usage;const mc=d?.choices?.[0]?.message?.content;raw=Array.isArray(mc)?mc.map(x=>typeof x==='string'?x:(x?.text||x?.content||'')).join(''):String(mc||'');
+  }
+  totalUsage=sumUsage(totalUsage,usage);return raw;
+ }
+ const first=extractSemanticPlan(await call());let result=first?await applySemanticPlan(first):{ok:false,error:'Invalid semantic JSON plan'};if(result.ok)return {text:agentLocalSummary(),usage:totalUsage,fast:true,semantic:true};
+ // Common broad theme edits can be recovered locally without spending another model request.
+ const localPlan=localLightPurpleThemePlan(ws,text);if(localPlan){setAgentStage(assistantIdx,'أطبق Theme دلالي محليًا بدون Request إضافي…');const localResult=await applySemanticPlan(localPlan);if(localResult.ok)return {text:agentLocalSummary(),usage:totalUsage,fast:true,semantic:true,localFallback:true}}
+ const second=extractSemanticPlan(await call(result.error));result=second?await applySemanticPlan(second):{ok:false,error:'Invalid repaired semantic JSON plan'};if(result.ok)return {text:agentLocalSummary(),usage:totalUsage,fast:true,semantic:true,repaired:true};return {failed:true,hard:true,error:result.error,usage:totalUsage,semantic:true};
+}
+
 function buildFastEditContext(text,ws){
  const terms=fastEditTerms(text),chunks=[];const themeReq=/(لون|الوان|ألوان|color|colour|ابيض|أبيض|اسود|أسود|ارجوان|أرجوان|purple|white|black|theme|خلفي|background)/i.test(String(text));
  for(const f of (ws?.files||[])){
@@ -1553,6 +1694,7 @@ async function applyDirectRangePatchPlan(plan,ctx){
  }catch(e){for(const [path,before] of snapshots){const f=ws.files.find(x=>x.path===path);if(f)f.text=before}return {ok:false,error:'Range patch rolled back: '+e.message}}
 }
 async function runFastEdit(text,ws,assistantIdx){
+ if(semanticEditCandidate(text)){const semantic=await runSemanticEdit(text,ws,assistantIdx);if(semantic?.fast||semantic?.failed)return semantic}
  const ctx=buildFastEditContext(text,ws);if(!ctx?.text?.trim())return null;const proto=providerProtocol();setAgentStage(assistantIdx,'تعديل مباشر: أجهز Patch واحد…');let totalUsage=null;
  async function callOnce(repairNote=''){
   let raw='',usage=null;const repair=repairNote?`\n\nPREVIOUS PLAN WAS REJECTED LOCALLY:\n${repairNote}\nReturn a corrected plan using ONLY the supplied numbered ranges. Do not repeat the invalid range.`:'';
@@ -1580,7 +1722,7 @@ async function runFastEdit(text,ws,assistantIdx){
 async function shouldUseCodingAgent(){if(!settings.toolsMaster)return false;const ws=await getWorkspace(false);return !!ws?.files?.length&&codingToolDefinitions().length>0}
 function setAgentStage(idx,label){const m=activeChat?.messages?.[idx];if(!m)return;m.agentStage=label;scheduleStreamPaint(idx,false)}
 async function runCodingAgent(text,assistantIdx){
- const ws=await getWorkspace(false),defs=codingToolDefinitions();defs.push(...await loadMcpTools());if(!ws||!defs.length)throw new Error('لا توجد أدوات أو ملفات في Workspace');lastAgentChanges=[];let result=null;if(fastEditCandidate(text)){try{const fastResult=await runFastEdit(text,ws,assistantIdx);if(fastResult?.failed){console.warn('Direct patch rejected:',fastResult.error);result={text:'تعذر تطبيق التعديل المباشر بأمان من الطلب الأول، لذلك لم أشغّل جولات AI إضافية تلقائيًا. حدّد العنصر/الجزء أكثر أو أعد المحاولة.',usage:fastResult.usage,patchFailed:true}}else result=fastResult}catch(e){console.warn('Direct patch unavailable:',e);result={text:'تعذر إنشاء Patch آمن في الطلب المباشر. لم يتم استهلاك جولات Agent إضافية تلقائيًا.',usage:null,patchFailed:true}}}if(!result){setAgentStage(assistantIdx,`أختار بذكاء من ${defs.length} أدوات متاحة…`);const proto=providerProtocol();if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx,AGENT_MAX_ROUNDS);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx,AGENT_MAX_ROUNDS);else result=await runOpenAIAgent(text,ws,defs,assistantIdx,AGENT_MAX_ROUNDS)}
+ const ws=await getWorkspace(false),defs=codingToolDefinitions();defs.push(...await loadMcpTools());if(!ws||!defs.length)throw new Error('لا توجد أدوات أو ملفات في Workspace');lastAgentChanges=[];let result=null;if(fastEditCandidate(text)){try{const fastResult=await runFastEdit(text,ws,assistantIdx);if(fastResult?.failed){console.warn('Direct patch rejected:',fastResult.error);result={text:`تعذر تنفيذ خطة التعديل المحلية بعد محاولتيْن آمنتين (${fastResult.error||'validation failed'}). لم أدخل Agent Loop حتى لا أستهلك Requests إضافية.`,usage:fastResult.usage,patchFailed:true}}else result=fastResult}catch(e){console.warn('Direct patch unavailable:',e);result={text:'تعذر إنشاء Patch آمن في الطلب المباشر. لم يتم استهلاك جولات Agent إضافية تلقائيًا.',usage:null,patchFailed:true}}}if(!result){setAgentStage(assistantIdx,`أختار بذكاء من ${defs.length} أدوات متاحة…`);const proto=providerProtocol();if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx,AGENT_MAX_ROUNDS);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx,AGENT_MAX_ROUNDS);else result=await runOpenAIAgent(text,ws,defs,assistantIdx,AGENT_MAX_ROUNDS)}
  const m=activeChat.messages[assistantIdx];m.content=result.text||'تم تنفيذ المهمة.';m.usage=result.usage||m.usage;m.streaming=false;m.toolRun=true;m.changedFiles=[...new Set(lastAgentChanges.map(x=>x.path))];m.artifacts=m.changedFiles.map(path=>({path}));renderMessages();if(lastAgentChanges.length&&toolOn('diffViewer')){renderDiffModal();toast(`تم تعديل ${m.changedFiles.length} ملف`)}await updateWorkspaceChip();return result;
 }
 function artifactHtml(m={},i=-1){const files=m.artifacts||[];if(!files.length&&!m.toolRun)return '';const buttons=files.map(a=>`<button class="artifact-btn" type="button" data-download-artifact="${i}" data-path="${esc(a.path)}">↓ ${esc(a.path.split('/').pop())}</button>`).join('');return `<div class="agent-trace"><span class="tool-run-status"><i></i><strong>Agent Tools</strong> · ${files.length?`${files.length} ملف معدل`:'تم استخدام الأدوات'}</span>${files.length?`<div class="artifact-actions">${buttons}${toolOn('diffViewer')?`<button class="artifact-btn" type="button" data-show-diff="1">± عرض Diff</button>`:''}</div>`:''}</div>`}
