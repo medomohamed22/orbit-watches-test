@@ -897,7 +897,7 @@ function messageHtml(m,i){
  const atts=(m.attachments||[]).map(a=>a.type?.startsWith('image/')&&a.dataUrl?`<img class="attachment-img" src="${a.dataUrl}" alt="${esc(a.name)}">`:`<div class="attachment-chip">📎 <span>${esc(a.name)}</span></div>`).join('');
  const tokens=m.usage?.total_tokens||m.liveTokens||0;
  const meta=!user?`<div class="msg-meta assistant-meta"><span class="assistant-signature"><span class="assistant-dot">✦</span>${esc(settings.assistantName||'AiWay')}</span><span class="model-short" title="${esc(m.model||'')}">${esc(shortModelName(m.model))}</span><span class="token-count">${m.streaming?'≈ ':''}${Number(tokens).toLocaleString('en-US')} tokens</span><span class="request-count">${Number(m.aiRequests||0).toLocaleString('en-US')} requests</span><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`:`<div class="msg-meta"><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`;
- const emptyState=!user&&m.streaming&&!m.content?`<div class="stream-stage"><span class="stage-spinner"></span><span>${m.agentStage|| (m.searching?'أبحث في الويب وأجمع المصادر…':'أجهز الإجابة…')}</span></div>`:'';
+ const emptyState=!user?streamStageHtml(m):'';
  if(user)return `<div class="msg-row user ${m.streaming?'streaming':''}" data-index="${i}"><div class="bubble"><div class="content">${markdown(m.content||'',!!m.streaming,m.sources||[],i)}</div>${atts?`<div class="attachment-list">${atts}</div>`:''}${meta}</div><div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div></div>`;
  return `<div class="msg-row assistant ${m.streaming?'streaming':''}" data-index="${i}"><div class="assistant-doc"><div class="assistant-head"><div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div><span>${esc(settings.assistantName||'AiWay')}</span></div><div class="content">${emptyState}${markdown(m.content||'',!!m.streaming,m.sources||[],i)}${m.streaming&&m.content?'<span class="stream-caret"></span>':''}</div>${atts?`<div class="attachment-list">${atts}</div>`:''}${sourcesHtml(m.sources,i)}${artifactHtml(m,i)}${meta}</div></div>`;
 }
@@ -1047,7 +1047,7 @@ function scheduleStreamPaint(idx,final=false){
    const row=$(`[data-index="${idx}"]`),el=row?.querySelector('.content');if(!el)return;
    const m=activeChat.messages[idx],openCode=hasOpenCodeFence(m.content||'');
    if(!m.usage?.total_tokens)m.liveTokens=(m.promptTokenEstimate||0)+estimateTokens(m.content||'');
-   const empty=!m.content&&m.streaming?`<div class="stream-stage"><span class="stage-spinner"></span><span>${m.agentStage|| (m.searching?'أبحث في الويب وأجمع المصادر…':'أجهز الإجابة…')}</span></div>`:'';
+   const empty=streamStageHtml(m);
    el.innerHTML=empty+markdown(m.content||'',!final,m.sources||[],idx)+((!final&&!openCode)?'<span class="stream-caret"></span>':'');
    row.classList.toggle('streaming',!final);
    row.querySelectorAll('.code-block').forEach(b=>b.classList.toggle('streaming-code',!final&&openCode));
@@ -1175,9 +1175,11 @@ async function fetchModels(showToast=true){
 }
 
 function historyForRequest(){
- let msgs=(activeChat?.messages||[]).filter(m=>['user','assistant'].includes(m.role));
- if(!settings.sendHistory)msgs=msgs.slice(-1);
- return msgs.map(m=>({role:m.role,content:m.content,attachments:m.attachments||[]}));
+let msgs=(activeChat?.messages||[]).filter(m=>['user','assistant'].includes(m.role));
+if(!settings.sendHistory)msgs=msgs.slice(-1);
+ // أغلب البروفايدرات ترفض رسائل assistant بمحتوى فارغ (فقاعة قيد التوليد أو طلب فاشل) — استبعدها من الطلب.
+ msgs=msgs.filter(m=>m.role!=='assistant'||String(m.content||'').trim()!=='');
+return msgs.map(m=>({role:m.role,content:m.content,attachments:m.attachments||[]}));
 }
 function anthropicContent(m){
  const parts=[];const text=appendTextAttachments(m.content||'',m.attachments||[]);if(text)parts.push({type:'text',text});
@@ -1191,8 +1193,16 @@ function anthropicContent(m){
  return parts.length?parts:[{type:'text',text:m.content||''}];
 }
 function anthropicRequest(){
- const body={model:settings.model,max_tokens:settings.maxTokens||2048,stream:true,messages:historyForRequest().map(m=>({role:m.role,content:anthropicContent(m)}))};
- if(settings.systemPrompt.trim()||transientSearchContext)body.system=(settings.systemPrompt.trim()+transientSearchContext).trim();
+ // Anthropic يتطلب تناوباً صارماً بين user/assistant؛ ادمج الرسائل المتتالية بنفس الدور في رسالة واحدة.
+ const msgs=[];
+ for(const m of historyForRequest()){
+   const content=anthropicContent(m);
+   const prev=msgs[msgs.length-1];
+   if(prev&&prev.role===m.role)prev.content.push(...content);
+   else msgs.push({role:m.role,content});
+ }
+ const body={model:settings.model,max_tokens:settings.maxTokens||2048,stream:true,messages:msgs};
+if(settings.systemPrompt.trim()||transientSearchContext)body.system=(settings.systemPrompt.trim()+transientSearchContext).trim();
  if(Number.isFinite(settings.temperature))body.temperature=Math.min(1,Math.max(0,settings.temperature));
  if(Number.isFinite(settings.topP))body.top_p=settings.topP;
  const stops=settings.stopSequences.split('\n').map(x=>x.trim()).filter(Boolean);if(stops.length)body.stop_sequences=stops;
@@ -1251,10 +1261,22 @@ function addTyping(){
  },1000);
 }
 function updateThinkingSummary(text,source='AI'){
- const clean=safeSummaryText(text);if(!clean)return;
- const line=$('#thinkingLine'),sum=$('#thinkingSummary');
- if(line){line.dataset.official='1';line.textContent='ملخص تفكير متاح من النموذج';line.classList.remove('swap')}
- if(sum){sum.innerHTML=`<b>${esc(source)}:</b> ${esc(clean)}`;scrollBottom(false)}
+const clean=safeSummaryText(text);if(!clean)return;
+ const m=activeChat?.messages?.[streamAssistantIdx];
+ if(!m||m.role!=='assistant')return;
+ const prev=String(m.thinking?.text||'');
+ const joined=prev&&!/\s$/.test(prev)?prev+' '+clean:prev+clean;
+ m.thinking={source,text:joined.slice(-1200)};
+ scheduleStreamPaint(streamAssistantIdx,false);
+}
+function streamStageHtml(m){
+ if(!(m&&m.streaming&&!m.content))return '';
+ if(m.agentStage)return `<div class="stream-stage"><span class="stage-spinner"></span><span>${esc(m.agentStage)}</span></div>`;
+ if(m.thinking&&m.thinking.text){
+   const secs=Math.max(0,Math.floor((Date.now()-(m.time||Date.now()))/1000));
+   return `<div class="thinking-card"><div class="thinking-head"><span class="thinking-orb"><svg viewBox="0 0 24 24" fill="none"><path d="M12 4v2m0 12v2M4 12h2m12 0h2M6.3 6.3l1.4 1.4m8.6 8.6 1.4 1.4m0-11.4-1.4 1.4m-8.6 8.6-1.4 1.4M9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0Z" stroke-width="1.6" stroke-linecap="round"/></svg></span><span class="thinking-title">يفكّر</span><span class="thinking-time">${secs}ث</span></div><div class="thinking-line" data-official="1">${esc(String(m.thinking.text).slice(-400))}</div></div>`;
+ }
+ return `<div class="stream-stage"><span class="stage-spinner"></span><span>${m.searching?'أبحث في الويب وأجمع المصادر…':'أجهز الإجابة…'}</span></div>`;
 }
 function finishThinkingUI(){
  clearInterval(thinkingTimer);thinkingTimer=0;const el=$('#typingRow');if(!el)return;
@@ -1563,8 +1585,9 @@ function directGeminiDeclaration(def){
 }
 function normalizeEditPlan(args){
   if(!args||typeof args!=='object')return null;
-  if(Array.isArray(args.operations))return {operations:args.operations};
-  if(Array.isArray(args.operations_list))return {operations:args.operations_list};
+  let ops=args.operations??args.operations_list??args.edits;
+  if(typeof ops==='string'){try{ops=JSON.parse(ops)}catch{ops=null}}
+  if(Array.isArray(ops))return {operations:ops};
   return null;
 }
 function extractEditPlan(raw){
@@ -1639,7 +1662,10 @@ async function send(){
    if(last?.role==='assistant'&&last.streaming){last.streaming=false;scheduleStreamPaint(activeChat.messages.length-1,true)}
    if(e.name==='AbortError')toast('تم إيقاف التوليد');
    else{toast(e.message||'حدث خطأ','error');console.error(e)}
- }finally{
+    // إزالة فقاعة المساعد التي لم يصلها أي نص حتى لا يبقى رد فارغ في السجل بعد فشل الطلب.
+    const _msgs=activeChat?.messages||[];const _tail=_msgs[_msgs.length-1];
+    if(_tail&&_tail.role==='assistant'&&!String(_tail.content||'').trim()&&!_tail.toolRun){_msgs.pop();renderMessages()}
+   }finally{
    if(streamRAF){cancelAnimationFrame(streamRAF);streamRAF=0}
    const last=activeChat?.messages?.[activeChat.messages.length-1];
    if(last?.role==='assistant'&&last.streaming){last.streaming=false;scheduleStreamPaint(activeChat.messages.length-1,true)}
@@ -1655,7 +1681,7 @@ async function sendAnthropic(){
  }
  if(!r.ok){let err;try{err=await r.json()}catch(err){err={}};throw new Error(err?.error?.message||err?.message||('Anthropic HTTP '+r.status))}
  const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم في هذا المتصفح أو البروفايدر');
- const dec=new TextDecoder();let buf='',done=false,idx=streamAssistantIdx,currentBlock='';
+ const dec=new TextDecoder();let buf='',done=false,idx=streamAssistantIdx,currentBlock='',streamError=null;
  const ensure=()=>idx>=0?idx:(idx=beginAssistantBubble(false));
  while(!done){
    const chunk=await reader.read();done=chunk.done;buf+=dec.decode(chunk.value||new Uint8Array(),{stream:!done});
@@ -1676,11 +1702,12 @@ async function sendAnthropic(){
          const prev=activeChat.messages[idx].usage||{};activeChat.messages[idx].usage={...prev,completion_tokens:j.usage.output_tokens,total_tokens:(prev.prompt_tokens||0)+(j.usage.output_tokens||0)};scheduleStreamPaint(idx,false);
        }
        if(j.type==='message_stop'){done=true;break}
-       if(j.type==='error')throw new Error(j.error?.message||'Anthropic stream error');
-     }catch(e){if(e?.message&&e.message!=='Anthropic stream error'&&!/JSON/.test(e.message))throw e}
-   }
- }
- if(idx<0)idx=beginAssistantBubble(false);if(!activeChat.messages[idx].content)activeChat.messages[idx].content='[لم يُرجع النموذج نصًا]'
+       if(j.type==='error'){streamError=j.error?.message||'Anthropic stream error';done=true;break}
+       }catch(e){if(e instanceof SyntaxError)continue;throw e}
+       }
+       }
+       if(streamError)throw new Error(streamError);
+       if(idx<0)idx=beginAssistantBubble(false);if(!activeChat.messages[idx].content)activeChat.messages[idx].content='[لم يُرجع النموذج نصًا]'
  activeChat.messages[idx].streaming=false;scheduleStreamPaint(idx,true);
 }
 async function sendGemini(){
@@ -1749,13 +1776,21 @@ async function importBackup(file){
 }
 
 function customConfirm(message){
-  return new Promise(resolve=>{
-    const body=$('#confirmBody'),title=$('#confirmTitle');
+ return new Promise(resolve=>{
+    const modalEl=$('#confirmModal'),body=$('#confirmBody'),title=$('#confirmTitle');
     if(body)body.textContent=message;
     if(title)title.textContent='تأكيد';
+    let settled=false;
+    const ok=$('#confirmOk'),cancel=$('#confirmCancel'),closeBtns=modalEl.querySelectorAll('[data-close="confirmModal"]');
+    const done=val=>{
+      if(settled)return;settled=true;obs.disconnect();
+      closeBtns.forEach(b=>b.onclick=null);if(ok)ok.onclick=null;if(cancel)cancel.onclick=null;
+      closeModal('confirmModal');resolve(val);
+    };
+    // لو أُغلق الحوار من أي مكان آخر (مثل خلفية التطبيق) يُحسم بـ false بدل Promise معلّق إلى الأبد.
+    const obs=new MutationObserver(()=>{if(!modalEl.classList.contains('show'))done(false)});
+    obs.observe(modalEl,{attributes:true,attributeFilter:['class']});
     modal('confirmModal');
-    const ok=$('#confirmOk'),cancel=$('#confirmCancel'),closeBtns=$('#confirmModal').querySelectorAll('[data-close="confirmModal"]');
-    const done=val=>{closeBtns.forEach(b=>b.onclick=null);ok.onclick=null;cancel.onclick=null;closeModal('confirmModal');resolve(val)};
     ok.onclick=()=>done(true);
     cancel.onclick=()=>done(false);
     closeBtns.forEach(b=>b.onclick=()=>done(false));
