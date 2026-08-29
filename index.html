@@ -893,7 +893,7 @@ function messageHtml(m,i){
  const user=m.role==='user';const icon=user?`<path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`:`<path d="M12 3 14 10l7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" stroke="currentColor" stroke-width="1.4"/>`;
  const atts=(m.attachments||[]).map(a=>a.type?.startsWith('image/')&&a.dataUrl?`<img class="attachment-img" src="${a.dataUrl}" alt="${esc(a.name)}">`:`<div class="attachment-chip">📎 <span>${esc(a.name)}</span></div>`).join('');
  const tokens=m.usage?.total_tokens||m.liveTokens||0;
- const meta=!user?`<div class="msg-meta assistant-meta"><span class="assistant-signature"><span class="assistant-dot">✦</span>${esc(settings.assistantName||'AiWay')}</span><span class="model-short" title="${esc(m.model||'')}">${esc(shortModelName(m.model))}</span><span class="token-count">${m.streaming?'≈ ':''}${Number(tokens).toLocaleString('en-US')} tokens</span><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`:`<div class="msg-meta"><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`;
+ const meta=!user?`<div class="msg-meta assistant-meta"><span class="assistant-signature"><span class="assistant-dot">✦</span>${esc(settings.assistantName||'AiWay')}</span><span class="model-short" title="${esc(m.model||'')}">${esc(shortModelName(m.model))}</span><span class="token-count">${m.streaming?'≈ ':''}${Number(tokens).toLocaleString('en-US')} tokens</span><span class="request-count">${Number(m.aiRequests||0).toLocaleString('en-US')} requests</span><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`:`<div class="msg-meta"><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`;
  const emptyState=!user&&m.streaming&&!m.content?`<div class="stream-stage"><span class="stage-spinner"></span><span>${m.agentStage|| (m.searching?'أبحث في الويب وأجمع المصادر…':'أجهز الإجابة…')}</span></div>`:'';
  if(user)return `<div class="msg-row user ${m.streaming?'streaming':''}" data-index="${i}"><div class="bubble"><div class="content">${markdown(m.content||'',!!m.streaming,m.sources||[],i)}</div>${atts?`<div class="attachment-list">${atts}</div>`:''}${meta}</div><div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div></div>`;
  return `<div class="msg-row assistant ${m.streaming?'streaming':''}" data-index="${i}"><div class="assistant-doc"><div class="assistant-head"><div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div><span>${esc(settings.assistantName||'AiWay')}</span></div><div class="content">${emptyState}${markdown(m.content||'',!!m.streaming,m.sources||[],i)}${m.streaming&&m.content?'<span class="stream-caret"></span>':''}</div>${atts?`<div class="attachment-list">${atts}</div>`:''}${sourcesHtml(m.sources,i)}${artifactHtml(m,i)}${meta}</div></div>`;
@@ -1041,7 +1041,7 @@ function scheduleStreamPaint(idx,final=false){
    el.innerHTML=empty+markdown(m.content||'',!final,m.sources||[],idx)+((!final&&!openCode)?'<span class="stream-caret"></span>':'');
    row.classList.toggle('streaming',!final);
    row.querySelectorAll('.code-block').forEach(b=>b.classList.toggle('streaming-code',!final&&openCode));
-   const tc=row.querySelector('.token-count');if(tc){const n=m.usage?.total_tokens||m.liveTokens||0;tc.textContent=(m.streaming&&!m.usage?.total_tokens?'≈ ':'')+Number(n).toLocaleString('en-US')+' tokens'}
+   const tc=row.querySelector('.token-count');if(tc){const n=m.usage?.total_tokens||m.liveTokens||0;tc.textContent=(m.streaming&&!m.usage?.total_tokens?'≈ ':'')+Number(n).toLocaleString('en-US')+' tokens'}const rc=row.querySelector('.request-count');if(rc)rc.textContent=Number(m.aiRequests||0).toLocaleString('en-US')+' requests'
    const oldSources=row.querySelector('.sources-strip');
    if(!oldSources&&m.sources?.length){row.querySelector('.msg-meta')?.insertAdjacentHTML('beforebegin',sourcesHtml(m.sources,idx));bindSourceUI(row)}
    bindCodeCopy(row);followStreamBottom();
@@ -1251,7 +1251,7 @@ function finishThinkingUI(){
  el.style.transition='opacity .18s,transform .18s';el.style.opacity='0';el.style.transform='translateY(-3px)';setTimeout(()=>el.remove(),180);
 }
 function beginAssistantBubble(searching=false){
- finishThinkingUI();const m={role:'assistant',content:'',time:Date.now(),model:settings.model,streaming:true,searching,promptTokenEstimate:currentPromptTokens(),liveTokens:0,sources:[]};activeChat.messages.push(m);
+ finishThinkingUI();const m={role:'assistant',content:'',time:Date.now(),model:settings.model,streaming:true,searching,promptTokenEstimate:currentPromptTokens(),liveTokens:0,aiRequests:0,sources:[]};activeChat.messages.push(m);
  const idx=activeChat.messages.length-1;streamAssistantIdx=idx;autoFollow=true;const box=$('#messages');box.insertAdjacentHTML('beforeend',messageHtml(m,idx));bindMsgActions();scrollBottom(false);return idx;
 }
 function setGenerating(on){
@@ -1260,6 +1260,17 @@ function setGenerating(on){
  else{b.classList.remove('stop');b.innerHTML='<svg viewBox="0 0 24 24" fill="none"><path d="m5 12 14-7-4.5 14-3-5.5L5 12Z" stroke="white" stroke-width="1.7" stroke-linejoin="round"/><path d="m11.5 13.5 3-3" stroke="white" stroke-width="1.7"/></svg>'}
 }
 
+
+function bumpAIRequest(idx=streamAssistantIdx){
+ const m=activeChat?.messages?.[idx];if(!m||m.role!=='assistant')return 0;m.aiRequests=(m.aiRequests||0)+1;scheduleStreamPaint(idx,false);return m.aiRequests;
+}
+function sumUsage(total,next){
+ if(!next)return total;const a=total||{},b=next||{};const prompt=(a.prompt_tokens||a.input_tokens||0)+(b.prompt_tokens||b.input_tokens||0),completion=(a.completion_tokens||a.output_tokens||0)+(b.completion_tokens||b.output_tokens||0);return {...a,...b,prompt_tokens:prompt,completion_tokens:completion,total_tokens:(a.total_tokens||0)+(b.total_tokens||b.input_tokens||0)+(b.total_tokens==null?(b.output_tokens||0):0)};
+}
+function agentLocalSummary(){
+ const files=[...new Set(lastAgentChanges.map(x=>x.path))];if(!files.length)return 'تم فحص المشروع باستخدام الأدوات ولم تكن هناك تعديلات مؤكدة تحتاج للحفظ.';return `تم تنفيذ التعديل بنجاح على ${files.length===1?'الملف':'الملفات'}: ${files.map(x=>x.split('/').pop()).join('، ')}. يمكنك مراجعة الـ Diff وتنزيل النسخة المعدلة من الأسفل.`;
+}
+function toolCallKey(name,args){let raw='';try{raw=JSON.stringify(args||{})}catch{raw=String(args||'')}return name+'|'+raw}
 
 function toolOn(name){return !!settings.toolsMaster && !!(settings.codingTools||{})[name]}
 function fillCodingToolsUI(){
@@ -1334,7 +1345,7 @@ function codingToolDefinitions(){
  if(toolOn('workspace'))add('workspace_list_files','List the current project workspace files with path, size, hash and line count. Use this before guessing file names.');
  if(toolOn('selectiveRead')){
   add('workspace_search','Search text across workspace files. Returns matching file paths, line numbers and small snippets. Prefer this before reading large files.',{query:{type:'string'},path:{type:'string',description:'Optional exact path or path substring filter'},max_results:{type:'integer',minimum:1,maximum:30}},['query']);
-  add('workspace_read_range','Read only a line range from one text file. Keep ranges narrow to save tokens.',{path:{type:'string'},start_line:{type:'integer',minimum:1},end_line:{type:'integer',minimum:1,maximum:20000}},['path','start_line','end_line']);
+  add('workspace_read_range','Read only a line range from one text file. Keep ranges narrow to save tokens.',{path:{type:'string'},start_line:{type:'integer',minimum:1},end_line:{type:'integer',minimum:1,maximum:400}},['path','start_line','end_line']);
  }
  if(toolOn('smartPatch'))add('workspace_apply_patch','Edit an existing file in-place by replacing one exact old_text block with new_text. NEVER rewrite a whole existing file when this tool can patch it. old_text must match the current file exactly.',{path:{type:'string'},old_text:{type:'string'},new_text:{type:'string'},expected_occurrences:{type:'integer',minimum:1,maximum:20}},['path','old_text','new_text']);
  if(toolOn('multiFile'))add('workspace_write_file','Create a new text/code file. For an existing file, use workspace_apply_patch instead unless overwrite is explicitly necessary.',{path:{type:'string'},content:{type:'string'},overwrite:{type:'boolean'}},['path','content']);
@@ -1352,7 +1363,7 @@ async function executeCodingTool(name,args={}){
   const q=String(args.query||'').toLowerCase();if(!q)return {ok:false,error:'query is required'};const max=Math.max(1,Math.min(30,args.max_results||15)),out=[];for(const f of ws.files){if(args.path&&!f.path.includes(String(args.path)))continue;const lines=String(f.text||'').split('\n');for(let i=0;i<lines.length&&out.length<max;i++)if(lines[i].toLowerCase().includes(q))out.push({path:f.path,line:i+1,snippet:lines[i].slice(0,260)});if(out.length>=max)break}return {ok:true,query:args.query,results:out};
  }
  if(name==='workspace_read_range'){
-  const f=ws.files.find(x=>x.path===path);if(!f)return {ok:false,error:`File not found: ${path}`};const lines=String(f.text||'').split('\n'),start=Math.max(1,args.start_line||1),end=Math.min(lines.length,Math.max(start,args.end_line||start+80));const key=`${f.hash}:${start}:${end}`;if(toolOn('contextCache')&&workspaceReadCache.has(key))return {...workspaceReadCache.get(key),cached:true};if(toolOn('contextCache')&&ws.cache?.[key]){workspaceReadCache.set(key,ws.cache[key]);return {...ws.cache[key],cached:true,persistent_cache:true}}const result={ok:true,path,hash:f.hash,start_line:start,end_line:end,total_lines:lines.length,content:lines.slice(start-1,end).map((x,i)=>`${start+i}: ${x}`).join('\n')};if(toolOn('contextCache')){workspaceReadCache.set(key,result);ws.cache=ws.cache||{};ws.cache[key]=result;const keys=Object.keys(ws.cache);if(keys.length>60)for(const k of keys.slice(0,keys.length-60))delete ws.cache[k];await dbWorkspacePut(ws)}return result;
+  const f=ws.files.find(x=>x.path===path);if(!f)return {ok:false,error:`File not found: ${path}`};const lines=String(f.text||'').split('\n'),start=Math.max(1,args.start_line||1),requestedEnd=Math.max(start,args.end_line||start+80),end=Math.min(lines.length,start+399,requestedEnd);const key=`${f.hash}:${start}:${end}`;if(toolOn('contextCache')&&workspaceReadCache.has(key))return {...workspaceReadCache.get(key),cached:true};if(toolOn('contextCache')&&ws.cache?.[key]){workspaceReadCache.set(key,ws.cache[key]);return {...ws.cache[key],cached:true,persistent_cache:true}}const result={ok:true,path,hash:f.hash,start_line:start,end_line:end,total_lines:lines.length,content:lines.slice(start-1,end).map((x,i)=>`${start+i}: ${x}`).join('\n')};if(toolOn('contextCache')){workspaceReadCache.set(key,result);ws.cache=ws.cache||{};ws.cache[key]=result;const keys=Object.keys(ws.cache);if(keys.length>60)for(const k of keys.slice(0,keys.length-60))delete ws.cache[k];await dbWorkspacePut(ws)}return result;
  }
  if(name==='workspace_apply_patch'){
   const f=ws.files.find(x=>x.path===path);if(!f)return {ok:false,error:`File not found: ${path}`};const old=String(args.old_text??''),neu=String(args.new_text??'');if(!old)return {ok:false,error:'old_text cannot be empty'};let at=0,count=0;while((at=f.text.indexOf(old,at))!==-1){count++;at+=Math.max(1,old.length)}const expected=args.expected_occurrences||1;if(count!==expected)return {ok:false,error:`Patch safety check failed: old_text occurs ${count} times; expected ${expected}. Read a narrower exact block and retry.`};const before=f.text,after=before.replace(old,neu);const rev={id:uid(),type:'edit',path,before,after,createdAt:Date.now()};if(toolOn('versions'))ws.revisions.push(rev);f.text=after;f.hash=quickHash(after);f.size=after.length;f.modifiedAt=Date.now();ws.updatedAt=Date.now();ws.cache={};ws.revisions=ws.revisions.slice(-30);await dbWorkspacePut(ws);workspaceReadCache.clear();lastAgentChanges.push({path,before,after,revisionId:rev.id});await updateWorkspaceChip();return {ok:true,path,new_hash:f.hash,changed_chars:Math.abs(after.length-before.length),message:'Patch applied in-place'};
@@ -1382,49 +1393,60 @@ function runWorkerSandbox(code,timeout=2500){return new Promise(resolve=>{
  const workerCode=`const logs=[];const safe=(...a)=>logs.push(a.map(x=>{try{return typeof x==='string'?x:JSON.stringify(x)}catch{return String(x)}}).join(' '));console={log:safe,info:safe,warn:safe,error:safe};self.fetch=()=>Promise.reject(new Error('Network disabled in AiWay sandbox'));self.XMLHttpRequest=undefined;self.WebSocket=undefined;self.importScripts=()=>{throw new Error('importScripts disabled')};try{${code}\n;postMessage({ok:true,logs})}catch(e){postMessage({ok:false,error:String(e&&e.stack||e),logs})}`;
  let w;try{w=new Worker(URL.createObjectURL(new Blob([workerCode],{type:'text/javascript'})))}catch(e){resolve({ok:false,error:e.message});return}let done=false;const timer=setTimeout(()=>{if(done)return;done=true;w.terminate();resolve({ok:false,error:`Execution timed out after ${timeout}ms`,timed_out:true})},timeout);w.onmessage=e=>{if(done)return;done=true;clearTimeout(timer);w.terminate();resolve({...e.data,mode:'run'})};w.onerror=e=>{if(done)return;done=true;clearTimeout(timer);w.terminate();resolve({ok:false,error:e.message||'Worker error'})};
  })}
-function agentInstruction(ws){return `${settings.systemPrompt||''}${transientSearchContext||''}\n\n[AiWay Coding Tool Runtime]\nYou have real workspace tools. Choose tools automatically based on the user's request. Do not claim a file was changed unless a tool result confirms it. Prefer workspace_search then workspace_read_range, and keep reads narrow. For existing files, prefer workspace_apply_patch and NEVER emit/rewrite the full file merely to make a small edit. You may patch multiple files when needed. If sandbox_check reports an error and auto-fix is enabled, inspect, patch, and retest. Stop when the task is complete; summarize changed files concisely.\nWorkspace manifest:\n${workspaceManifest(ws)}`.trim()}
+function agentInstruction(ws){return `${settings.systemPrompt||''}${transientSearchContext||''}\n\n[AiWay Coding Tool Runtime]\nYou have real workspace tools. Choose only the minimum tools required for the user's request. Do not claim a file was changed unless a tool result confirms it. For targeted edits, search first, read only a narrow relevant range (normally 20-120 lines), then patch the exact block. NEVER read an entire large file unless strictly necessary and NEVER rewrite a whole existing file for a small edit. Avoid repeating a tool call with the same arguments. After a successful patch, do at most one relevant validation/diff pass, then stop and answer concisely. Use sandbox only when it can actually validate the file type or the user asks to test/debug. Do not create checkpoints, restore, undo, or write new files unless the task requires them. You may patch multiple files when the requested change genuinely spans them. If sandbox_check reports an error and auto-fix is enabled, inspect the failing area, patch, and retest. Stop immediately when the requested task is complete.\nWorkspace manifest:\n${workspaceManifest(ws)}`.trim()}
 function agentConversation(currentText,ws){
- const msgs=(activeChat?.messages||[]).filter(m=>['user','assistant'].includes(m.role)&&!m.streaming).slice(-8).map(m=>({role:m.role,content:String(m.content||'')}));
- if(!msgs.length||msgs.at(-1).role!=='user'||msgs.at(-1).content!==currentText)msgs.push({role:'user',content:currentText||'Please inspect the attached workspace files and perform the requested change.'});else if(!currentText)msgs[msgs.length-1].content='Please inspect the attached workspace files and perform the requested change.';return msgs;
+ const current=String(currentText||'').trim()||'Please inspect the attached workspace files and perform the requested change.';
+ const history=(activeChat?.messages||[]).filter(m=>['user','assistant'].includes(m.role)&&!m.streaming&&String(m.content||'').trim()!==current).slice(-2).map(m=>({role:m.role,content:String(m.content||'').slice(0,1600)}));
+ return [...history,{role:'user',content:current}];
 }
 function toOpenAITools(defs){return defs.map(d=>({type:'function',function:{name:d.name,description:d.description,parameters:d.parameters}}))}
 async function callOpenAIAgent(messages,defs,signal){
  const body={model:settings.model,messages,tools:toOpenAITools(defs),tool_choice:'auto',stream:false,max_tokens:settings.maxTokens||2048};if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;applyReasoningOpenAI(body);
  const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||data?.message||`Tool calling HTTP ${r.status}`);return data;
 }
+function compactOpenAIToolHistory(messages){
+ const toolIdx=messages.map((m,i)=>m.role==='tool'?i:-1).filter(i=>i>=0);for(const i of toolIdx.slice(0,-3)){const m=messages[i];if(String(m.content||'').length>180)m.content='{"ok":true,"compacted":true,"note":"Older tool output omitted; re-read from workspace if needed."}'}return messages;
+}
 async function runOpenAIAgent(text,ws,defs,assistantIdx){
- let messages=[{role:'system',content:agentInstruction(ws)},...agentConversation(text,ws)],usage=null;
+ let messages=[{role:'system',content:agentInstruction(ws)},...agentConversation(text,ws)],usage=null,lastMutationRound=-1;const seen=new Set();
  for(let round=0;round<AGENT_MAX_ROUNDS;round++){
-  const data=await callOpenAIAgent(messages,defs,aborter.signal),msg=data?.choices?.[0]?.message||{};usage=data.usage||usage;const calls=msg.tool_calls||[];
-  if(!calls.length){return {text:typeof msg.content==='string'?msg.content:(msg.content||[]).map(x=>x.text||'').join('')||'تم تنفيذ المهمة.',usage}}
-  messages.push(msg);
-  for(const c of calls){let args={};try{args=JSON.parse(c.function?.arguments||'{}')}catch{}setAgentStage(assistantIdx,`أستخدم ${c.function?.name||'tool'}…`);const result=await executeCodingTool(c.function?.name,args);messages.push({role:'tool',tool_call_id:c.id,content:JSON.stringify(result)});if(!result.ok&&toolOn('autoFix'))setAgentStage(assistantIdx,'وجدت مشكلة؛ أحاول الإصلاح وإعادة الفحص…')}
+  compactOpenAIToolHistory(messages);bumpAIRequest(assistantIdx);const data=await callOpenAIAgent(messages,defs,aborter.signal),msg=data?.choices?.[0]?.message||{};usage=sumUsage(usage,data.usage);const calls=msg.tool_calls||[];
+  if(!calls.length){return {text:typeof msg.content==='string'?msg.content:(msg.content||[]).map(x=>x.text||'').join('')||agentLocalSummary(),usage}}
+  messages.push(msg);let mutated=false;
+  for(const c of calls){let args={};try{args=JSON.parse(c.function?.arguments||'{}')}catch{}const name=c.function?.name||'tool',key=toolCallKey(name,args);setAgentStage(assistantIdx,`أستخدم ${name}…`);let result;if(seen.has(key))result={ok:false,duplicate:true,error:'Duplicate tool call skipped. Use the existing result or finish the task.'};else{seen.add(key);result=await executeCodingTool(name,args)}messages.push({role:'tool',tool_call_id:c.id,content:JSON.stringify(result)});if(result.ok&&['workspace_apply_patch','workspace_write_file','workspace_restore_checkpoint','workspace_undo'].includes(name))mutated=true;if(!result.ok&&toolOn('autoFix')&&!result.duplicate)setAgentStage(assistantIdx,'وجدت مشكلة؛ أحاول الإصلاح وإعادة الفحص…')}
+  if(mutated)lastMutationRound=round;else if(lastAgentChanges.length&&lastMutationRound>=0&&round>lastMutationRound)return {text:agentLocalSummary(),usage,completedLocally:true};
  }
- return {text:'تم الوصول للحد الأقصى لجولات الأدوات. راجع التعديلات الحالية قبل المتابعة.',usage};
+ return {text:lastAgentChanges.length?agentLocalSummary():'لم تكتمل المهمة ضمن عدد جولات الأدوات المسموح. لم يتم تأكيد تعديل ناجح؛ حاول تحديد الجزء المطلوب بصورة أدق.',usage,limitReached:!lastAgentChanges.length};
 }
 function toAnthropicTools(defs){return defs.map(d=>({name:d.name,description:d.description,input_schema:d.parameters}))}
 async function callAnthropicAgent(messages,defs,ws){
  const body={model:settings.model,max_tokens:settings.maxTokens||2048,system:agentInstruction(ws),messages,tools:toAnthropicTools(defs),tool_choice:{type:'auto'},stream:false};if(Number.isFinite(settings.temperature))body.temperature=Math.min(1,Math.max(0,settings.temperature));
  const r=await fetch(resolveAnthropicEndpoints().messagesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||data?.message||`Anthropic tool HTTP ${r.status}`);return data;
 }
+function compactAnthropicToolHistory(messages){
+ const idx=messages.map((m,i)=>m.role==='user'&&Array.isArray(m.content)&&m.content.some(x=>x?.type==='tool_result')?i:-1).filter(i=>i>=0);for(const i of idx.slice(0,-1)){messages[i].content=messages[i].content.map(x=>x?.type==='tool_result'?{...x,content:'{"ok":true,"compacted":true,"note":"Older tool output omitted; re-read if needed."}'}:x)}return messages;
+}
 async function runAnthropicAgent(text,ws,defs,assistantIdx){
- let messages=agentConversation(text,ws).map(m=>({role:m.role,content:m.content})),usage=null;
+ let messages=agentConversation(text,ws).map(m=>({role:m.role,content:m.content})),usage=null,lastMutationRound=-1;const seen=new Set();
  for(let round=0;round<AGENT_MAX_ROUNDS;round++){
-  const data=await callAnthropicAgent(messages,defs,ws);usage=extractUsage(data)||usage;const blocks=data.content||[],calls=blocks.filter(x=>x.type==='tool_use');if(!calls.length)return {text:blocks.filter(x=>x.type==='text').map(x=>x.text||'').join('')||'تم تنفيذ المهمة.',usage};messages.push({role:'assistant',content:blocks});const results=[];for(const c of calls){setAgentStage(assistantIdx,`أستخدم ${c.name}…`);const result=await executeCodingTool(c.name,c.input||{});results.push({type:'tool_result',tool_use_id:c.id,content:JSON.stringify(result),is_error:!result.ok})}messages.push({role:'user',content:results});
+  compactAnthropicToolHistory(messages);bumpAIRequest(assistantIdx);const data=await callAnthropicAgent(messages,defs,ws);usage=sumUsage(usage,extractUsage(data));const blocks=data.content||[],calls=blocks.filter(x=>x.type==='tool_use');if(!calls.length)return {text:blocks.filter(x=>x.type==='text').map(x=>x.text||'').join('')||agentLocalSummary(),usage};messages.push({role:'assistant',content:blocks});const results=[];let mutated=false;for(const c of calls){const key=toolCallKey(c.name,c.input||{});setAgentStage(assistantIdx,`أستخدم ${c.name}…`);let result;if(seen.has(key))result={ok:false,duplicate:true,error:'Duplicate tool call skipped. Use the existing result or finish the task.'};else{seen.add(key);result=await executeCodingTool(c.name,c.input||{})}results.push({type:'tool_result',tool_use_id:c.id,content:JSON.stringify(result),is_error:!result.ok});if(result.ok&&['workspace_apply_patch','workspace_write_file','workspace_restore_checkpoint','workspace_undo'].includes(c.name))mutated=true}messages.push({role:'user',content:results});if(mutated)lastMutationRound=round;else if(lastAgentChanges.length&&lastMutationRound>=0&&round>lastMutationRound)return {text:agentLocalSummary(),usage,completedLocally:true};
  }
- return {text:'تم الوصول للحد الأقصى لجولات الأدوات. راجع التعديلات الحالية قبل المتابعة.',usage};
+ return {text:lastAgentChanges.length?agentLocalSummary():'لم تكتمل المهمة ضمن عدد جولات الأدوات المسموح. لم يتم تأكيد تعديل ناجح؛ حاول تحديد الجزء المطلوب بصورة أدق.',usage,limitReached:!lastAgentChanges.length};
 }
 function toGeminiDeclarations(defs){return defs.map(d=>{const parameters=JSON.parse(JSON.stringify(d.parameters));delete parameters.additionalProperties;return {name:d.name,description:d.description,parameters}})}
 async function callGeminiAgent(contents,defs,ws){
  const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;const body={contents,systemInstruction:{parts:[{text:agentInstruction(ws)}]},tools:[{functionDeclarations:toGeminiDeclarations(defs)}],toolConfig:{functionCallingConfig:{mode:'AUTO'}},generationConfig:{temperature:settings.temperature,topP:settings.topP,maxOutputTokens:settings.maxTokens}};
  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||`Gemini tool HTTP ${r.status}`);return data;
 }
+function compactGeminiToolHistory(contents){
+ const idx=contents.map((m,i)=>m.role==='user'&&Array.isArray(m.parts)&&m.parts.some(x=>x?.functionResponse)?i:-1).filter(i=>i>=0);for(const i of idx.slice(0,-1)){contents[i].parts=contents[i].parts.map(x=>x?.functionResponse?{functionResponse:{name:x.functionResponse.name,response:{ok:true,compacted:true,note:'Older tool output omitted; re-read if needed.'},id:x.functionResponse.id}}:x)}return contents;
+}
 async function runGeminiAgent(text,ws,defs,assistantIdx){
- let contents=agentConversation(text,ws).map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),usage=null;
+ let contents=agentConversation(text,ws).map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),usage=null,lastMutationRound=-1;const seen=new Set();
  for(let round=0;round<AGENT_MAX_ROUNDS;round++){
-  const data=await callGeminiAgent(contents,defs,ws);usage=extractUsage(data)||usage;const content=data?.candidates?.[0]?.content||{role:'model',parts:[]},parts=content.parts||[],calls=parts.filter(p=>p.functionCall);if(!calls.length)return {text:parts.map(p=>p.text||'').join('')||'تم تنفيذ المهمة.',usage};contents.push(content);const responseParts=[];for(const p of calls){const c=p.functionCall;setAgentStage(assistantIdx,`أستخدم ${c.name}…`);const result=await executeCodingTool(c.name,c.args||{});responseParts.push({functionResponse:{name:c.name,response:result,id:c.id}})}contents.push({role:'user',parts:responseParts});
+  compactGeminiToolHistory(contents);bumpAIRequest(assistantIdx);const data=await callGeminiAgent(contents,defs,ws);usage=sumUsage(usage,extractUsage(data));const content=data?.candidates?.[0]?.content||{role:'model',parts:[]},parts=content.parts||[],calls=parts.filter(p=>p.functionCall);if(!calls.length)return {text:parts.map(p=>p.text||'').join('')||agentLocalSummary(),usage};contents.push(content);const responseParts=[];let mutated=false;for(const p of calls){const c=p.functionCall,key=toolCallKey(c.name,c.args||{});setAgentStage(assistantIdx,`أستخدم ${c.name}…`);let result;if(seen.has(key))result={ok:false,duplicate:true,error:'Duplicate tool call skipped. Use the existing result or finish the task.'};else{seen.add(key);result=await executeCodingTool(c.name,c.args||{})}responseParts.push({functionResponse:{name:c.name,response:result,id:c.id}});if(result.ok&&['workspace_apply_patch','workspace_write_file','workspace_restore_checkpoint','workspace_undo'].includes(c.name))mutated=true}contents.push({role:'user',parts:responseParts});if(mutated)lastMutationRound=round;else if(lastAgentChanges.length&&lastMutationRound>=0&&round>lastMutationRound)return {text:agentLocalSummary(),usage,completedLocally:true};
  }
- return {text:'تم الوصول للحد الأقصى لجولات الأدوات. راجع التعديلات الحالية قبل المتابعة.',usage};
+ return {text:lastAgentChanges.length?agentLocalSummary():'لم تكتمل المهمة ضمن عدد جولات الأدوات المسموح. لم يتم تأكيد تعديل ناجح؛ حاول تحديد الجزء المطلوب بصورة أدق.',usage,limitReached:!lastAgentChanges.length};
 }
 async function shouldUseCodingAgent(){if(!settings.toolsMaster)return false;const ws=await getWorkspace(false);return !!ws?.files?.length&&codingToolDefinitions().length>0}
 function setAgentStage(idx,label){const m=activeChat?.messages?.[idx];if(!m)return;m.agentStage=label;scheduleStreamPaint(idx,false)}
@@ -1474,10 +1496,10 @@ async function send(){
 }
 async function sendAnthropic(){
  const url=resolveAnthropicEndpoints().messagesUrl;let body=anthropicRequest();
- let r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});
+ bumpAIRequest();let r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});
  if(!r.ok && (body.thinking||body.output_config)){
    const fallback={...body};delete fallback.thinking;delete fallback.output_config;
-   r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(fallback),signal:aborter.signal});
+   bumpAIRequest();r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(fallback),signal:aborter.signal});
  }
  if(!r.ok){let err;try{err=await r.json()}catch(err){err={}};throw new Error(err?.error?.message||err?.message||('Anthropic HTTP '+r.status))}
  const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم في هذا المتصفح أو البروفايدر');
@@ -1511,10 +1533,10 @@ async function sendAnthropic(){
 }
 async function sendGemini(){
  const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(settings.apiKey)}`;
- let r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(geminiRequest()),signal:aborter.signal});
+ bumpAIRequest();let r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(geminiRequest()),signal:aborter.signal});
  if(!r.ok && settings.reasoningLevel!=='auto' && settings.reasoningLevel!=='off'){
    const body=geminiRequest();if(body.generationConfig)delete body.generationConfig.thinkingConfig;
-   r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});
+   bumpAIRequest();r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});
  }
  if(!r.ok){let err;try{err=await r.json()}catch(err){err={}};throw new Error(err?.error?.message||('Gemini HTTP '+r.status))}
  const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم هنا');
@@ -1539,10 +1561,10 @@ async function sendGemini(){
 }
 async function sendOpenAICompatible(){
  const url=resolveCompatibleEndpoints().chatUrl;let body=openAIRequest();
- let r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});
+ bumpAIRequest();let r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});
  if(!r.ok && (body.reasoning||body.reasoning_effort)){
    const fallback={...body};delete fallback.reasoning;delete fallback.reasoning_effort;
-   r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(fallback),signal:aborter.signal});
+   bumpAIRequest();r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(fallback),signal:aborter.signal});
  }
  if(!r.ok){let err=null;try{err=await r.json()}catch(errParse){err=null};throw new Error(err?.error?.message||err?.message||('HTTP '+r.status))}
  const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم في هذا المتصفح أو البروفايدر');
