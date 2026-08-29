@@ -538,7 +538,7 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
           <div class="coding-tool-card" data-tool-card="multiFile"><div class="coding-tool-icon">⋯</div><div class="coding-tool-copy"><b>Transactional Multi-file Editing <span class="tool-badge">Atomic</span></b><small>عدة تعديلات وملفات داخل transaction واحدة؛ إما تنجح كلها أو يتم rollback لكل المشروع.</small></div><span class="switch coding-tool-switch" data-tool="multiFile"></span></div>
           <div class="coding-tool-card" data-tool-card="versions"><div class="coding-tool-icon">↶</div><div class="coding-tool-copy"><b>Undo / Version History / Checkpoints <span class="tool-badge">Function</span></b><small>إنشاء checkpoint تلقائي قبل التعديلات وإمكانية التراجع عن آخر تعديل.</small></div><span class="switch coding-tool-switch" data-tool="versions"></span></div>
           <div class="coding-tool-card" data-tool-card="autoFix"><div class="coding-tool-icon">✓</div><div class="coding-tool-copy"><b>Bounded Fix → Validate → Retest <span class="tool-badge">Agent</span></b><small>إصلاح واختبار بميزانية requests حسب نوع المهمة، مع إيقاف مبكر فور نجاح التعديل بدل loop ثابت.</small></div><span class="switch coding-tool-switch" data-tool="autoFix"></span></div>
-          <div class="coding-tool-card" data-tool-card="skillSystem"><div class="coding-tool-icon">⌘</div><div class="coding-tool-copy"><b>Dynamic Tool Router + MCP <span class="tool-badge">Auto</span></b><small>Task Classifier محلي يعرض للموديل أقل مجموعة أدوات لازمة فقط، ويحمّل MCP عند الحاجة بدل إرسال كل schemas دائمًا.</small></div><span class="switch coding-tool-switch" data-tool="skillSystem"></span></div>
+          <div class="coding-tool-card" data-tool-card="skillSystem"><div class="coding-tool-icon">⌘</div><div class="coding-tool-copy"><b>Agent Skills + Dynamic Tool Router <span class="tool-badge">Auto</span></b><small>مهارات محلية قابلة للاكتشاف تُحمّل حسب المهمة، ثم يرسل الراوتر أقل مجموعة Tools/MCP لازمة فقط بدل إرسال كل التعليمات والـschemas في كل طلب.</small></div><span class="switch coding-tool-switch" data-tool="skillSystem"></span></div>
         </div>
         <div class="grid" style="margin-top:12px">
           <div class="field full"><label>Remote MCP Endpoint (اختياري)</label><input class="input" id="mcpUrl" dir="ltr" placeholder="https://your-mcp-server.example.com/mcp"><div class="hint">Streamable HTTP MCP مباشر من المتصفح. يجب أن يسمح السيرفر بـ CORS. لا يتم تمرير الاتصال عبر Vercel.</div></div>
@@ -651,6 +651,7 @@ let db;
 let workspaceReadCache=new Map();
 let repoIntelligenceCache=new Map();
 let currentAgentTask=null;
+let currentAgentSkills=[];
 let lastAgentChanges=[];
 let mcpToolMap=new Map();
 let mcpSessionId='';
@@ -1337,9 +1338,17 @@ function parseMcpHeaders(){try{return settings.mcpHeaders?.trim()?JSON.parse(set
 async function mcpRpc(method,params={},notification=false){
  const url=String(settings.mcpUrl||'').trim();if(!/^https?:\/\//i.test(url))throw new Error('MCP Endpoint غير صالح');const id=uid();const headers={'Content-Type':'application/json','Accept':'application/json, text/event-stream',...parseMcpHeaders()};if(mcpSessionId)headers['Mcp-Session-Id']=mcpSessionId;const body=notification?{jsonrpc:'2.0',method,params}:{jsonrpc:'2.0',id,method,params};const r=await fetch(url,{method:'POST',headers,body:JSON.stringify(body),signal:aborter?.signal});const sid=r.headers.get('mcp-session-id');if(sid)mcpSessionId=sid;const raw=await r.text();if(!r.ok)throw new Error(`MCP HTTP ${r.status}: ${raw.slice(0,240)}`);if(notification)return {ok:true};let data;try{data=JSON.parse(raw)}catch{const lines=raw.split('\n').filter(x=>x.startsWith('data:')).map(x=>x.slice(5).trim()).filter(Boolean);if(!lines.length)throw new Error('MCP response غير مفهوم');data=JSON.parse(lines.at(-1))}if(data.error)throw new Error(data.error.message||'MCP error');return data.result??data
 }
-async function loadMcpTools(){
+function toolRelevanceScore(tool,query=''){
+ const q=String(query||'').toLowerCase(),terms=(q.match(/[\p{L}\p{N}_-]{3,}/gu)||[]).slice(0,24),hay=(String(tool?.name||'')+' '+String(tool?.description||'')).toLowerCase();let score=0;
+ for(const term of terms)if(hay.includes(term))score+=term.length>6?3:1;
+ if(/github|gitlab|repo|issue|pull/.test(q)&&/github|gitlab|repo|issue|pull/.test(hay))score+=8;
+ if(/database|postgres|mysql|sql|قاعدة/.test(q)&&/database|postgres|mysql|sql/.test(hay))score+=8;
+ if(/slack|message|رسالة/.test(q)&&/slack|message/.test(hay))score+=6;
+ return score;
+}
+async function loadMcpTools(query=''){
  mcpToolMap.clear();mcpSessionId='';if(!toolOn('skillSystem')||!settings.mcpUrl?.trim())return [];
- try{await mcpRpc('initialize',{protocolVersion:'2025-03-26',capabilities:{},clientInfo:{name:'AiWay',version:'1.0.0'}});try{await mcpRpc('notifications/initialized',{},true)}catch{}const result=await mcpRpc('tools/list',{}),tools=Array.isArray(result?.tools)?result.tools:[];return tools.slice(0,24).map(t=>{const safe=('mcp__'+String(t.name||'tool')).replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,64);mcpToolMap.set(safe,t.name);return {name:safe,description:`Remote MCP: ${t.description||t.name||'tool'}`,parameters:t.inputSchema&&typeof t.inputSchema==='object'?t.inputSchema:{type:'object',properties:{}}}})}catch(e){console.warn('MCP tools unavailable:',e);toast('تعذر تحميل MCP: '+e.message,'error');return []}
+ try{await mcpRpc('initialize',{protocolVersion:'2025-03-26',capabilities:{},clientInfo:{name:'AiWay',version:'1.1.0'}});try{await mcpRpc('notifications/initialized',{},true)}catch{}const result=await mcpRpc('tools/list',{}),all=Array.isArray(result?.tools)?result.tools:[],ranked=all.map((t,i)=>({t,i,score:toolRelevanceScore(t,query)})).sort((a,b)=>b.score-a.score||a.i-b.i),limit=String(query||'').trim()?8:12,tools=ranked.slice(0,limit).map(x=>x.t);return tools.map(t=>{const safe=('mcp__'+String(t.name||'tool')).replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,64);mcpToolMap.set(safe,t.name);return {name:safe,description:`Remote MCP: ${t.description||t.name||'tool'}`,parameters:t.inputSchema&&typeof t.inputSchema==='object'?t.inputSchema:{type:'object',properties:{}}}})}catch(e){console.warn('MCP tools unavailable:',e);toast('تعذر تحميل MCP: '+e.message,'error');return []}
 }
 async function executeMcpTool(name,args={}){const remote=mcpToolMap.get(name);if(!remote)return {ok:false,error:'Remote MCP tool not found'};try{const result=await mcpRpc('tools/call',{name:remote,arguments:args});return {ok:true,mcp_tool:remote,result}}catch(e){return {ok:false,mcp_tool:remote,error:e.message}}}
 function classifyCodingTask(text=''){
@@ -1359,6 +1368,19 @@ function classifyCodingTask(text=''){
  if(explain)return {kind:'ANALYZE',direct:false,mutating:false,maxRounds:2};
  return {kind:'ANALYZE',direct:false,mutating:false,maxRounds:2};
 }
+const LOCAL_AGENT_SKILLS=[
+ {id:'precision-ui',title:'Precision UI Edit',kinds:['DIRECT_EDIT','MULTI_FILE'],triggers:/لون|ألوان|color|theme|css|ستايل|style|واجهة|ui|button|زر|spacing|font|خط/i,instructions:'For visual changes, inspect CSS inventory first. Prefer semantic CSS variable/property edits. Preserve responsive behavior and avoid broad literal replacement when a selector or variable can express the change.'},
+ {id:'debug-validate',title:'Debug & Validate',kinds:['BUG_FIX','TEST'],triggers:/bug|debug|error|خطأ|مشكلة|test|اختبر|فحص|lint|syntax/i,instructions:'Localize the failure before editing. Read only the smallest relevant windows, make one atomic fix, then validate touched files. Never invent test success when the local validator cannot run the project stack.'},
+ {id:'safe-refactor',title:'Safe Refactor',kinds:['MULTI_FILE'],triggers:/refactor|rename|migration|عدة ملفات|كل الملفات|component|feature|انقل/i,instructions:'Map dependencies and symbols before mutation. Group related changes into one transaction, avoid partial migrations, and validate every touched file. Prefer stable indexed blocks over global text replacement.'},
+ {id:'repo-analysis',title:'Repository Analysis',kinds:['ANALYZE'],triggers:/راجع|review|حلل|analy|اشرح|explain|architecture|معمار/i,instructions:'Start from the repository map, then search for evidence and read only relevant windows. Separate observations from proposed changes. Do not mutate unless the user explicitly asks for an edit.'},
+ {id:'version-recovery',title:'Version Recovery',kinds:['VERSION'],triggers:/undo|rollback|restore|checkpoint|تراجع|استرجع|نقطة حفظ/i,instructions:'Treat version operations as state changes. Prefer the narrowest undo or restore operation and report exactly which revision or checkpoint was applied.'},
+ {id:'external-mcp',title:'External MCP Integration',kinds:['EXTERNAL'],triggers:/mcp|github|gitlab|jira|slack|database|postgres|mysql|remote|خارجي/i,instructions:'Use remote tools only when local workspace tools cannot satisfy the request. Select the smallest relevant remote-tool subset, avoid duplicate calls, and never expose MCP headers or credentials.'}
+];
+function selectLocalAgentSkills(text='',task=classifyCodingTask(text),ws=null){
+ if(!toolOn('skillSystem'))return [];const q=String(text||''),extSet=new Set((ws?.files||[]).map(f=>(f.path.split('.').pop()||'').toLowerCase()));
+ return LOCAL_AGENT_SKILLS.map((skill,i)=>{let score=skill.kinds.includes(task.kind)?8:0;if(skill.triggers.test(q))score+=5;if(skill.id==='precision-ui'&&['css','html','htm'].some(x=>extSet.has(x)))score+=2;if(skill.id==='safe-refactor'&&(ws?.files?.length||0)>1)score+=1;return {skill,score,i}}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||a.i-b.i).slice(0,2).map(x=>x.skill);
+}
+function agentSkillsInstruction(skills=currentAgentSkills){if(!skills?.length)return '';return '\nActive skills (loaded on demand):\n'+skills.map(s=>`- ${s.title} [${s.id}]: ${s.instructions}`).join('\n')}
 function workspaceFingerprint(ws){return (ws?.files||[]).map(f=>`${f.path}:${f.hash}`).sort().join('|')}
 function lineAt(text,offset){let n=1;for(let i=0;i<offset&&i<text.length;i++)if(text.charCodeAt(i)===10)n++;return n}
 function findMatchingBrace(text,open){let d=0,s=null,esc=false;for(let i=open;i<text.length;i++){const c=text[i];if(s){if(esc){esc=false;continue}if(c==='\\'){esc=true;continue}if(c===s)s=null;continue}if(c==='"'||c==="'"||c==='`'){s=c;continue}if(c==='{')d++;else if(c==='}'&&--d===0)return i}return -1}
@@ -1388,15 +1410,27 @@ function dynamicToolPolicy(task){
  if(task.mutating&&toolOn('smartPatch'))names.add('workspace_safe_edit');if((task.kind==='BUG_FIX'||task.kind==='TEST')&&toolOn('sandbox'))names.add('workspace_validate');if(toolOn('diffViewer')&&task.mutating)names.add('workspace_diff');if(task.kind==='VERSION'&&toolOn('versions')){names.add('workspace_checkpoint');names.add('workspace_restore_checkpoint');names.add('workspace_undo')}
  return names;
 }
+function safeEditParameters(){
+ const str={type:'string'};
+ const variant=(properties,required)=>({type:'object',properties,required,additionalProperties:false});
+ return {type:'object',properties:{operations:{type:'array',minItems:1,maxItems:32,items:{anyOf:[
+  variant({op:{type:'string',enum:['set_css_var']},path:str,name:str,value:str,selector:str},['op','path','name','value','selector']),
+  variant({op:{type:'string',enum:['set_css_property']},path:str,selector:str,property:str,value:str},['op','path','selector','property','value']),
+  variant({op:{type:'string',enum:['replace_block']},block_id:str,new_text:str},['op','block_id','new_text']),
+  variant({op:{type:'string',enum:['replace_literal']},path:str,old_text:str,new_text:str,expected_occurrences:{type:'integer',minimum:1,maximum:50}},['op','path','old_text','new_text','expected_occurrences']),
+  variant({op:{type:'string',enum:['create_file']},path:str,content:str},['op','path','content'])
+ ]}}},required:['operations'],additionalProperties:false};
+}
+function safeEditToolDefinition(){return {name:'workspace_safe_edit',description:'Apply exactly one validated atomic edit transaction to the current workspace. Use semantic CSS operations for styling, stable block replacement for indexed code, and literal replacement only when uniquely known. The executor validates and rolls back on failure.',parameters:safeEditParameters()}}
 function codingToolDefinitions(task=classifyCodingTask('')){
  const allow=dynamicToolPolicy(task),defs=[];const add=(name,description,properties={},required=[])=>{if(allow.has(name))defs.push({name,description,parameters:{type:'object',properties,required,additionalProperties:false}})};
- add('workspace_repo_map','استخدم هذه الأداة عندما تحتاج خريطة مختصرة للمستودع (ملفات، رموز، متغيرات CSS، block ids) بدل قراءة ملف كامل. لا تستخدمها للتعديل.',{query:{type:'string',description:'Optional focus term to filter the map'}},[]);
- add('workspace_search','استخدم هذه الأداة عندما تبحث عن نص/رمز داخل ملفات الـWorkspace. ترجع مقتطفات قصيرة فقط؛ لا تستخدمها لقراءة مقاطع طويلة.',{query:{type:'string'},path:{type:'string'},max_results:{type:'integer',minimum:1,maximum:24}},['query']);
- add('workspace_batch_read','استخدم هذه الأداة عندما تحتاج قراءة نوافذ صغيرة (≤140 سطر) من ملف أو أكثر قبل التعديل. لا تقرأ ملفاً ضخماً دفعة واحدة.',{ranges:{type:'array',minItems:1,maxItems:8,items:{type:'object',properties:{path:{type:'string'},start_line:{type:'integer',minimum:1},end_line:{type:'integer',minimum:1}},required:['path','start_line','end_line'],additionalProperties:false}}},['ranges']);
- add('workspace_safe_edit','استخدم هذه الأداة عندما تريد تطبيق تعديل آمن وذري على الملفات. فضّل set_css_var/set_css_property للألوان والستايل، وreplace_block للرموز الثابتة، وreplace_literal كحل أخير. لا تدّعِ النجاح بدون ok. كل ملف يُتحقق منه محلياً مع rollback عند الفشل.',{operations:{type:'array',minItems:1,maxItems:32,items:{type:'object',properties:{op:{type:'string',enum:['set_css_var','set_css_property','replace_block','replace_literal','create_file','set_theme']},path:{type:'string'},name:{type:'string'},selector:{type:'string'},property:{type:'string'},value:{type:'string'},block_id:{type:'string'},new_text:{type:'string'},old_text:{type:'string'},expected_occurrences:{type:'integer',minimum:1,maximum:50},content:{type:'string'},palette:{type:'object',additionalProperties:{type:'string'}}},required:['op'],additionalProperties:false}}},['operations']);
- add('workspace_validate','استخدم هذه الأداة عندما تحتاج التحقق من syntax/JSON أو تشغيل فحص sandbox بعد تعديل مشكوك فيه.',{paths:{type:'array',items:{type:'string'}},run:{type:'boolean'}},['paths']);
- add('workspace_diff','استخدم هذه الأداة عندما تريد فرق before/after لملف تغيّر في هذه الجولة فقط.',{path:{type:'string'}},['path']);
- add('workspace_checkpoint','استخدم هذه الأداة فقط عندما يطلب المستخدم نقطة حفظ صراحة.',{label:{type:'string'}},['label']);add('workspace_restore_checkpoint','استخدم هذه الأداة فقط لاسترجاع checkpoint بمعرّفه عندما يطلب المستخدم ذلك.',{checkpoint_id:{type:'string'}},['checkpoint_id']);add('workspace_undo','استخدم هذه الأداة فقط عندما يطلب المستخدم التراجع عن آخر تعديل.',{},[]);
+ add('workspace_repo_map','Return a compact repository map: files, important symbols, CSS selectors/variables and stable block ids. Use it instead of reading whole files.',{query:{type:'string',description:'Optional focus term to filter the map'}},[]);
+ add('workspace_search','Fast concise text search across workspace. Returns only path, line and one-line snippets; use batch_read for context.',{query:{type:'string'},path:{type:'string'},max_results:{type:'integer',minimum:1,maximum:24}},['query']);
+ add('workspace_batch_read','Read several small file windows in one tool call. Each window is capped to 140 lines.',{ranges:{type:'array',minItems:1,maxItems:8,items:{type:'object',properties:{path:{type:'string'},start_line:{type:'integer',minimum:1},end_line:{type:'integer',minimum:1}},required:['path','start_line','end_line'],additionalProperties:false}}},['ranges']);
+ if(allow.has('workspace_safe_edit'))defs.push(safeEditToolDefinition());
+ add('workspace_validate','Validate one or more workspace files locally after edits. JSON is parsed; JS syntax is checked when safe; CSS/HTML delimiter integrity is checked.',{paths:{type:'array',minItems:1,maxItems:12,items:{type:'string'}},run:{type:'boolean'}},['paths']);
+ add('workspace_diff','Get compact before/after diff for a changed file in this run.',{path:{type:'string'}},['path']);
+ add('workspace_checkpoint','Create a named checkpoint snapshot.',{label:{type:'string'}},['label']);add('workspace_restore_checkpoint','Restore a checkpoint by id.',{checkpoint_id:{type:'string'}},['checkpoint_id']);add('workspace_undo','Undo the most recent edit revision.',{},[]);
  return defs;
 }
 function workspaceManifest(ws){return (ws?.files||[]).map(f=>`${f.path} (${(f.text||'').split(/\r?\n/).length} lines, hash ${f.hash})`).join('\n')||'(workspace empty)'}
@@ -1406,59 +1440,6 @@ function setCssVariable(text,name,value,selector=':root'){const block=findCssBlo
 function setCssProperty(text,selector,property,value){const block=findCssBlock(text,selector);if(!block)return {ok:false,error:`CSS selector not found or ambiguous: ${selector}`};const prop=String(property||'').trim();if(!prop)return {ok:false,error:'property is required'};const re=new RegExp(`(${escapeRegExp(prop)}\\s*:\\s*)([^;}]*)`);let next;if(re.test(block.raw))next=block.raw.replace(re,(_,a)=>a+value);else{const close=block.raw.lastIndexOf('}'),indent=/\n([ \t]+)[^\n]*$/.exec(block.raw.slice(0,close))?.[1]||'  ';next=block.raw.slice(0,close)+`\n${indent}${prop}: ${value};`+block.raw.slice(close)}return {ok:true,text:text.slice(0,block.start)+next+text.slice(block.end)}}
 function balancedCssBraces(text){let d=0,q=null,esc=false,comment=false;for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];if(comment){if(c==='*'&&n==='/'){comment=false;i++}continue}if(q){if(esc){esc=false;continue}if(c==='\\'){esc=true;continue}if(c===q)q=null;continue}if(c==='/'&&n==='*'){comment=true;i++;continue}if(c==='"'||c==="'"){q=c;continue}if(c==='{')d++;else if(c==='}'&&--d<0)return false}return d===0}
 function basicValidateText(path,text){const ext=(path.split('.').pop()||'').toLowerCase();if(ext==='json'){try{JSON.parse(text)}catch(e){return {ok:false,error:`JSON: ${e.message}`}}}if(ext==='css'&&!balancedCssBraces(text))return {ok:false,error:'Unbalanced CSS braces'};if(['js','cjs'].includes(ext)&&!/^\s*(?:import|export)\b/m.test(text)){try{new Function(text)}catch(e){return {ok:false,error:`JavaScript syntax: ${e.message}`}}}if(['html','htm'].includes(ext)&&!/<[a-z!][\s\S]*>/i.test(text))return {ok:false,error:'HTML document structure is not recognizable'};return {ok:true}}
-
-function parseThemeIntent(text=''){
- const t=String(text||'');
- if(!/(لون|ألوان|الوان|ثيم|theme|color|colour|خلفية|background|ابيض|أبيض|أسود|اسود|ارجوان|أرجوان|بنفسج|purple|white|black|dark|light)/i.test(t))return null;
- const hexes=[...t.matchAll(/#([0-9a-fA-F]{3,8})\b/g)].map(m=>'#'+m[1]);
- const map={
-  'ابيض':'#ffffff','أبيض':'#ffffff','white':'#ffffff',
-  'اسود':'#0b0b0f','أسود':'#0b0b0f','black':'#0b0b0f',
-  'ارجواني':'#7c3aed','أرجواني':'#7c3aed','ارجوان':'#7c3aed','أرجوان':'#7c3aed','بنفسجي':'#7c3aed','purple':'#7c3aed','violet':'#7c3aed',
-  'رمادي':'#e5e7eb','gray':'#e5e7eb','grey':'#e5e7eb',
-  'ازرق':'#3b82f6','أزرق':'#3b82f6','blue':'#3b82f6',
-  'اخضر':'#10b981','أخضر':'#10b981','green':'#10b981',
-  'احمر':'#ef4444','أحمر':'#ef4444','red':'#ef4444'
- };
- const found=[];for(const [k,v] of Object.entries(map)){if(t.toLowerCase().includes(k.toLowerCase()))found.push(v)}
- const colors=[...hexes,...found];
- if(!colors.length&&/(فاتح|light)/i.test(t))colors.push('#ffffff');
- if(!colors.length&&/(داكن|dark)/i.test(t))colors.push('#0b0b0f','#7c3aed');
- if(!colors.length)return null;
- const bg=colors[0]||'#ffffff';
- const accent=colors[1]||colors[0]||'#7c3aed';
- const isLight=(()=>{const h=bg.replace('#','');const full=h.length===3?h.split('').map(c=>c+c).join(''):h.slice(0,6);const n=parseInt(full,16);if(!Number.isFinite(n))return true;const r=(n>>16)&255,g=(n>>8)&255,b=n&255;return (r*299+g*587+b*114)/1000>160})();
- return {
-  bg, accent,
-  text:isLight?'#14121c':'#f6f7fb',
-  muted:isLight?'#5b5670':'#b9b2c7',
-  panel:isLight?'rgba(0,0,0,.04)':'rgba(255,255,255,.075)',
-  line:isLight?'rgba(20,18,28,.12)':'rgba(255,255,255,.12)',
-  bg2:isLight?'#f3f0fa':'#0f0b18'
- };
-}
-async function tryLocalThemeEdit(text,ws,assistantIdx){
- if(!toolOn('smartPatch'))return null;
- const theme=parseThemeIntent(text);if(!theme)return null;
- const htmlFiles=(ws.files||[]).filter(f=>/\.html?$/i.test(f.path)||/\.css$/i.test(f.path));
- if(!htmlFiles.length)return null;
- setAgentStage(assistantIdx,'أطبّق ثيماً محلياً آمناً…');
- const target=htmlFiles.find(f=>/index\.html?$/i.test(f.path))||htmlFiles[0];
- const ops=[
-  {op:'set_css_var',path:target.path,name:'--bg',value:theme.bg,selector:':root'},
-  {op:'set_css_var',path:target.path,name:'--bg2',value:theme.bg2,selector:':root'},
-  {op:'set_css_var',path:target.path,name:'--text',value:theme.text,selector:':root'},
-  {op:'set_css_var',path:target.path,name:'--muted',value:theme.muted,selector:':root'},
-  {op:'set_css_var',path:target.path,name:'--panel',value:theme.panel,selector:':root'},
-  {op:'set_css_var',path:target.path,name:'--line',value:theme.line,selector:':root'},
-  {op:'set_css_var',path:target.path,name:'--accent',value:theme.accent,selector:':root'},
-  {op:'set_css_var',path:target.path,name:'--accent2',value:theme.accent,selector:':root'}
- ];
- const res=await applySafeEditOperations({operations:ops});
- if(!res.ok)return {failed:true,error:res.error,usage:null};
- return {ok:true,text:agentLocalSummary()+' (theme local engine)',usage:null,direct:true,localTheme:true};
-}
-
 async function applySafeEditOperations(args={}){
  if(!toolOn('smartPatch'))return {ok:false,error:'Unified Safe Edit Engine disabled'};const ws=await getWorkspace(true),ops=Array.isArray(args.operations)?args.operations.slice(0,32):[];if(!ops.length)return {ok:false,error:'operations array is required'};const index=buildRepoIntelligence(ws),beforeMap=new Map(ws.files.map(f=>[f.path,String(f.text||'')])),touched=new Set();
  try{
@@ -1468,8 +1449,7 @@ async function applySafeEditOperations(args={}){
   for(const [path,arr] of blockOps){const f=ws.files.find(x=>x.path===path);if(!f)throw new Error(`File not found: ${path}`);if(f.hash!==arr[0].b.hash)throw new Error(`Stale repo map for ${path}`);arr.sort((a,b)=>b.b.start-a.b.start);let next=f.text,lastStart=Infinity;for(const x of arr){if(x.b.end>lastStart)throw new Error(`Overlapping block edits in ${path}`);next=next.slice(0,x.b.start)+String(x.op.new_text??'')+next.slice(x.b.end);lastStart=x.b.start}if(next===f.text)throw new Error(`Block edit produced no change in ${path}`);f.text=next;touched.add(path)}
   // Phase 2: deterministic semantic/literal operations over the current in-memory snapshot.
   for(const op of ops.filter(x=>!['create_file','replace_block'].includes(x.op))){const type=String(op.op||''),path=normalizePath(op.path||''),f=ws.files.find(x=>x.path===path);if(!f)throw new Error(`File not found: ${path||'(missing path)'}`);let next=f.text;
-   if(type==='set_theme'){const palette=op.palette&&typeof op.palette==='object'?op.palette:{};const pairs=Object.entries(palette);if(!pairs.length)throw new Error('set_theme requires palette object');for(const [name,value] of pairs){const r=setCssVariable(next,String(name),String(value??''),String(op.selector||':root'));if(!r.ok)throw new Error(r.error);next=r.text}}
-   else if(type==='set_css_var'){const r=setCssVariable(next,String(op.name||''),String(op.value??''),String(op.selector||':root'));if(!r.ok)throw new Error(r.error);next=r.text}
+   if(type==='set_css_var'){const r=setCssVariable(next,String(op.name||''),String(op.value??''),String(op.selector||':root'));if(!r.ok)throw new Error(r.error);next=r.text}
    else if(type==='set_css_property'){const r=setCssProperty(next,String(op.selector||''),String(op.property||''),String(op.value??''));if(!r.ok)throw new Error(r.error);next=r.text}
    else if(type==='replace_literal'){const old=String(op.old_text??''),neu=String(op.new_text??'');if(!old)throw new Error('replace_literal old_text is empty');let count=0,pos=0;while((pos=next.indexOf(old,pos))!==-1){count++;pos+=Math.max(1,old.length)}const expected=Math.max(1,Number(op.expected_occurrences||1));if(count!==expected)throw new Error(`replace_literal safety mismatch in ${f.path}: found ${count}, expected ${expected}`);next=next.split(old).join(neu)}
    else throw new Error(`Unknown edit op: ${type}`);if(next===f.text)throw new Error(`Operation produced no change in ${f.path}`);f.text=next;touched.add(path)}
@@ -1502,7 +1482,12 @@ function runWorkerSandbox(code,timeout=2500){return new Promise(resolve=>{
  const workerCode=`const logs=[];const safe=(...a)=>logs.push(a.map(x=>{try{return typeof x==='string'?x:JSON.stringify(x)}catch{return String(x)}}).join(' '));console={log:safe,info:safe,warn:safe,error:safe};self.fetch=()=>Promise.reject(new Error('Network disabled in AiWay sandbox'));self.XMLHttpRequest=undefined;self.WebSocket=undefined;self.importScripts=()=>{throw new Error('importScripts disabled')};try{${code}\n;postMessage({ok:true,logs})}catch(e){postMessage({ok:false,error:String(e&&e.stack||e),logs})}`;
  let w;try{w=new Worker(URL.createObjectURL(new Blob([workerCode],{type:'text/javascript'})))}catch(e){resolve({ok:false,error:e.message});return}let done=false;const timer=setTimeout(()=>{if(done)return;done=true;w.terminate();resolve({ok:false,error:`Execution timed out after ${timeout}ms`,timed_out:true})},timeout);w.onmessage=e=>{if(done)return;done=true;clearTimeout(timer);w.terminate();resolve({...e.data,mode:'run'})};w.onerror=e=>{if(done)return;done=true;clearTimeout(timer);w.terminate();resolve({ok:false,error:e.message||'Worker error'})};
  })}
-function agentInstruction(ws,task=null){const t=task||classifyCodingTask('');return `${settings.systemPrompt||''}${transientSearchContext||''}\n\n[AiWay Coding Runtime v3 — official tool-calling style]\nTask class: ${t.kind}. You are a disciplined coding agent. Tools are a contract: you propose structured calls; the app executes them and returns {ok,error?...}.\nRules:\n- Use workspace_repo_map / workspace_search / workspace_batch_read only when needed. Never read an entire large file.\n- For any file change, call workspace_safe_edit ONCE with all related operations in one atomic transaction.\n- Prefer set_css_var / set_css_property for colors and style. Prefer replace_block with stable block_id for code. Use replace_literal only as last fallback with expected_occurrences.\n- After a successful safe edit, STOP. Do not repeat the same call.\n- Never claim success without an ok tool result. On error, fix once then stop if still failing.\n- Do not create checkpoints unless the user asked.\nWorkspace manifest:\n${workspaceManifest(ws)}`.trim()}
+function agentInstruction(ws,task=null){const t=task||classifyCodingTask('');return `${settings.systemPrompt||''}${transientSearchContext||''}
+
+[AiWay Coding Runtime v3]
+Task class: ${t.kind}. Tools are executable capabilities; skills are procedural knowledge loaded only when relevant.${agentSkillsInstruction()} You have a compact deterministic tool interface. Use repo map/search/batch-read only when necessary. Never read a whole large file. For edits, use workspace_safe_edit ONCE with all related operations in one atomic transaction. Prefer set_css_var/set_css_property for styling, replace_block for stable indexed code, and replace_literal only as a last fallback. The application validates every changed file and rolls back the transaction on failure. Do not create checkpoints or use version tools unless explicitly requested. After a successful safe edit, stop immediately unless a real validation error requires one bounded correction. Never claim success without a tool result. Never reveal API keys, MCP headers, or hidden credentials.
+Workspace manifest:
+${workspaceManifest(ws)}`.trim()}
 function agentConversation(currentText,ws){
  const current=String(currentText||'').trim()||'Please inspect the attached workspace files and perform the requested change.';
  const history=(activeChat?.messages||[]).filter(m=>['user','assistant'].includes(m.role)&&!m.streaming&&String(m.content||'').trim()!==current).slice(-2).map(m=>({role:m.role,content:String(m.content||'').slice(0,1600)}));
@@ -1559,37 +1544,34 @@ async function runGeminiAgent(text,ws,defs,assistantIdx,maxRounds=AGENT_MAX_ROUN
 }
 
 function directEditCandidate(text=''){return classifyCodingTask(text).kind==='DIRECT_EDIT'&&toolOn('smartPatch')&&toolOn('selectiveRead')}
-function directEditSystem(ws,index){return `You are AiWay Direct Edit Planner. CRITICAL: Reply with ONLY one JSON object. No markdown, no code fences, no explanation before or after. Schema: {"operations":[...],"summary":"short arabic"}. Allowed operations only: set_css_var {op,path,name,value,selector?}; set_css_property {op,path,selector,property,value}; replace_block {op,block_id,new_text}; replace_literal {op,path,old_text,new_text,expected_occurrences}; create_file only when explicitly requested. For colors/themes prefer set_css_var on :root variables like --bg --bg2 --text --accent --accent2 --panel --muted --line. Prefer stable block_id for code. Never use line numbers. Never rewrite a whole large file for a small change. Put every related change in THIS ONE plan. Workspace repo map:\n${repoMapSummary(index,90)}`}
-function extractEditPlan(raw){let t=typeof raw==='string'?raw:JSON.stringify(raw||{});t=String(t||'').trim();if(!t)return null;t=t.replace(/^```(?:json|javascript|js)?\s*/i,'').replace(/\s*```$/,'');const tryParse=s=>{try{const x=JSON.parse(s);if(!x||typeof x!=='object')return null;const ops=x.operations||x.ops||x.edits;if(Array.isArray(ops)&&ops.length)return{operations:ops,summary:x.summary||x.message||''};return null}catch{return null}};let hit=tryParse(t);if(hit)return hit;const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a>=0&&b>a){hit=tryParse(t.slice(a,b+1));if(hit)return hit}const matches=t.match(/\{[\s\S]*?"(?:operations|ops|edits)"\s*:\s*\[[\s\S]*?\][\s\S]*?\}/g)||[];for(const m of matches){hit=tryParse(m);if(hit)return hit}return null}
+function directEditSystem(ws,index){return `You are AiWay's direct code editor. The application will force exactly one workspace_safe_edit tool call.${agentSkillsInstruction()} Put every related change in that single atomic call. Never answer with prose or markdown. Prefer set_css_var/set_css_property for visual styling, replace_block for indexed functions/classes, replace_literal only when the exact literal and occurrence count are known, and create_file only when explicitly needed. Do not rewrite a whole file for a small change. Never include secrets or configured MCP headers in edits. Repository map:
+${repoMapSummary(index,90)}`}
 async function callDirectPlanner(text,ws,index,assistantIdx,repair=''){
- const proto=providerProtocol(),ctx=relevantRepoContext(text,ws,index,12500),prompt=`USER REQUEST:\n${text}\n\nRELEVANT WORKSPACE CONTEXT:\n${ctx.text}${repair?`\n\nLOCAL EXECUTOR REJECTED THE PREVIOUS PLAN:\n${repair}\nReturn a corrected plan. Do not repeat the invalid operation.`:''}`;let raw='',usage=null;setAgentStage(assistantIdx,repair?'أصحح خطة التعديل مرة واحدة…':'أبني خطة تعديل ذكية واحدة…');
- if(proto==='anthropic'){const body={model:settings.model,max_tokens:Math.min(settings.maxTokens||1800,2200),system:directEditSystem(ws,index),messages:[{role:'user',content:prompt}],stream:false,temperature:Math.min(.15,settings.temperature??.15)};bumpAIRequest(assistantIdx);const r=await fetch(resolveAnthropicEndpoints().messagesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d?.error?.message||`Direct edit HTTP ${r.status}`);usage=extractUsage(d);raw=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text||'').join('')}
- else if(proto==='gemini'){const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;const body={contents:[{role:'user',parts:[{text:prompt}]}],systemInstruction:{parts:[{text:directEditSystem(ws,index)}]},generationConfig:{temperature:Math.min(.15,settings.temperature??.15),topP:Math.min(1,settings.topP??1),maxOutputTokens:Math.min(settings.maxTokens||1800,2200),responseMimeType:'application/json'}};bumpAIRequest(assistantIdx);const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d?.error?.message||`Direct edit HTTP ${r.status}`);usage=extractUsage(d);raw=(d?.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('')}
- else{const body={model:settings.model,messages:[{role:'system',content:directEditSystem(ws,index)},{role:'user',content:prompt}],stream:false,max_tokens:Math.min(settings.maxTokens||1800,2200),temperature:Math.min(.15,settings.temperature??.15)};applyReasoningOpenAI(body);bumpAIRequest(assistantIdx);const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d?.error?.message||d?.message||`Direct edit HTTP ${r.status}`);usage=d.usage;const mc=d?.choices?.[0]?.message?.content;raw=Array.isArray(mc)?mc.map(x=>typeof x==='string'?x:(x?.text||x?.content||'')).join(''):String(mc||'')}
- return {plan:extractEditPlan(raw),usage,raw};
+ const proto=providerProtocol(),ctx=relevantRepoContext(text,ws,index,10500),def=safeEditToolDefinition(),prompt=`USER REQUEST:\n${text}\n\nRELEVANT WORKSPACE CONTEXT:\n${ctx.text}${repair?`\n\nTHE LOCAL EXECUTOR REJECTED THE PREVIOUS TOOL ARGUMENTS:\n${repair}\nCorrect the tool arguments. Do not repeat the invalid operation.`:''}`;let usage=null,plan=null,raw='';setAgentStage(assistantIdx,repair?'أصحح معاملات أداة التعديل…':'أجهز عملية Safe Edit مهيكلة…');
+ if(proto==='anthropic'){
+  const body={model:settings.model,max_tokens:Math.min(settings.maxTokens||1800,2200),system:directEditSystem(ws,index),messages:[{role:'user',content:prompt}],tools:[{name:def.name,description:def.description,input_schema:def.parameters}],tool_choice:{type:'tool',name:def.name},disable_parallel_tool_use:true,stream:false,temperature:Math.min(.15,settings.temperature??.15)};
+  bumpAIRequest(assistantIdx);const r=await fetch(resolveAnthropicEndpoints().messagesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d?.error?.message||`Direct edit HTTP ${r.status}`);usage=extractUsage(d);const call=(d.content||[]).find(x=>x.type==='tool_use'&&x.name===def.name);plan=normalizeEditPlan(call?.input);raw=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text||'').join('');
+ }else if(proto==='gemini'){
+  const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;const body={contents:[{role:'user',parts:[{text:prompt}]}],systemInstruction:{parts:[{text:directEditSystem(ws,index)}]},tools:[{functionDeclarations:[directGeminiDeclaration(def)]}],toolConfig:{functionCallingConfig:{mode:'ANY',allowedFunctionNames:[def.name]}},generationConfig:{temperature:Math.min(.15,settings.temperature??.15),topP:Math.min(1,settings.topP??1),maxOutputTokens:Math.min(settings.maxTokens||1800,2200)}};
+  bumpAIRequest(assistantIdx);const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d?.error?.message||`Direct edit HTTP ${r.status}`);usage=extractUsage(d);const parts=d?.candidates?.[0]?.content?.parts||[],call=parts.find(x=>x.functionCall?.name===def.name);plan=normalizeEditPlan(call?.functionCall?.args);raw=parts.map(x=>x.text||'').join('');
+ }else{
+  const body={model:settings.model,messages:[{role:'system',content:directEditSystem(ws,index)},{role:'user',content:prompt}],tools:[directOpenAITool(def)],tool_choice:{type:'function',function:{name:def.name}},parallel_tool_calls:false,stream:false,max_tokens:Math.min(settings.maxTokens||1800,2200),temperature:Math.min(.15,settings.temperature??.15)};
+  if(settings.provider==='deepseek'||/api\.deepseek\.com/i.test(settings.baseUrl||''))body.thinking={type:'disabled'};else applyReasoningOpenAI(body);
+  bumpAIRequest(assistantIdx);const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(d?.error?.message||d?.message||`Direct edit HTTP ${r.status}`);usage=d.usage;const msg=d?.choices?.[0]?.message||{},call=(msg.tool_calls||[]).find(x=>x.function?.name===def.name);if(call){try{plan=normalizeEditPlan(JSON.parse(call.function?.arguments||'{}'))}catch{}}raw=Array.isArray(msg.content)?msg.content.map(x=>typeof x==='string'?x:(x?.text||x?.content||'')).join(''):String(msg.content||'');
+ }
+ // Compatibility-only fallback: never prefer prose JSON, but salvage providers that ignore a forced tool call.
+ if(!plan&&raw)plan=extractEditPlan(raw);
+ return {plan,usage,raw,structured:!!plan};
 }
-async function runDirectSafeEdit(text,ws,assistantIdx){const index=buildRepoIntelligence(ws);let total=null,first=await callDirectPlanner(text,ws,index,assistantIdx);total=sumUsage(total,first.usage);if(!first.plan)return {failed:true,error:'Planner did not return a valid operations JSON',usage:total};let res=await applySafeEditOperations(first.plan);if(res.ok)return {text:agentLocalSummary(),usage:total,direct:true};if(!toolOn('autoFix'))return {failed:true,error:res.error,usage:total};const second=await callDirectPlanner(text,ws,buildRepoIntelligence(ws),assistantIdx,res.error);total=sumUsage(total,second.usage);if(!second.plan)return {failed:true,error:'Repair plan was not valid JSON',usage:total};res=await applySafeEditOperations(second.plan);return res.ok?{text:agentLocalSummary(),usage:total,direct:true,repaired:true}:{failed:true,error:res.error,usage:total}}
+async function runDirectSafeEdit(text,ws,assistantIdx){const index=buildRepoIntelligence(ws);let total=null,first=await callDirectPlanner(text,ws,index,assistantIdx);total=sumUsage(total,first.usage);if(!first.plan)return {failed:true,error:'The provider did not return the required workspace_safe_edit tool call.',usage:total};let res=await applySafeEditOperations(first.plan);if(res.ok)return {text:agentLocalSummary(),usage:total,direct:true};if(!toolOn('autoFix'))return {failed:true,error:res.error,usage:total};const second=await callDirectPlanner(text,ws,buildRepoIntelligence(ws),assistantIdx,res.error);total=sumUsage(total,second.usage);if(!second.plan)return {failed:true,error:'The provider did not return a valid repair tool call.',usage:total};res=await applySafeEditOperations(second.plan);return res.ok?{text:agentLocalSummary(),usage:total,direct:true,repaired:true}:{failed:true,error:res.error,usage:total}}
 async function shouldUseCodingAgent(){if(!settings.toolsMaster)return false;const ws=await getWorkspace(false);if(!ws?.files?.length)return false;const t=settings.codingTools||{};return !!(t.smartPatch||t.selectiveRead||t.sandbox||t.versions||(t.skillSystem&&settings.mcpUrl?.trim()))}
 function setAgentStage(idx,label){const m=activeChat?.messages?.[idx];if(!m)return;m.agentStage=label;scheduleStreamPaint(idx,false)}
 function shouldLoadMcpForTask(text,task){return toolOn('skillSystem')&&!!settings.mcpUrl?.trim()&&(task.kind==='EXTERNAL'||/mcp|remote|github|gitlab|jira|database|slack/i.test(String(text||'')))}
 async function runCodingAgent(text,assistantIdx){
- const ws=await getWorkspace(false);if(!ws)throw new Error('لا يوجد Workspace');lastAgentChanges=[];const task=classifyCodingTask(text);currentAgentTask=task;let result=null;
- if(task.direct){
-  try{
-   const local=await tryLocalThemeEdit(text,ws,assistantIdx);
-   if(local&&local.ok){result=local}
-   else{
-    result=await runDirectSafeEdit(text,ws,assistantIdx);
-    if(result?.failed){
-     console.warn('Direct Safe Edit failed; falling back to tool-calling agent:',result.error);
-     setAgentStage(assistantIdx,'التخطيط المباشر فشل — أنتقال لمسار الأدوات…');
-     result=null;
-    }
-   }
-  }catch(e){console.warn('Direct Safe Edit:',e);result=null}
- }
- if(!result){let defs=codingToolDefinitions(task);if(shouldLoadMcpForTask(text,task))defs.push(...await loadMcpTools());if(!defs.length)throw new Error('لا توجد أدوات مفعلة لهذه المهمة');setAgentStage(assistantIdx,`وضع ${task.kind} · ${defs.length} أدوات فقط…`);const proto=providerProtocol(),budget=Math.max(1,Math.min(3,task.maxRounds||2));if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx,budget);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx,budget);else result=await runOpenAIAgent(text,ws,defs,assistantIdx,budget)}
- currentAgentTask=null;const m=activeChat.messages[assistantIdx];m.content=result.text||'تم تنفيذ المهمة.';m.usage=result.usage||m.usage;m.streaming=false;m.toolRun=true;m.changedFiles=[...new Set(lastAgentChanges.map(x=>x.path))];m.artifacts=m.changedFiles.map(path=>({path}));renderMessages();if(lastAgentChanges.length&&toolOn('diffViewer')){renderDiffModal();toast(`تم تعديل ${m.changedFiles.length} ملف`)}await updateWorkspaceChip();return result;
+ const ws=await getWorkspace(false);if(!ws)throw new Error('لا يوجد Workspace');lastAgentChanges=[];const task=classifyCodingTask(text);currentAgentTask=task;currentAgentSkills=selectLocalAgentSkills(text,task,ws);let result=null;
+ if(task.direct){try{result=await runDirectSafeEdit(text,ws,assistantIdx)}catch(e){console.warn('Direct Safe Edit:',e);result={failed:true,error:e.message,usage:null}}if(result?.failed){result={text:`لم أطبق أي تعديل غير آمن. محرك Safe Edit أوقف العملية وعمل rollback تلقائيًا: ${result.error}`,usage:result.usage,patchFailed:true}}}
+ if(!result){let defs=codingToolDefinitions(task);if(shouldLoadMcpForTask(text,task))defs.push(...await loadMcpTools(text));if(!defs.length)throw new Error('لا توجد أدوات مفعلة لهذه المهمة');const skillLabel=currentAgentSkills.length?` · skills: ${currentAgentSkills.map(s=>s.id).join(', ')}`:'';setAgentStage(assistantIdx,`وضع ${task.kind}${skillLabel} · ${defs.length} أدوات فقط…`);const proto=providerProtocol(),budget=Math.max(1,Math.min(3,task.maxRounds||2));if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx,budget);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx,budget);else result=await runOpenAIAgent(text,ws,defs,assistantIdx,budget)}
+ currentAgentTask=null;currentAgentSkills=[];const m=activeChat.messages[assistantIdx];m.content=result.text||'تم تنفيذ المهمة.';m.usage=result.usage||m.usage;m.streaming=false;m.toolRun=true;m.changedFiles=[...new Set(lastAgentChanges.map(x=>x.path))];m.artifacts=m.changedFiles.map(path=>({path}));renderMessages();if(lastAgentChanges.length&&toolOn('diffViewer')){renderDiffModal();toast(`تم تعديل ${m.changedFiles.length} ملف`)}await updateWorkspaceChip();return result;
 }
 function artifactHtml(m={},i=-1){const files=m.artifacts||[];if(!files.length&&!m.toolRun)return '';const buttons=files.map(a=>`<button class="artifact-btn" type="button" data-download-artifact="${i}" data-path="${esc(a.path)}">↓ ${esc(a.path.split('/').pop())}</button>`).join('');return `<div class="agent-trace"><span class="tool-run-status"><i></i><strong>Agent Tools</strong> · ${files.length?`${files.length} ملف معدل`:'تم استخدام الأدوات'}</span>${files.length?`<div class="artifact-actions">${buttons}${toolOn('diffViewer')?`<button class="artifact-btn" type="button" data-show-diff="1">± عرض Diff</button>`:''}</div>`:''}</div>`}
 async function downloadArtifact(path){const ws=await getWorkspace(false),f=ws?.files?.find(x=>x.path===normalizePath(path));if(!f){toast('الملف غير موجود','error');return}downloadWorkspaceFile(f)}
