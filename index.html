@@ -1479,59 +1479,102 @@ function fastEditTerms(text=''){
  return [...terms].slice(0,24);
 }
 function buildFastEditContext(text,ws){
- const terms=fastEditTerms(text),chunks=[];
+ const terms=fastEditTerms(text),chunks=[];const themeReq=/(لون|الوان|ألوان|color|colour|ابيض|أبيض|اسود|أسود|ارجوان|أرجوان|purple|white|black|theme|خلفي|background)/i.test(String(text));
  for(const f of (ws?.files||[])){
-  const lines=String(f.text||'').split('\n'),step=64;
-  for(let start=0;start<lines.length;start+=step){
-   const end=Math.min(lines.length,start+84),body=lines.slice(start,end).join('\n'),low=body.toLowerCase();let score=0;
-   for(const term of terms)if(term&&low.includes(term))score+=term.length>5?4:2;
-   if(/:root|<style|body\s*\{|background|color:|--[\w-]+:/.test(low))score+=3;
-   if(/\.css$|\.html?$|\.jsx?$|\.tsx?$/.test(f.path.toLowerCase()))score+=1;
-   if(score>0)chunks.push({score,path:f.path,start:start+1,end,body})
+  const lines=String(f.text||'').split(/\r?\n/),marks=[];
+  for(let i=0;i<lines.length;i++){
+   const low=lines[i].toLowerCase();let score=0;
+   for(const term of terms)if(term&&low.includes(term))score+=term.length>5?5:2;
+   if(/:root|<style|body\s*\{|background(?:-color)?\s*:|(?:^|[;{\s])color\s*:|--[\w-]+\s*:/.test(low))score+=themeReq?8:3;
+   if(score>0)marks.push({i,score});
+  }
+  // Build compact windows around the actually relevant lines instead of sending large file chunks.
+  for(const m of marks){
+   const radius=themeReq?6:8,start=Math.max(0,m.i-radius),end=Math.min(lines.length,m.i+radius+1);
+   const body=lines.slice(start,end).join('\n');chunks.push({score:m.score,path:f.path,start:start+1,end,body,hash:quickHash(String(f.text||''))});
   }
  }
- chunks.sort((a,b)=>b.score-a.score);const picked=[];let chars=0;
+ chunks.sort((a,b)=>b.score-a.score||a.start-b.start);const picked=[];let chars=0;
  for(const c of chunks){
-  if(picked.some(x=>x.path===c.path&&Math.abs(x.start-c.start)<52))continue;
-  const piece=`FILE ${c.path} LINES ${c.start}-${c.end}\n${c.body}`;
-  if(chars+piece.length>11000)continue;
-  picked.push(c);chars+=piece.length;if(picked.length>=4)break
+  // Merge/skip overlapping windows from the same file so context stays compact.
+  if(picked.some(x=>x.path===c.path&&c.start<=x.end+3&&c.end>=x.start-3))continue;
+  const numbered=c.body.split('\n').map((line,i)=>`${c.start+i}: ${line}`).join('\n');
+  const piece=`FILE ${c.path} SNAPSHOT ${c.hash} LINES ${c.start}-${c.end}\n${numbered}`;
+  if(chars+piece.length>14000)continue;
+  picked.push({...c,numbered});chars+=piece.length;if(picked.length>=7)break;
  }
  if(!picked.length){
   for(const f of (ws?.files||[]).slice(0,1)){
-   const body=String(f.text||'').slice(0,10000);picked.push({path:f.path,start:1,end:body.split('\n').length,body});break
+   const lines=String(f.text||'').split(/\r?\n/),end=Math.min(lines.length,120),body=lines.slice(0,end).join('\n'),hash=quickHash(String(f.text||''));
+   picked.push({path:f.path,start:1,end,body,hash,numbered:body.split('\n').map((line,i)=>`${i+1}: ${line}`).join('\n')});break
   }
  }
- return picked.map(c=>`FILE ${c.path} LINES ${c.start}-${c.end}\n${c.body}`).join('\n\n---\n\n');
+ const allowed=picked.map(c=>({path:c.path,start:c.start,end:c.end,hash:c.hash}));
+ return {text:picked.map(c=>`FILE ${c.path} SNAPSHOT ${c.hash} LINES ${c.start}-${c.end}\n${c.numbered}`).join('\n\n---\n\n'),allowed};
 }
 function fastBatchToolDef(){return {name:'workspace_batch_patch',description:'Apply all exact in-place replacements needed for the user request in one atomic batch. Return only necessary patches; never rewrite an entire file for a targeted edit.',parameters:{type:'object',properties:{patches:{type:'array',minItems:1,maxItems:24,items:{type:'object',properties:{path:{type:'string'},old_text:{type:'string'},new_text:{type:'string'},expected_occurrences:{type:'integer',minimum:1,maximum:20}},required:['path','old_text','new_text'],additionalProperties:false}}},required:['patches'],additionalProperties:false}}}
-function directPatchSystem(ws){return `You are AiWay Patch Editor, a deterministic code editing engine inspired by apply_patch workflows. Return ONLY one JSON object and no markdown. Schema: {"patches":[{"path":"relative/file","old_text":"exact existing text copied verbatim from the excerpts","new_text":"replacement text","expected_occurrences":1}],"summary":"short result"}. Make the smallest safe edit that fully satisfies the user. All needed replacements belong in the SAME patches array. old_text MUST be copied exactly from the supplied workspace excerpts, including punctuation and whitespace. Never rewrite an entire existing file for a targeted edit. Never return an empty patches array when the excerpts contain enough information. Do not explain, search, test, or request another tool. Workspace manifest:\n${workspaceManifest(ws)}`}
+function directPatchSystem(ws){return `You are AiWay Range Patch Editor. Produce a minimal structured edit plan from numbered workspace excerpts. Return ONLY one JSON object and no markdown. Schema: {"patches":[{"path":"relative/file","start_line":12,"end_line":14,"new_text":"replacement for exactly those lines"}],"summary":"short result"}. Rules: start_line/end_line MUST refer to line numbers visibly supplied for that same file. Replace the smallest contiguous line range that safely completes the request. You may return multiple non-overlapping patches, including several patches in the same file, but all required changes must be in this ONE response. Preserve indentation and surrounding syntax. Do NOT copy old_text, do NOT invent line numbers outside supplied excerpts, do NOT rewrite an entire file for a targeted edit, and do NOT return an empty patches array when the excerpts contain enough information. Do not explain, search, test, or request tools. Workspace manifest:\n${workspaceManifest(ws)}`}
 function extractDirectPatchPlan(raw){
  let v=raw;if(v&&typeof v==='object'&&!Array.isArray(v)){if(Array.isArray(v.patches))return v;if(v.arguments)v=v.arguments}
  let t=String(v||'').trim();if(!t)return null;t=t.replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();
  const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a<0||b<=a)return null;try{const obj=JSON.parse(t.slice(a,b+1));return Array.isArray(obj?.patches)?obj:null}catch{return null}
 }
-async function applyDirectPatchPlan(plan){
+async function applyDirectRangePatchPlan(plan,ctx){
  if(!plan?.patches?.length)return {ok:false,error:'The model returned no patches'};
- const clean=plan.patches.slice(0,24).map(p=>({path:String(p.path||''),old_text:String(p.old_text??''),new_text:String(p.new_text??''),expected_occurrences:Math.max(1,Math.min(20,Number(p.expected_occurrences)||1))}));
- return await executeCodingTool('workspace_batch_patch',{patches:clean});
+ const ws=await getWorkspace(false);if(!ws)return {ok:false,error:'Workspace unavailable'};
+ const allowed=Array.isArray(ctx?.allowed)?ctx.allowed:[],prepared=[],snapshots=new Map();
+ for(const raw of plan.patches.slice(0,24)){
+  const path=normalizePath(String(raw.path||'')),start=Math.trunc(Number(raw.start_line)),end=Math.trunc(Number(raw.end_line)),newText=String(raw.new_text??'');
+  if(!path||!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start)return {ok:false,error:'Invalid line-range patch'};
+  const f=ws.files.find(x=>x.path===path);if(!f)return {ok:false,error:`File not found: ${path}`};
+  const permit=allowed.find(a=>a.path===path&&start>=a.start&&end<=a.end);
+  if(!permit)return {ok:false,error:`Unsafe range ${path}:${start}-${end} was not included in the supplied excerpt`};
+  if(quickHash(String(f.text||''))!==permit.hash)return {ok:false,error:`${path} changed after the editing snapshot; retry required`};
+  const lines=String(f.text||'').split(/\r?\n/);if(end>lines.length)return {ok:false,error:`Range exceeds ${path} line count`};
+  if(!snapshots.has(path))snapshots.set(path,String(f.text||''));
+  prepared.push({path,f,start,end,newText});
+ }
+ // Reject overlapping ranges because applying both would be ambiguous.
+ const byFile=new Map();for(const p of prepared){const arr=byFile.get(p.path)||[];arr.push(p);byFile.set(p.path,arr)}
+ for(const [path,arr] of byFile){arr.sort((a,b)=>a.start-b.start);for(let i=1;i<arr.length;i++)if(arr[i].start<=arr[i-1].end)return {ok:false,error:`Overlapping patches in ${path}`}}
+ try{
+  for(const [path,arr] of byFile){
+   const f=arr[0].f,eol=String(f.text||'').includes('\r\n')?'\r\n':'\n',lines=String(f.text||'').split(/\r?\n/);
+   // Apply bottom-up so earlier line numbers remain stable.
+   arr.sort((a,b)=>b.start-a.start);
+   for(const p of arr){const replacement=p.newText===''?[]:p.newText.split(/\r?\n/);lines.splice(p.start-1,p.end-p.start+1,...replacement)}
+   f.text=lines.join(eol);
+  }
+  const changed=[];
+  for(const [path,before] of snapshots){const f=ws.files.find(x=>x.path===path),after=f.text;if(before===after)continue;const rev={id:uid(),type:'edit',path,before,after,createdAt:Date.now(),rangePatch:true};if(toolOn('versions'))ws.revisions.push(rev);f.hash=quickHash(after);f.size=after.length;f.modifiedAt=Date.now();lastAgentChanges.push({path,before,after,revisionId:rev.id});changed.push({path,new_hash:f.hash})}
+  if(!changed.length)return {ok:false,error:'Patch produced no file changes'};
+  ws.updatedAt=Date.now();ws.cache={};ws.revisions=ws.revisions.slice(-30);await dbWorkspacePut(ws);workspaceReadCache.clear();await updateWorkspaceChip();
+  return {ok:true,atomic:true,patch_count:prepared.length,changed_files:changed,message:'Range patch applied in-place'};
+ }catch(e){for(const [path,before] of snapshots){const f=ws.files.find(x=>x.path===path);if(f)f.text=before}return {ok:false,error:'Range patch rolled back: '+e.message}}
 }
 async function runFastEdit(text,ws,assistantIdx){
- const excerpt=buildFastEditContext(text,ws);if(!excerpt.trim())return null;const proto=providerProtocol();setAgentStage(assistantIdx,'تعديل مباشر: أجهز Patch واحد…');let usage=null,raw='';
- const prompt=`REQUEST:\n${text}\n\nRELEVANT WORKSPACE EXCERPTS:\n${excerpt}`;
- if(proto==='anthropic'){
-  const body={model:settings.model,max_tokens:Math.min(settings.maxTokens||1800,2200),system:directPatchSystem(ws),messages:[{role:'user',content:prompt}],stream:false};if(Number.isFinite(settings.temperature))body.temperature=Math.min(.2,Math.max(0,settings.temperature));
-  bumpAIRequest(assistantIdx);const r=await fetch(resolveAnthropicEndpoints().messagesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||`Direct patch HTTP ${r.status}`);usage=extractUsage(data);raw=(data.content||[]).filter(x=>x.type==='text').map(x=>x.text||'').join('');
- }else if(proto==='gemini'){
-  const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;const body={contents:[{role:'user',parts:[{text:prompt}]}],systemInstruction:{parts:[{text:directPatchSystem(ws)}]},generationConfig:{temperature:Math.min(.2,settings.temperature??.2),topP:Math.min(1,settings.topP??1),maxOutputTokens:Math.min(settings.maxTokens||1800,2200),responseMimeType:'application/json'}};
-  bumpAIRequest(assistantIdx);const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||`Direct patch HTTP ${r.status}`);usage=extractUsage(data);raw=(data?.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
- }else{
-  const body={model:settings.model,messages:[{role:'system',content:directPatchSystem(ws)},{role:'user',content:prompt}],stream:false,max_tokens:Math.min(settings.maxTokens||1800,2200),temperature:Math.min(.2,settings.temperature??.2)};applyReasoningOpenAI(body);
-  bumpAIRequest(assistantIdx);const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||data?.message||`Direct patch HTTP ${r.status}`);usage=data.usage;const mc=data?.choices?.[0]?.message?.content;raw=Array.isArray(mc)?mc.map(x=>typeof x==='string'?x:(x?.text||x?.content||'')).join(''):String(mc||'');
+ const ctx=buildFastEditContext(text,ws);if(!ctx?.text?.trim())return null;const proto=providerProtocol();setAgentStage(assistantIdx,'تعديل مباشر: أجهز Patch واحد…');let totalUsage=null;
+ async function callOnce(repairNote=''){
+  let raw='',usage=null;const repair=repairNote?`\n\nPREVIOUS PLAN WAS REJECTED LOCALLY:\n${repairNote}\nReturn a corrected plan using ONLY the supplied numbered ranges. Do not repeat the invalid range.`:'';
+  const prompt=`REQUEST:\n${text}\n\nNUMBERED WORKSPACE EXCERPTS:\n${ctx.text}${repair}`;
+  if(proto==='anthropic'){
+   const body={model:settings.model,max_tokens:Math.min(settings.maxTokens||1800,2200),system:directPatchSystem(ws),messages:[{role:'user',content:prompt}],stream:false};if(Number.isFinite(settings.temperature))body.temperature=Math.min(.2,Math.max(0,settings.temperature));
+   bumpAIRequest(assistantIdx);const r=await fetch(resolveAnthropicEndpoints().messagesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||`Direct patch HTTP ${r.status}`);usage=extractUsage(data);raw=(data.content||[]).filter(x=>x.type==='text').map(x=>x.text||'').join('');
+  }else if(proto==='gemini'){
+   const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;const body={contents:[{role:'user',parts:[{text:prompt}]}],systemInstruction:{parts:[{text:directPatchSystem(ws)}]},generationConfig:{temperature:Math.min(.2,settings.temperature??.2),topP:Math.min(1,settings.topP??1),maxOutputTokens:Math.min(settings.maxTokens||1800,2200),responseMimeType:'application/json'}};
+   bumpAIRequest(assistantIdx);const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||`Direct patch HTTP ${r.status}`);usage=extractUsage(data);raw=(data?.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
+  }else{
+   const body={model:settings.model,messages:[{role:'system',content:directPatchSystem(ws)},{role:'user',content:prompt}],stream:false,max_tokens:Math.min(settings.maxTokens||1800,2200),temperature:Math.min(.2,settings.temperature??.2)};applyReasoningOpenAI(body);
+   bumpAIRequest(assistantIdx);const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||data?.message||`Direct patch HTTP ${r.status}`);usage=data.usage;const mc=data?.choices?.[0]?.message?.content;raw=Array.isArray(mc)?mc.map(x=>typeof x==='string'?x:(x?.text||x?.content||'')).join(''):String(mc||'');
+  }
+  totalUsage=sumUsage(totalUsage,usage);return raw;
  }
- const plan=extractDirectPatchPlan(raw);if(!plan)return {failed:true,hard:true,error:'The model did not return a valid patch plan',usage};
- const result=await applyDirectPatchPlan(plan);if(!result.ok)return {failed:true,hard:true,error:result.error,usage};
- return {text:agentLocalSummary(),usage,fast:true,directPatch:true};
+ async function parseAndApply(raw){const plan=extractDirectPatchPlan(raw);if(!plan)return {ok:false,error:'The model response was not a valid JSON patch plan'};return await applyDirectRangePatchPlan(plan,ctx)}
+ const firstRaw=await callOnce();let result=await parseAndApply(firstRaw);if(result.ok)return {text:agentLocalSummary(),usage:totalUsage,fast:true,directPatch:true};
+ // One bounded repair request only. Direct edits can never become an open-ended agent loop.
+ setAgentStage(assistantIdx,'أصحح الـPatch مرة واحدة…');const secondRaw=await callOnce(result.error);result=await parseAndApply(secondRaw);
+ if(!result.ok)return {failed:true,hard:true,error:result.error,usage:totalUsage};
+ return {text:agentLocalSummary(),usage:totalUsage,fast:true,directPatch:true,repaired:true};
 }
 
 async function shouldUseCodingAgent(){if(!settings.toolsMaster)return false;const ws=await getWorkspace(false);return !!ws?.files?.length&&codingToolDefinitions().length>0}
