@@ -1681,8 +1681,13 @@ function schemaStrictReady(node){
 function toOpenAITools(defs){return defs.map(d=>{const fn={name:d.name,description:d.description,parameters:d.parameters};if(settings.provider==='openai'&&schemaStrictReady(d.parameters))fn.strict=true;return {type:'function',function:fn}})}
 function toOpenAIResponsesTools(defs){return defs.map(d=>{const tool={type:'function',name:d.name,description:d.description,parameters:d.parameters};if(settings.provider==='openai'&&!d.name.startsWith('mcp__')&&schemaStrictReady(d.parameters))tool.strict=true;return tool})}
 async function callOpenAIAgent(messages,defs,signal){
- const body={model:settings.model,messages,tools:toOpenAITools(defs),tool_choice:'auto',parallel_tool_calls:true,stream:false,max_tokens:settings.maxTokens||2048};if(settings.provider==='openrouter')body.provider={require_parameters:true};if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;applyReasoningOpenAI(body);
- const noParallel={...body};delete noParallel.parallel_tool_calls;delete noParallel.temperature;const minimal={model:settings.model,messages,tools:toOpenAITools(defs),stream:false};
+ const body={model:settings.model,messages,tools:toOpenAITools(defs),parallel_tool_calls:true,stream:false,max_tokens:settings.maxTokens||2048};
+ // OpenRouter routes across heterogeneous endpoints. Omitting tool_choice is the most portable form
+ // (equivalent to provider-default/auto) and avoids eliminating otherwise tool-capable endpoints.
+ if(settings.provider!=='openrouter')body.tool_choice='auto';
+ if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;applyReasoningOpenAI(body);
+ const noParallel={...body};delete noParallel.parallel_tool_calls;delete noParallel.temperature;
+ const minimal={model:settings.model,messages,tools:toOpenAITools(defs),stream:false};
  return await postJsonVariants(resolveCompatibleEndpoints().chatUrl,headers(),[body,noParallel,minimal],'Tool calling');
 }
 function compactOpenAIToolHistory(messages){
@@ -1849,9 +1854,21 @@ async function callDirectPlanner(text,ws,index,assistantIdx,repair=''){
   const body={model:settings.model,instructions:directEditSystem(ws,index),input:[{role:'user',content:prompt}],tools:toOpenAIResponsesTools([def]),tool_choice:{type:'function',name:def.name},parallel_tool_calls:false,max_output_tokens:Math.min(settings.maxTokens||1800,2200),store:false};
   bumpAIRequest(assistantIdx);const r=await fetch(resolveCompatibleEndpoints().responsesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(providerErrorMessage(d,`Direct edit Responses HTTP ${r.status}`));usage=d.usage;const call=(d.output||[]).find(x=>x.type==='function_call'&&x.name===def.name);if(call)plan=normalizeEditPlan(parseToolArgs(call.arguments));raw=responsesOutputText(d);
  }else{
-  const body={model:settings.model,messages:[{role:'system',content:directEditSystem(ws,index)},{role:'user',content:prompt}],tools:[directOpenAITool(def)],tool_choice:{type:'function',function:{name:def.name}},parallel_tool_calls:false,stream:false,max_tokens:Math.min(settings.maxTokens||1800,2200),temperature:Math.min(.15,settings.temperature??.15)};if(settings.provider==='openrouter')body.provider={require_parameters:true};
-  if(settings.provider==='deepseek'||/api\.deepseek\.com/i.test(settings.baseUrl||''))body.thinking={type:'disabled'};else applyReasoningOpenAI(body);
-  bumpAIRequest(assistantIdx);const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(providerErrorMessage(d,`Direct edit HTTP ${r.status}`));usage=d.usage;const msg=d?.choices?.[0]?.message||{},call=(msg.tool_calls||[]).find(x=>x.function?.name===def.name);if(call)plan=normalizeEditPlan(parseToolArgs(call.function?.arguments));raw=Array.isArray(msg.content)?msg.content.map(x=>typeof x==='string'?x:(x?.text||x?.content||'')).join(''):String(msg.content||'');
+  const base={model:settings.model,messages:[{role:'system',content:directEditSystem(ws,index)},{role:'user',content:prompt}],tools:[directOpenAITool(def)],parallel_tool_calls:false,stream:false,max_tokens:Math.min(settings.maxTokens||1800,2200),temperature:Math.min(.15,settings.temperature??.15)};
+  if(settings.provider==='deepseek'||/api\.deepseek\.com/i.test(settings.baseUrl||''))base.thinking={type:'disabled'};else applyReasoningOpenAI(base);
+  // Capability ladder: OpenRouter starts without tool_choice; other OpenAI-compatible APIs may
+  // benefit from a forced function first, then degrade to auto/omitted fields as needed.
+  const variants=[];
+  if(settings.provider==='openrouter'){
+    variants.push(base);
+    const auto={...base,tool_choice:'auto'};variants.push(auto);
+  }else{
+    variants.push({...base,tool_choice:{type:'function',function:{name:def.name}}});
+    variants.push({...base,tool_choice:'auto'});
+    variants.push(base);
+  }
+  const lean={...base};delete lean.parallel_tool_calls;delete lean.temperature;delete lean.thinking;variants.push(lean);
+  bumpAIRequest(assistantIdx);const d=await postJsonVariants(resolveCompatibleEndpoints().chatUrl,headers(),variants,'Direct edit');usage=d.usage;const msg=d?.choices?.[0]?.message||{},call=(msg.tool_calls||[]).find(x=>x.function?.name===def.name);if(call)plan=normalizeEditPlan(parseToolArgs(call.function?.arguments));raw=Array.isArray(msg.content)?msg.content.map(x=>typeof x==='string'?x:(x?.text||x?.content||'')).join(''):String(msg.content||'');
  }
  // Compatibility-only fallback: never prefer prose JSON, but salvage providers that ignore a forced tool call.
  if(!plan&&raw)plan=extractEditPlan(raw);
