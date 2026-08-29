@@ -1543,16 +1543,18 @@ function safeEditParameters(){
   expected_occurrences:{type:'integer',minimum:1,maximum:50},content:str
  },required:['op','path'],additionalProperties:false}}},required:['operations'],additionalProperties:false};
 }
-function safeEditToolDefinition(){return {name:'workspace_safe_edit',description:'Apply exactly one validated atomic edit transaction to the current workspace. Every operation MUST include path using an exact path from the workspace manifest (for example index.html). Use semantic CSS operations for styling, stable block replacement for indexed code, and literal replacement only when uniquely known. The executor validates and rolls back on failure.',parameters:safeEditParameters()}}
+function safeEditToolDefinition(){return {name:'workspace_safe_edit',description:'Apply one atomic workspace mutation after you have enough evidence to know exactly what must change. Use this tool for the WRITE phase only, and put all related edits for the user request into a single call; do not split one logical change across multiple safe-edit calls. Every operation must use an exact workspace path, and styling should prefer semantic CSS operations while stable indexed code should prefer replace_block. The executor validates the transaction, persists it atomically, and rolls everything back if any operation fails; a later independent review decides whether the persisted diff actually satisfies the request.',parameters:safeEditParameters(),input_examples:[{operations:[{op:'set_css_property',path:'index.html',selector:'body',property:'background',value:'#ffffff'}]}]}}
 function codingToolDefinitions(task=classifyCodingTask('')){
- const allow=dynamicToolPolicy(task),defs=[];const add=(name,description,properties={},required=[])=>{if(allow.has(name))defs.push({name,description,parameters:{type:'object',properties,required,additionalProperties:false}})};
- add('workspace_repo_map','Return a compact repository map: files, important symbols, CSS selectors/variables and stable block ids. Use it instead of reading whole files.',{query:{type:'string',description:'Optional focus term to filter the map'}},[]);
- add('workspace_search','Fast concise text search across workspace. Returns only path, line and one-line snippets; use batch_read for context.',{query:{type:'string'},path:{type:'string'},max_results:{type:'integer',minimum:1,maximum:24}},['query']);
- add('workspace_batch_read','Read several small file windows in one tool call. Each window is capped to 140 lines.',{ranges:{type:'array',minItems:1,maxItems:8,items:{type:'object',properties:{path:{type:'string'},start_line:{type:'integer',minimum:1},end_line:{type:'integer',minimum:1}},required:['path','start_line','end_line'],additionalProperties:false}}},['ranges']);
+ const allow=dynamicToolPolicy(task),defs=[];const add=(name,description,properties={},required=[],input_examples=[])=>{if(allow.has(name))defs.push({name,description,parameters:{type:'object',properties,required,additionalProperties:false},...(input_examples.length?{input_examples}:{})})};
+ add('workspace_repo_map','Use this at the start of an unfamiliar coding task to understand the workspace without reading full files. It returns a compact map of files, important symbols, CSS selectors/variables, hashes, and stable block ids that can be used by later tools. Prefer it before broad searching when you do not yet know where the relevant code lives. It is read-only and safe to run in parallel with other independent read tools.',{query:{type:'string',description:'Optional focus term used only to narrow the returned map; omit or send an empty string for the general map'}},[],[{query:'theme'}]);
+ add('workspace_search','Use this when you know a keyword, selector, symbol, literal, or feature name and need to locate the relevant file/line before reading context. It returns concise path/line/snippet matches only; it does not return enough surrounding code for a safe edit, so follow useful matches with workspace_batch_read. Scope by path when known to reduce noise. It is read-only and may run in parallel with other independent reads.',{query:{type:'string',description:'Literal or semantic search term'},path:{type:'string',description:'Optional exact workspace path to restrict the search'},max_results:{type:'integer',minimum:1,maximum:24,description:'Maximum concise matches to return'}},['query'],[{query:'@media',path:'index.html',max_results:12}]);
+ add('workspace_batch_read','Use this after repo-map/search results identify exact regions that require inspection. Read only the smallest line windows needed to understand dependencies, selectors, or code before editing; each requested window is capped to 140 lines. Multiple independent windows belong in one call and are safe to read in parallel internally. This tool is read-only and should normally precede workspace_safe_edit for non-trivial changes.',{ranges:{type:'array',minItems:1,maxItems:8,items:{type:'object',properties:{path:{type:'string'},start_line:{type:'integer',minimum:1},end_line:{type:'integer',minimum:1}},required:['path','start_line','end_line'],additionalProperties:false}}},['ranges'],[{ranges:[{path:'index.html',start_line:1,end_line:80}]}]);
  if(allow.has('workspace_safe_edit'))defs.push(safeEditToolDefinition());
- add('workspace_validate','Validate one or more workspace files locally after edits. JSON is parsed; JS syntax is checked when safe; CSS/HTML delimiter integrity is checked.',{paths:{type:'array',minItems:1,maxItems:12,items:{type:'string'}},run:{type:'boolean'}},['paths']);
- add('workspace_diff','Get compact before/after diff for a changed file in this run.',{path:{type:'string'}},['path']);
- add('workspace_checkpoint','Create a named checkpoint snapshot.',{label:{type:'string'}},['label']);add('workspace_restore_checkpoint','Restore a checkpoint by id.',{checkpoint_id:{type:'string'}},['checkpoint_id']);add('workspace_undo','Undo the most recent edit revision.',{},[]);
+ add('workspace_validate','Use this only to review current persisted files, especially after a mutation or when diagnosing a syntax problem. It performs local deterministic validation: JSON parsing, JavaScript syntax checks when safe, and CSS/HTML structural checks; with run=true the sandbox may execute supported JavaScript-family files. Validation is read-only and does not prove the user request was semantically satisfied, so the runtime still performs diff/request verification. Multiple file validations are independent and may run in parallel.',{paths:{type:'array',minItems:1,maxItems:12,items:{type:'string'}},run:{type:'boolean',description:'Whether to run supported files in the local sandbox in addition to syntax checks'}},['paths'],[{paths:['index.html'],run:false}]);
+ add('workspace_diff','Use this during the REVIEW phase after a successful workspace_safe_edit to inspect what actually changed in a specific file. It returns a compact before/after diff from the current agent run, not the model description of the change. Use it to verify scope and catch unrelated edits before finishing. It is read-only and safe to run in parallel with validation or other diff reads.',{path:{type:'string'}},['path'],[{path:'index.html'}]);
+ add('workspace_checkpoint','Use only when the user explicitly asks to create a named version/checkpoint before or after work. It snapshots the current workspace and therefore changes version state even though it does not edit source files. Do not use it as a routine pre-edit step because Safe Edit already rolls back failed transactions. Return the checkpoint id to the user only when relevant.',{label:{type:'string'}},['label']);
+ add('workspace_restore_checkpoint','Use only when the user explicitly asks to restore a previously created checkpoint id. This is a destructive state-changing operation and must run sequentially, never in parallel with edits or other version mutations. If it fails, do not execute dependent mutation tools in the same batch. Re-read or validate the restored files before claiming success.',{checkpoint_id:{type:'string'}},['checkpoint_id']);
+ add('workspace_undo','Use only when the user explicitly asks to undo the most recent edit revision. This changes workspace state and must be serialized with every other mutation. Do not call it speculatively or as an automatic repair mechanism. After undo, verify the resulting persisted state before announcing success.',{},[]);
  return defs;
 }
 function workspaceManifest(ws){return (ws?.files||[]).map(f=>`${f.path} (${(f.text||'').split(/\r?\n/).length} lines, hash ${f.hash})`).join('\n')||'(workspace empty)'}
@@ -1646,8 +1648,8 @@ function runWorkerSandbox(code,timeout=2500){return new Promise(resolve=>{
  })}
 function agentInstruction(ws,task=null){const t=task||classifyCodingTask('');return `${settings.systemPrompt||''}${transientSearchContext||''}
 
-[AiWay Coding Runtime v6]
-Task class: ${t.kind}. Tools are executable capabilities; skills are procedural knowledge loaded only when relevant.${agentSkillsInstruction()} You have a compact deterministic tool interface with provider-native structured tool calls. Use repo map/search/batch-read only when necessary. Independent read-only calls may run in parallel; state-changing calls are always serialized. Never read a whole large file. For edits, use workspace_safe_edit ONCE with all related operations in one atomic transaction. Prefer set_css_var/set_css_property for styling, replace_block for stable indexed code, and replace_literal only as a last fallback. The application validates every changed file and rolls back the transaction on failure. Do not create checkpoints or use version tools unless explicitly requested. After a safe edit, do not claim success from mutation alone: the runtime performs persisted-diff and request-level verification and may roll back unrelated or insufficient edits. Make the smallest change that materially satisfies the user request. Never claim success without a tool result. Never reveal API keys, MCP headers, or hidden credentials.
+[AiWay Coding Runtime v7]
+Task class: ${t.kind}. Tools are executable capabilities; skills are procedural knowledge loaded only when relevant.${agentSkillsInstruction()} Follow an explicit tool lifecycle: (1) INSPECT with repo_map/search/batch_read only as needed, batching independent read-only work in parallel; (2) MUTATE with exactly one workspace_safe_edit transaction containing all related source edits, with every state-changing action serialized; (3) REVIEW the persisted result with validation/diff evidence, then let the runtime perform an independent request-level verification before success is shown. Never read a whole large file when a targeted window is enough. Do not issue a second workspace_safe_edit after one has succeeded in the same run; if the verifier rejects the result, the runtime owns the repair/rollback cycle. If a mutation fails, do not continue with dependent mutation/review actions as though it succeeded. Prefer set_css_var/set_css_property for styling, replace_block for stable indexed code, and replace_literal only as a last fallback. Do not create checkpoints or use version tools unless explicitly requested. A tool result is authoritative; prose from the model is not evidence that a tool ran. Make the smallest change that materially satisfies the user request, and never reveal API keys, MCP headers, or hidden credentials.
 Workspace manifest:
 ${workspaceManifest(ws)}`.trim()}
 function agentConversation(currentText,ws){
@@ -1657,20 +1659,34 @@ function agentConversation(currentText,ws){
 }
 const PARALLEL_SAFE_TOOLS=new Set(['workspace_repo_map','workspace_search','workspace_batch_read','workspace_validate','workspace_diff']);
 const MUTATING_TOOLS=new Set(['workspace_safe_edit','workspace_restore_checkpoint','workspace_undo','workspace_checkpoint']);
+const REVIEW_TOOLS=new Set(['workspace_validate','workspace_diff']);
 function toolCanRunParallel(name){return PARALLEL_SAFE_TOOLS.has(String(name||''))}
 function toolDidMutate(name,result){return !!result?.ok&&MUTATING_TOOLS.has(String(name||''))&&name!=='workspace_checkpoint'&&!result?.no_changes&&!result?.already_satisfied}
+function toolHasIrreversibleSideEffect(name,result){const n=String(name||'');return !!result?.ok&&(mcpToolMap.has(n)||['workspace_checkpoint','workspace_restore_checkpoint','workspace_undo'].includes(n))}
 async function executeAgentToolBatch(items,assistantIdx,seen){
  const parallel=items.length>1&&items.every(x=>toolCanRunParallel(x.name));
- if(parallel)setAgentStage(assistantIdx,`أستخدم ${items.length} أدوات قراءة بالتوازي…`);
- const run=async item=>{
-   const key=toolCallKey(item.name,item.args||{});if(!parallel)setAgentStage(assistantIdx,`أستخدم ${item.name}…`);
-   let result;if(seen.has(key))result={ok:false,duplicate:true,error:'Duplicate tool call skipped. Use the existing result or finish the task.'};else{seen.add(key);result=await executeCodingTool(item.name,item.args||{})}
-   if(!result.ok&&toolOn('autoFix')&&!result.duplicate)setAgentStage(assistantIdx,'وجدت مشكلة؛ أحاول الإصلاح وإعادة الفحص…');
-   return {...item,result};
+ if(parallel)setAgentStage(assistantIdx,`أستخدم ${items.length} أدوات قراءة مستقلة بالتوازي…`);
+ const runOne=async(item)=>{
+  const cleanArgs=stripNullToolArgs(item.args||{}),key=toolCallKey(item.name,cleanArgs);if(!parallel)setAgentStage(assistantIdx,`أستخدم ${item.name}…`);
+  let result;if(seen.has(key))result={ok:false,duplicate:true,error:'Duplicate tool call skipped. Use the existing result or finish the task.'};
+  else if(item.name==='workspace_safe_edit'&&lastAgentChanges.length)result={ok:false,skipped:true,error:'A workspace mutation already succeeded in this run. Review the persisted diff instead of issuing a second edit transaction.'};
+  else{seen.add(key);result=await executeCodingTool(item.name,cleanArgs)}
+  if(!result.ok&&toolOn('autoFix')&&!result.duplicate&&!result.skipped)setAgentStage(assistantIdx,'وجدت مشكلة في نتيجة الأداة؛ أوقف الخطوات التابعة وأعيد التخطيط…');
+  return {...item,result};
  };
- const done=parallel?await Promise.all(items.map(run)):(await (async()=>{const out=[];for(const item of items)out.push(await run(item));return out})());
- const sideEffected=done.some(x=>mcpToolMap.has(String(x.name||''))?!!x.result?.ok:(String(x.name||'')==='workspace_checkpoint'?!!x.result?.ok:toolDidMutate(x.name,x.result)));if(sideEffected)agentSideEffects=true;
- return {done,mutated:done.some(x=>toolDidMutate(x.name,x.result)),sideEffected};
+ let done=[];
+ if(parallel)done=await Promise.all(items.map(runOne));
+ else{
+  let failedMutation=false;
+  for(const item of items){
+   const n=String(item.name||'');
+   if(failedMutation&&!toolCanRunParallel(n)){done.push({...item,result:{ok:false,skipped:true,error:'Not executed because an earlier state-changing tool failed in this batch. Re-plan from the current persisted state.'}});continue}
+   const x=await runOne(item);done.push(x);
+   if(MUTATING_TOOLS.has(n)&&!x.result?.ok)failedMutation=true;
+  }
+ }
+ if(done.some(x=>toolHasIrreversibleSideEffect(x.name,x.result)))agentSideEffects=true;
+ return {done,mutated:done.some(x=>toolDidMutate(x.name,x.result)),sideEffected:done.some(x=>toolHasIrreversibleSideEffect(x.name,x.result))};
 }
 function schemaStrictReady(node){
  if(node==null||typeof node!=='object')return true;if(Array.isArray(node))return node.every(schemaStrictReady);
@@ -1679,8 +1695,22 @@ function schemaStrictReady(node){
  for(const k of ['anyOf','oneOf','allOf','prefixItems'])if(Array.isArray(node[k])&&!node[k].every(schemaStrictReady))return false;
  return true;
 }
-function toOpenAITools(defs){return defs.map(d=>{const fn={name:d.name,description:d.description,parameters:d.parameters};if(settings.provider==='openai'&&schemaStrictReady(d.parameters))fn.strict=true;return {type:'function',function:fn}})}
-function toOpenAIResponsesTools(defs){return defs.map(d=>{const tool={type:'function',name:d.name,description:d.description,parameters:d.parameters};if(settings.provider==='openai'&&!d.name.startsWith('mcp__')&&schemaStrictReady(d.parameters))tool.strict=true;return tool})}
+function nullableSchemaType(type){if(Array.isArray(type))return type.includes('null')?type:[...type,'null'];if(typeof type==='string')return type==='null'?type:[type,'null'];return type}
+function strictifyToolSchema(node){
+ if(node==null||typeof node!=='object'||Array.isArray(node))return node;const out={...node};
+ if(out.properties&&typeof out.properties==='object'){
+  const originallyRequired=new Set(Array.isArray(out.required)?out.required:[]),props={};
+  for(const [k,v0] of Object.entries(out.properties)){let v=strictifyToolSchema(v0);if(!originallyRequired.has(k)&&v&&typeof v==='object'){v={...v};v.type=nullableSchemaType(v.type);if(!v.type&&Array.isArray(v.anyOf))v.anyOf=[...v.anyOf,{type:'null'}]}props[k]=v}
+  out.properties=props;out.required=Object.keys(props);out.additionalProperties=false;
+ }
+ if(out.items&&typeof out.items==='object')out.items=strictifyToolSchema(out.items);
+ if(out.additionalProperties&&typeof out.additionalProperties==='object')out.additionalProperties=strictifyToolSchema(out.additionalProperties);
+ for(const k of ['anyOf','oneOf','allOf','prefixItems'])if(Array.isArray(out[k]))out[k]=out[k].map(strictifyToolSchema);
+ return out;
+}
+function stripNullToolArgs(value){if(Array.isArray(value))return value.map(stripNullToolArgs);if(!value||typeof value!=='object')return value;const out={};for(const [k,v] of Object.entries(value)){if(v===null)continue;out[k]=stripNullToolArgs(v)}return out}
+function toOpenAITools(defs){return defs.map(d=>{const local=settings.provider==='openai'&&!d.name.startsWith('mcp__'),params=local?strictifyToolSchema(d.parameters):d.parameters,fn={name:d.name,description:d.description,parameters:params};if(local)fn.strict=true;return {type:'function',function:fn}})}
+function toOpenAIResponsesTools(defs){return defs.map(d=>{const local=settings.provider==='openai'&&!d.name.startsWith('mcp__'),tool={type:'function',name:d.name,description:d.description,parameters:local?strictifyToolSchema(d.parameters):d.parameters};if(local)tool.strict=true;return tool})}
 async function callOpenAIAgent(messages,defs,signal){
  const body={model:settings.model,messages,tools:toOpenAITools(defs),parallel_tool_calls:true,stream:false,max_tokens:settings.maxTokens||2048};
  // OpenRouter routes across heterogeneous endpoints. Omitting tool_choice is the most portable form
@@ -1728,7 +1758,7 @@ async function runOpenAIAgent(text,ws,defs,assistantIdx,maxRounds=AGENT_MAX_ROUN
  if(settings.provider!=='openai')return runOpenAIChatAgent(text,ws,defs,assistantIdx,maxRounds);
  try{return await runOpenAIResponsesAgent(text,ws,defs,assistantIdx,maxRounds)}catch(e){if(lastAgentChanges.length||agentSideEffects)throw e;console.warn('OpenAI Responses tool path unavailable; using Chat Completions compatibility path:',e);setAgentStage(assistantIdx,'Responses API غير متاحة لهذا النموذج؛ أستخدم مسار التوافق…');return await runOpenAIChatAgent(text,ws,defs,assistantIdx,maxRounds)}
 }
-function toAnthropicTools(defs){return defs.map(d=>{const tool={name:d.name,description:d.description,input_schema:d.parameters};if(settings.provider==='anthropic'&&!d.name.startsWith('mcp__')&&schemaStrictReady(d.parameters))tool.strict=true;return tool})}
+function toAnthropicTools(defs){return defs.map(d=>{const local=settings.provider==='anthropic'&&!d.name.startsWith('mcp__'),tool={name:d.name,description:d.description,input_schema:d.parameters};if(local)tool.strict=true;if(local&&Array.isArray(d.input_examples)&&d.input_examples.length)tool.input_examples=d.input_examples;return tool})}
 async function callAnthropicAgent(messages,defs,ws){
  const body={model:settings.model,max_tokens:settings.maxTokens||2048,system:agentInstruction(ws,currentAgentTask),messages,tools:toAnthropicTools(defs),tool_choice:{type:'auto'},stream:false};if(Number.isFinite(settings.temperature))body.temperature=Math.min(1,Math.max(0,settings.temperature));
  const r=await fetch(resolveAnthropicEndpoints().messagesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(providerErrorMessage(data,`Anthropic tool HTTP ${r.status}`));return data;
@@ -1810,7 +1840,7 @@ function directEditCandidate(text=''){return classifyCodingTask(text).kind==='DI
 function directEditSystem(ws,index){return `You are AiWay's direct code editor. The application will request exactly one workspace_safe_edit transaction and then independently verify the persisted diff against the user request.${agentSkillsInstruction()} Put every related change in that single atomic call. Never answer with prose or markdown. Prefer set_css_var/set_css_property for visual styling, replace_block for indexed functions/classes, replace_literal only when the exact literal and occurrence count are known, and create_file only when explicitly needed. Do not rewrite a whole file for a small change. Never include secrets or configured MCP headers in edits. Repository map:
 ${repoMapSummary(index,90)}`}
 function directOpenAITool(def){
-  const fn={name:def.name,description:def.description,parameters:def.parameters};if(settings.provider==='openai'&&schemaStrictReady(def.parameters))fn.strict=true;return {type:'function',function:fn};
+  const local=settings.provider==='openai',fn={name:def.name,description:def.description,parameters:local?strictifyToolSchema(def.parameters):def.parameters};if(local)fn.strict=true;return {type:'function',function:fn};
 }
 function directGeminiDeclaration(def){
   return {name:def.name,description:def.description,parametersJsonSchema:sanitizeGeminiJsonSchema(def.parameters)};
@@ -1840,8 +1870,9 @@ function recentCodingTaskContext(currentText=''){
 async function callDirectPlanner(text,ws,index,assistantIdx,repair=''){
  const proto=providerProtocol(),ctx=relevantRepoContext(text,ws,index,10500),def=safeEditToolDefinition(),taskContext=recentCodingTaskContext(text),prompt=`EXACT WORKSPACE PATHS (copy one into every operation.path):\n${ws.files.map(f=>f.path).join('\n')}\n\nRECENT USER TASK CONTEXT (use this to resolve follow-ups like \"لسه... ارجع وعدل\"):\n${taskContext}\n\nCURRENT USER REQUEST:\n${text}\n\nRELEVANT WORKSPACE CONTEXT:\n${ctx.text}${repair?`\n\nTHE LOCAL EXECUTOR REJECTED THE PREVIOUS TOOL ARGUMENTS:\n${repair}\nCorrect the tool arguments. Do not repeat the invalid operation.`:''}`;let usage=null,plan=null,raw='';setAgentStage(assistantIdx,repair?'أصحح معاملات أداة التعديل…':'أجهز عملية Safe Edit مهيكلة…');
  if(proto==='anthropic'){
-  const body={model:settings.model,max_tokens:Math.min(settings.maxTokens||1800,2200),system:directEditSystem(ws,index),messages:[{role:'user',content:prompt}],tools:[{name:def.name,description:def.description,input_schema:def.parameters,...(settings.provider==='anthropic'&&schemaStrictReady(def.parameters)?{strict:true}:{})}],tool_choice:{type:'tool',name:def.name,disable_parallel_tool_use:true},stream:false,temperature:Math.min(.15,settings.temperature??.15)};
-  bumpAIRequest(assistantIdx);const r=await fetch(resolveAnthropicEndpoints().messagesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(providerErrorMessage(d,`Direct edit HTTP ${r.status}`));usage=extractUsage(d);const call=(d.content||[]).find(x=>x.type==='tool_use'&&x.name===def.name);plan=normalizeEditPlan(call?.input);raw=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text||'').join('');
+  const tool={name:def.name,description:def.description,input_schema:def.parameters,strict:true,...(Array.isArray(def.input_examples)&&def.input_examples.length?{input_examples:def.input_examples}:{})},base={model:settings.model,max_tokens:Math.min(settings.maxTokens||1800,2200),system:directEditSystem(ws,index),messages:[{role:'user',content:prompt}],tools:[tool],stream:false,temperature:Math.min(.15,settings.temperature??.15)};
+  const variants=[{...base,tool_choice:{type:'tool',name:def.name,disable_parallel_tool_use:true}},{...base,tool_choice:{type:'auto',disable_parallel_tool_use:true}},{...base,tool_choice:{type:'auto'}},{...base,tools:[{name:def.name,description:def.description,input_schema:def.parameters}],tool_choice:{type:'auto'}}];
+  bumpAIRequest(assistantIdx);const d=await postJsonVariants(resolveAnthropicEndpoints().messagesUrl,headers(),variants,'Direct Anthropic edit');usage=extractUsage(d);const call=(d.content||[]).find(x=>x.type==='tool_use'&&x.name===def.name);plan=normalizeEditPlan(call?.input);raw=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text||'').join('');
  }else if(proto==='gemini'){
   let interactionError=null;
   if(geminiUsesInteractions()){
@@ -1943,6 +1974,17 @@ async function verifyPersistedAgentChanges(){
  for(const ch of lastAgentChanges){const f=ws.files.find(x=>x.path===ch.path);if(!f)return {ok:false,reason:`changed file disappeared: ${ch.path}`};if(String(f.text||'')!==String(ch.after||''))return {ok:false,reason:`persisted content mismatch: ${ch.path}`};if((f.hash||quickHash(f.text||''))!==quickHash(ch.after||''))return {ok:false,reason:`persisted hash mismatch: ${ch.path}`}}
  return {ok:true,reason:'all changed files were read back from workspace storage'};
 }
+async function postMutationAudit(){
+ if(!lastAgentChanges.length)return {ok:!!lastAgentSatisfiedNoop,files:[],reason:lastAgentSatisfiedNoop?'requested state already satisfied':'no changed files'};
+ const ws=await getWorkspace(false);if(!ws)return {ok:false,files:[],reason:'workspace unavailable during post-edit audit'};const files=[];
+ for(const ch of lastAgentChanges){
+  const f=ws.files.find(x=>x.path===ch.path);if(!f){files.push({path:ch.path,ok:false,error:'file missing'});continue}
+  const base=basicValidateText(ch.path,String(f.text||'')),diff=diffText(ch.before,ch.after,160),changedLines=diff.filter(x=>/^[-+]/.test(String(x.s||''))&&!/^[-+]{3}/.test(String(x.s||''))).length;let sandbox=null;
+  if(base.ok&&toolOn('sandbox')&&/\.(?:js|cjs|json)$/i.test(ch.path))sandbox=await sandboxCheck(ws,ch.path,ch.path.endsWith('.json')?'syntax':'syntax','');
+  const ok=base.ok&&changedLines>0&&(!sandbox||sandbox.ok);files.push({path:ch.path,ok,changed_lines:changedLines,syntax:base.ok?'ok':base.error,sandbox:sandbox?{ok:!!sandbox.ok,error:sandbox.error||''}:null});
+ }
+ const failed=files.filter(x=>!x.ok);return {ok:!failed.length,files,reason:failed.length?`post-edit audit failed for ${failed.map(x=>x.path).join(', ')}`:'persisted files passed deterministic validation and contain a non-empty diff'};
+}
 function requestAwareLocalVerification(request,changes=[]){
  const q=String(request||'').toLowerCase(),joined=changes.map(c=>String(c.after||'')+'\n'+String(c.before||'')).join('\n'),diff=changes.map(c=>diffText(c.before,c.after,120).map(x=>x.s).join('\n')).join('\n');
  if(!changes.length)return {ok:true,applicable:false,reason:'no changed files'};
@@ -1961,15 +2003,16 @@ function verificationEvidence(request,changes=[]){
 }
 async function verifyMutationAgainstRequest(request,assistantIdx){
  const persisted=await verifyPersistedAgentChanges();if(!persisted.ok)return {ok:false,source:'storage',reason:persisted.reason};
- const local=requestAwareLocalVerification(request,lastAgentChanges);if(local.applicable&&!local.ok)return {ok:false,source:'deterministic',reason:local.reason};
- if(!lastAgentChanges.length&&lastAgentSatisfiedNoop)return {ok:true,source:'noop',reason:'executor reported the requested operation as already satisfied'};
+ setAgentStage(assistantIdx,'أراجع الملفات والـ Diff بعد الحفظ قبل المراجعة الدلالية…');const audit=await postMutationAudit();if(!audit.ok)return {ok:false,source:'audit',reason:audit.reason,audit};
+ const local=requestAwareLocalVerification(request,lastAgentChanges);if(local.applicable&&!local.ok)return {ok:false,source:'deterministic',reason:local.reason,audit};
+ if(!lastAgentChanges.length&&lastAgentSatisfiedNoop)return {ok:true,source:'noop',reason:'executor reported the requested operation as already satisfied',audit};
  const system=`You are a strict post-edit verifier. You do NOT edit code and you do NOT trust the editor's success claim. Judge only whether the ACTUAL PERSISTED DIFF is relevant and sufficient to satisfy the user's request. A syntactically valid but unrelated, cosmetic, partial, or tiny change is NOT success. For responsive/layout requests, require concrete responsive/layout changes. For theme/color requests, require concrete color/background/theme changes. Return JSON only: {"verified":true|false,"reason":"short specific reason"}.`;
  try{
-   setAgentStage(assistantIdx,'أتحقق من الـ Diff الفعلي قبل إعلان نجاح التعديل…');const turn=await callPortableModel([{role:'user',content:verificationEvidence(request,lastAgentChanges)}],system,assistantIdx),obj=extractFirstJsonObject(turn.text);if(!obj||typeof obj.verified!=='boolean')return {ok:false,source:'semantic',reason:'verifier returned an invalid verdict',usage:turn.usage};return {ok:obj.verified,source:'semantic',reason:String(obj.reason||''),usage:turn.usage};
+   setAgentStage(assistantIdx,'أتحقق من الـ Diff الفعلي قبل إعلان نجاح التعديل…');const turn=await callPortableModel([{role:'user',content:verificationEvidence(request,lastAgentChanges)}],system,assistantIdx),obj=extractFirstJsonObject(turn.text);if(!obj||typeof obj.verified!=='boolean')return {ok:false,source:'semantic',reason:'verifier returned an invalid verdict',usage:turn.usage};return {ok:obj.verified,source:'semantic',reason:String(obj.reason||''),usage:turn.usage,audit};
  }catch(e){
    // Do not convert a verified persisted edit into a false success solely because the optional semantic model call is unavailable.
    // Request-specific deterministic checks above still block the common false-positive UI cases.
-   return {ok:true,source:'mechanical-fallback',reason:`semantic verifier unavailable; persistence and deterministic checks passed (${e.message||'provider error'})`};
+   return {ok:true,source:'mechanical-fallback',reason:`semantic verifier unavailable; persistence, audit, and deterministic checks passed (${e.message||'provider error'})`,audit};
  }
 }
 async function repairAfterFailedVerification(request,assistantIdx,feedback){
