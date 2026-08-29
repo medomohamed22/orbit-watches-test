@@ -527,7 +527,7 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
           <div class="tool-orb">⌘</div>
           <div><b>Agentic Coding Tools</b><p>عند تفعيل الأدوات، يرسل AiWay تعريفات Functions حقيقية للنموذج. النموذج يختار تلقائياً الأداة المناسبة، والتطبيق ينفذها على ملفات الـWorkspace ثم يعيد النتيجة للنموذج.</p></div>
         </div>
-        <div class="tools-master-row"><div class="grow"><b>تمكين محرك الأدوات الذكي</b><small>Auto tool choice · بحد أقصى 8 جولات لمنع الحلقات غير المنتهية</small></div><span class="tool-count" id="toolsEnabledCount">0/10</span><span class="switch" id="toolsMasterSwitch"></span></div>
+        <div class="tools-master-row"><div class="grow"><b>تمكين محرك الأدوات الذكي</b><small>Patch-first للتعديلات المباشرة · Agent محدود للمهام المعقدة</small></div><span class="tool-count" id="toolsEnabledCount">0/10</span><span class="switch" id="toolsMasterSwitch"></span></div>
         <div class="coding-tools-list" id="codingToolsList">
           <div class="coding-tool-card" data-tool-card="smartPatch"><div class="coding-tool-icon">✎</div><div class="coding-tool-copy"><b>Smart File Patch <span class="tool-badge">Function</span></b><small>تعديل الجزء المطلوب فقط داخل الملف عبر exact patch بدل إعادة كتابة الملف كاملًا.</small></div><span class="switch coding-tool-switch" data-tool="smartPatch"></span></div>
           <div class="coding-tool-card" data-tool-card="workspace"><div class="coding-tool-icon">▦</div><div class="coding-tool-copy"><b>Project Workspace + File Tree <span class="tool-badge local">Local</span></b><small>مساحة مشروع مستمرة للملفات المرفوعة مع قائمة ملفات قابلة للتنزيل.</small></div><span class="switch coding-tool-switch" data-tool="workspace"></span></div>
@@ -652,7 +652,7 @@ let workspaceReadCache=new Map();
 let lastAgentChanges=[];
 let mcpToolMap=new Map();
 let mcpSessionId='';
-const AGENT_MAX_ROUNDS=4;
+const AGENT_MAX_ROUNDS=3;
 
 const providerDefaults = {
   openai:'https://api.openai.com/v1',
@@ -1356,6 +1356,11 @@ function codingToolDefinitions(){
  return defs;
 }
 function workspaceManifest(ws){return (ws?.files||[]).map(f=>`${f.path} (${(f.text||'').split('\n').length} lines, hash ${f.hash})`).join('\n')||'(workspace empty)'}
+function uniqueFlexibleMatch(text,needle){
+ const n=String(needle||'');if(n.length<8)return null;
+ const parts=n.split(/(\s+)/).filter(Boolean),src=parts.map(x=>/^\s+$/.test(x)?'\\s+':x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('');
+ let re;try{re=new RegExp(src,'g')}catch{return null}let m,count=0,hit=null;while((m=re.exec(text))){count++;hit={index:m.index,text:m[0]};if(count>1)return null;if(m[0].length===0)re.lastIndex++}return count===1?hit:null;
+}
 async function executeCodingTool(name,args={}){
  if(mcpToolMap.has(name))return await executeMcpTool(name,args);
  const ws=await getWorkspace(true);const path=normalizePath(args.path||'');
@@ -1373,7 +1378,7 @@ async function executeCodingTool(name,args={}){
   if(!toolOn('smartPatch'))return {ok:false,error:'Smart patch disabled'};
   const patches=Array.isArray(args.patches)?args.patches:[];if(!patches.length)return {ok:false,error:'patches array is required'};
   const snapshots=new Map(),prepared=[];
-  for(const raw of patches){const pp=normalizePath(raw.path||''),f=ws.files.find(x=>x.path===pp);if(!f)return {ok:false,error:`File not found: ${pp}`};const old=String(raw.old_text??''),neu=String(raw.new_text??'');if(!old)return {ok:false,error:`old_text cannot be empty for ${pp}`};let at=0,count=0;while((at=f.text.indexOf(old,at))!==-1){count++;at+=Math.max(1,old.length)}const expected=raw.expected_occurrences||1;if(count!==expected)return {ok:false,error:`Batch patch safety check failed in ${pp}: old_text occurs ${count} times; expected ${expected}.`};if(!snapshots.has(pp))snapshots.set(pp,f.text);prepared.push({path:pp,f,old,neu,expected})}
+  for(const raw of patches){const pp=normalizePath(raw.path||''),f=ws.files.find(x=>x.path===pp);if(!f)return {ok:false,error:`File not found: ${pp}`};let old=String(raw.old_text??'');const neu=String(raw.new_text??'');if(!old)return {ok:false,error:`old_text cannot be empty for ${pp}`};let at=0,count=0;while((at=f.text.indexOf(old,at))!==-1){count++;at+=Math.max(1,old.length)}const expected=raw.expected_occurrences||1;if(count!==expected&&expected===1){const flex=uniqueFlexibleMatch(f.text,old);if(flex){old=flex.text;count=1}}if(count!==expected)return {ok:false,error:`Batch patch safety check failed in ${pp}: old_text occurs ${count} times; expected ${expected}.`};if(!snapshots.has(pp))snapshots.set(pp,f.text);prepared.push({path:pp,f,old,neu,expected})}
   try{for(const x of prepared)x.f.text=x.f.text.replace(x.old,x.neu);const changed=[];for(const [pp,before] of snapshots){const f=ws.files.find(x=>x.path===pp),after=f.text;if(before===after)continue;const rev={id:uid(),type:'edit',path:pp,before,after,createdAt:Date.now(),batch:true};if(toolOn('versions'))ws.revisions.push(rev);f.hash=quickHash(after);f.size=after.length;f.modifiedAt=Date.now();lastAgentChanges.push({path:pp,before,after,revisionId:rev.id});changed.push({path:pp,new_hash:f.hash})}ws.updatedAt=Date.now();ws.cache={};ws.revisions=ws.revisions.slice(-30);await dbWorkspacePut(ws);workspaceReadCache.clear();await updateWorkspaceChip();return {ok:true,atomic:true,patch_count:prepared.length,changed_files:changed,message:'Batch patch applied in-place'}}
   catch(e){for(const [pp,before] of snapshots){const f=ws.files.find(x=>x.path===pp);if(f)f.text=before}return {ok:false,error:'Batch patch rolled back: '+e.message}}
  }
@@ -1474,28 +1479,65 @@ function fastEditTerms(text=''){
  return [...terms].slice(0,24);
 }
 function buildFastEditContext(text,ws){
- const terms=fastEditTerms(text),chunks=[];for(const f of (ws?.files||[])){const lines=String(f.text||'').split('\n'),step=70;for(let start=0;start<lines.length;start+=step){const end=Math.min(lines.length,start+90),body=lines.slice(start,end).join('\n'),low=body.toLowerCase();let score=0;for(const term of terms)if(term&&low.includes(term))score+=term.length>5?4:2;if(/:root|<style|body\s*\{|background|color:|--[\w-]+:/.test(low))score+=2;if(/\.css$|\.html?$|\.jsx?$|\.tsx?$/.test(f.path.toLowerCase()))score+=1;if(score>0)chunks.push({score,path:f.path,start:start+1,end,body})}}
- chunks.sort((a,b)=>b.score-a.score);const picked=[];let chars=0;for(const c of chunks){if(picked.some(x=>x.path===c.path&&Math.abs(x.start-c.start)<60))continue;const piece=`FILE ${c.path} LINES ${c.start}-${c.end}\n${c.body}`;if(chars+piece.length>18000)continue;picked.push(c);chars+=piece.length;if(picked.length>=7)break}
- if(!picked.length){for(const f of (ws?.files||[]).slice(0,2)){const body=String(f.text||'').slice(0,9000);picked.push({path:f.path,start:1,end:body.split('\n').length,body});chars+=body.length;if(chars>16000)break}}
+ const terms=fastEditTerms(text),chunks=[];
+ for(const f of (ws?.files||[])){
+  const lines=String(f.text||'').split('\n'),step=64;
+  for(let start=0;start<lines.length;start+=step){
+   const end=Math.min(lines.length,start+84),body=lines.slice(start,end).join('\n'),low=body.toLowerCase();let score=0;
+   for(const term of terms)if(term&&low.includes(term))score+=term.length>5?4:2;
+   if(/:root|<style|body\s*\{|background|color:|--[\w-]+:/.test(low))score+=3;
+   if(/\.css$|\.html?$|\.jsx?$|\.tsx?$/.test(f.path.toLowerCase()))score+=1;
+   if(score>0)chunks.push({score,path:f.path,start:start+1,end,body})
+  }
+ }
+ chunks.sort((a,b)=>b.score-a.score);const picked=[];let chars=0;
+ for(const c of chunks){
+  if(picked.some(x=>x.path===c.path&&Math.abs(x.start-c.start)<52))continue;
+  const piece=`FILE ${c.path} LINES ${c.start}-${c.end}\n${c.body}`;
+  if(chars+piece.length>11000)continue;
+  picked.push(c);chars+=piece.length;if(picked.length>=4)break
+ }
+ if(!picked.length){
+  for(const f of (ws?.files||[]).slice(0,1)){
+   const body=String(f.text||'').slice(0,10000);picked.push({path:f.path,start:1,end:body.split('\n').length,body});break
+  }
+ }
  return picked.map(c=>`FILE ${c.path} LINES ${c.start}-${c.end}\n${c.body}`).join('\n\n---\n\n');
 }
 function fastBatchToolDef(){return {name:'workspace_batch_patch',description:'Apply all exact in-place replacements needed for the user request in one atomic batch. Return only necessary patches; never rewrite an entire file for a targeted edit.',parameters:{type:'object',properties:{patches:{type:'array',minItems:1,maxItems:24,items:{type:'object',properties:{path:{type:'string'},old_text:{type:'string'},new_text:{type:'string'},expected_occurrences:{type:'integer',minimum:1,maximum:20}},required:['path','old_text','new_text'],additionalProperties:false}}},required:['patches'],additionalProperties:false}}}
-function fastEditSystem(ws){return `You are AiWay Fast Edit. Perform the user's targeted code/file edit with exactly one workspace_batch_patch tool call whenever the supplied excerpts contain enough context. Do not request search/read/diff/test tools. Make the smallest safe changes. old_text must be copied exactly from the supplied excerpts and should be narrow but uniquely identifying. Multiple replacements and multiple files belong in the same patches array. Do not rewrite a whole file. If context is insufficient, do not invent code; return a short text saying FAST_EDIT_NEEDS_AGENT.\nWorkspace manifest:\n${workspaceManifest(ws)}`}
+function directPatchSystem(ws){return `You are AiWay Patch Editor, a deterministic code editing engine inspired by apply_patch workflows. Return ONLY one JSON object and no markdown. Schema: {"patches":[{"path":"relative/file","old_text":"exact existing text copied verbatim from the excerpts","new_text":"replacement text","expected_occurrences":1}],"summary":"short result"}. Make the smallest safe edit that fully satisfies the user. All needed replacements belong in the SAME patches array. old_text MUST be copied exactly from the supplied workspace excerpts, including punctuation and whitespace. Never rewrite an entire existing file for a targeted edit. Never return an empty patches array when the excerpts contain enough information. Do not explain, search, test, or request another tool. Workspace manifest:\n${workspaceManifest(ws)}`}
+function extractDirectPatchPlan(raw){
+ let v=raw;if(v&&typeof v==='object'&&!Array.isArray(v)){if(Array.isArray(v.patches))return v;if(v.arguments)v=v.arguments}
+ let t=String(v||'').trim();if(!t)return null;t=t.replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();
+ const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a<0||b<=a)return null;try{const obj=JSON.parse(t.slice(a,b+1));return Array.isArray(obj?.patches)?obj:null}catch{return null}
+}
+async function applyDirectPatchPlan(plan){
+ if(!plan?.patches?.length)return {ok:false,error:'The model returned no patches'};
+ const clean=plan.patches.slice(0,24).map(p=>({path:String(p.path||''),old_text:String(p.old_text??''),new_text:String(p.new_text??''),expected_occurrences:Math.max(1,Math.min(20,Number(p.expected_occurrences)||1))}));
+ return await executeCodingTool('workspace_batch_patch',{patches:clean});
+}
 async function runFastEdit(text,ws,assistantIdx){
- const excerpt=buildFastEditContext(text,ws);if(!excerpt.trim())return null;const def=fastBatchToolDef(),proto=providerProtocol();setAgentStage(assistantIdx,'تعديل سريع: أجهز Patch واحد…');let usage=null;
+ const excerpt=buildFastEditContext(text,ws);if(!excerpt.trim())return null;const proto=providerProtocol();setAgentStage(assistantIdx,'تعديل مباشر: أجهز Patch واحد…');let usage=null,raw='';
+ const prompt=`REQUEST:\n${text}\n\nRELEVANT WORKSPACE EXCERPTS:\n${excerpt}`;
  if(proto==='anthropic'){
-  const body={model:settings.model,max_tokens:Math.min(settings.maxTokens||2048,4096),system:fastEditSystem(ws),messages:[{role:'user',content:`REQUEST:\n${text}\n\nRELEVANT WORKSPACE EXCERPTS:\n${excerpt}`}],tools:toAnthropicTools([def]),tool_choice:{type:'tool',name:'workspace_batch_patch'},stream:false};if(Number.isFinite(settings.temperature))body.temperature=Math.min(.3,Math.max(0,settings.temperature));bumpAIRequest(assistantIdx);const r=await fetch(resolveAnthropicEndpoints().messagesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||`Fast edit HTTP ${r.status}`);usage=extractUsage(data);const call=(data.content||[]).find(x=>x.type==='tool_use'&&x.name==='workspace_batch_patch');if(!call)return {failed:true,error:'Fast edit did not return a batch patch',usage};const result=await executeCodingTool('workspace_batch_patch',call.input||{});return result.ok?{text:agentLocalSummary(),usage,fast:true}:{failed:true,error:result.error,usage};
+  const body={model:settings.model,max_tokens:Math.min(settings.maxTokens||1800,2200),system:directPatchSystem(ws),messages:[{role:'user',content:prompt}],stream:false};if(Number.isFinite(settings.temperature))body.temperature=Math.min(.2,Math.max(0,settings.temperature));
+  bumpAIRequest(assistantIdx);const r=await fetch(resolveAnthropicEndpoints().messagesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||`Direct patch HTTP ${r.status}`);usage=extractUsage(data);raw=(data.content||[]).filter(x=>x.type==='text').map(x=>x.text||'').join('');
+ }else if(proto==='gemini'){
+  const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;const body={contents:[{role:'user',parts:[{text:prompt}]}],systemInstruction:{parts:[{text:directPatchSystem(ws)}]},generationConfig:{temperature:Math.min(.2,settings.temperature??.2),topP:Math.min(1,settings.topP??1),maxOutputTokens:Math.min(settings.maxTokens||1800,2200),responseMimeType:'application/json'}};
+  bumpAIRequest(assistantIdx);const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||`Direct patch HTTP ${r.status}`);usage=extractUsage(data);raw=(data?.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');
+ }else{
+  const body={model:settings.model,messages:[{role:'system',content:directPatchSystem(ws)},{role:'user',content:prompt}],stream:false,max_tokens:Math.min(settings.maxTokens||1800,2200),temperature:Math.min(.2,settings.temperature??.2)};applyReasoningOpenAI(body);
+  bumpAIRequest(assistantIdx);const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||data?.message||`Direct patch HTTP ${r.status}`);usage=data.usage;const mc=data?.choices?.[0]?.message?.content;raw=Array.isArray(mc)?mc.map(x=>typeof x==='string'?x:(x?.text||x?.content||'')).join(''):String(mc||'');
  }
- if(proto==='gemini'){
-  const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;const body={contents:[{role:'user',parts:[{text:`REQUEST:\n${text}\n\nRELEVANT WORKSPACE EXCERPTS:\n${excerpt}`}]}],systemInstruction:{parts:[{text:fastEditSystem(ws)}]},tools:[{functionDeclarations:toGeminiDeclarations([def])}],toolConfig:{functionCallingConfig:{mode:'ANY',allowedFunctionNames:['workspace_batch_patch']}},generationConfig:{temperature:Math.min(.3,settings.temperature??.2),topP:settings.topP,maxOutputTokens:Math.min(settings.maxTokens||2048,4096)}};bumpAIRequest(assistantIdx);const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||`Fast edit HTTP ${r.status}`);usage=extractUsage(data);const parts=data?.candidates?.[0]?.content?.parts||[],call=parts.find(x=>x.functionCall?.name==='workspace_batch_patch')?.functionCall;if(!call)return {failed:true,error:'Fast edit did not return a batch patch',usage};const result=await executeCodingTool('workspace_batch_patch',call.args||{});return result.ok?{text:agentLocalSummary(),usage,fast:true}:{failed:true,error:result.error,usage};
- }
- const body={model:settings.model,messages:[{role:'system',content:fastEditSystem(ws)},{role:'user',content:`REQUEST:\n${text}\n\nRELEVANT WORKSPACE EXCERPTS:\n${excerpt}`}],tools:toOpenAITools([def]),tool_choice:{type:'function',function:{name:'workspace_batch_patch'}},stream:false,max_tokens:Math.min(settings.maxTokens||2048,4096),temperature:Math.min(.3,settings.temperature??.2)};applyReasoningOpenAI(body);bumpAIRequest(assistantIdx);const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||data?.message||`Fast edit HTTP ${r.status}`);usage=data.usage;const msg=data?.choices?.[0]?.message||{},call=(msg.tool_calls||[]).find(x=>x.function?.name==='workspace_batch_patch');if(!call)return {failed:true,error:'Fast edit did not return a batch patch',usage};let args={};try{args=JSON.parse(call.function?.arguments||'{}')}catch{return {failed:true,error:'Invalid batch patch arguments',usage}}const result=await executeCodingTool('workspace_batch_patch',args);return result.ok?{text:agentLocalSummary(),usage,fast:true}:{failed:true,error:result.error,usage};
+ const plan=extractDirectPatchPlan(raw);if(!plan)return {failed:true,hard:true,error:'The model did not return a valid patch plan',usage};
+ const result=await applyDirectPatchPlan(plan);if(!result.ok)return {failed:true,hard:true,error:result.error,usage};
+ return {text:agentLocalSummary(),usage,fast:true,directPatch:true};
 }
 
 async function shouldUseCodingAgent(){if(!settings.toolsMaster)return false;const ws=await getWorkspace(false);return !!ws?.files?.length&&codingToolDefinitions().length>0}
 function setAgentStage(idx,label){const m=activeChat?.messages?.[idx];if(!m)return;m.agentStage=label;scheduleStreamPaint(idx,false)}
 async function runCodingAgent(text,assistantIdx){
- const ws=await getWorkspace(false),defs=codingToolDefinitions();defs.push(...await loadMcpTools());if(!ws||!defs.length)throw new Error('لا توجد أدوات أو ملفات في Workspace');lastAgentChanges=[];let result=null,preUsage=null,fastAttempted=false;if(fastEditCandidate(text)){fastAttempted=true;try{const fastResult=await runFastEdit(text,ws,assistantIdx);if(fastResult?.failed){preUsage=fastResult.usage||null;console.warn('Fast edit patch rejected:',fastResult.error);lastAgentChanges=[]}else result=fastResult}catch(e){console.warn('Fast edit unavailable, using normal agent:',e);lastAgentChanges=[]}}if(!result){setAgentStage(assistantIdx,`أختار بذكاء من ${defs.length} أدوات متاحة…`);const proto=providerProtocol(),fallbackRounds=fastAttempted?3:AGENT_MAX_ROUNDS;if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx,fallbackRounds);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx,fallbackRounds);else result=await runOpenAIAgent(text,ws,defs,assistantIdx,fallbackRounds);if(preUsage)result.usage=sumUsage(preUsage,result.usage)}
+ const ws=await getWorkspace(false),defs=codingToolDefinitions();defs.push(...await loadMcpTools());if(!ws||!defs.length)throw new Error('لا توجد أدوات أو ملفات في Workspace');lastAgentChanges=[];let result=null;if(fastEditCandidate(text)){try{const fastResult=await runFastEdit(text,ws,assistantIdx);if(fastResult?.failed){console.warn('Direct patch rejected:',fastResult.error);result={text:'تعذر تطبيق التعديل المباشر بأمان من الطلب الأول، لذلك لم أشغّل جولات AI إضافية تلقائيًا. حدّد العنصر/الجزء أكثر أو أعد المحاولة.',usage:fastResult.usage,patchFailed:true}}else result=fastResult}catch(e){console.warn('Direct patch unavailable:',e);result={text:'تعذر إنشاء Patch آمن في الطلب المباشر. لم يتم استهلاك جولات Agent إضافية تلقائيًا.',usage:null,patchFailed:true}}}if(!result){setAgentStage(assistantIdx,`أختار بذكاء من ${defs.length} أدوات متاحة…`);const proto=providerProtocol();if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx,AGENT_MAX_ROUNDS);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx,AGENT_MAX_ROUNDS);else result=await runOpenAIAgent(text,ws,defs,assistantIdx,AGENT_MAX_ROUNDS)}
  const m=activeChat.messages[assistantIdx];m.content=result.text||'تم تنفيذ المهمة.';m.usage=result.usage||m.usage;m.streaming=false;m.toolRun=true;m.changedFiles=[...new Set(lastAgentChanges.map(x=>x.path))];m.artifacts=m.changedFiles.map(path=>({path}));renderMessages();if(lastAgentChanges.length&&toolOn('diffViewer')){renderDiffModal();toast(`تم تعديل ${m.changedFiles.length} ملف`)}await updateWorkspaceChip();return result;
 }
 function artifactHtml(m={},i=-1){const files=m.artifacts||[];if(!files.length&&!m.toolRun)return '';const buttons=files.map(a=>`<button class="artifact-btn" type="button" data-download-artifact="${i}" data-path="${esc(a.path)}">↓ ${esc(a.path.split('/').pop())}</button>`).join('');return `<div class="agent-trace"><span class="tool-run-status"><i></i><strong>Agent Tools</strong> · ${files.length?`${files.length} ملف معدل`:'تم استخدام الأدوات'}</span>${files.length?`<div class="artifact-actions">${buttons}${toolOn('diffViewer')?`<button class="artifact-btn" type="button" data-show-diff="1">± عرض Diff</button>`:''}</div>`:''}</div>`}
