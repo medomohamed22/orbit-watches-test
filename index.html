@@ -655,6 +655,7 @@ let currentAgentSkills=[];
 let lastAgentChanges=[];
 let agentSideEffects=false;
 let lastAgentSatisfiedNoop=false;
+let lastAgentVerification=null;
 let mcpToolMap=new Map();
 let mcpSessionId='';
 let mcpTransportMode='auto';
@@ -1490,7 +1491,7 @@ function classifyCodingTask(text=''){
  return {kind:'ANALYZE',direct:false,mutating:false,maxRounds:2};
 }
 const LOCAL_AGENT_SKILLS=[
- {id:'precision-ui',title:'Precision UI Edit',kinds:['DIRECT_EDIT','MULTI_FILE'],triggers:/لون|ألوان|color|theme|css|ستايل|style|واجهة|ui|button|زر|spacing|font|خط/i,instructions:'For visual changes, inspect CSS inventory first. Prefer semantic CSS variable/property edits. Preserve responsive behavior and avoid broad literal replacement when a selector or variable can express the change.'},
+ {id:'precision-ui',title:'Precision UI Edit',kinds:['DIRECT_EDIT','MULTI_FILE'],triggers:/لون|ألوان|color|theme|css|ستايل|style|واجهة|ui|button|زر|spacing|font|خط|responsive|شاشات|شاشة|كمبيوتر|desktop|mobile|موبايل|tablet|breakpoint|width|عرض/i,instructions:'For visual changes, inspect CSS inventory first. Prefer semantic CSS variable/property edits. For responsive requests, inspect existing media queries/layout containers and make concrete breakpoint/layout changes rather than a cosmetic property tweak. Preserve mobile behavior while adding desktop/tablet behavior. Avoid broad literal replacement when a selector or variable can express the change.'},
  {id:'debug-validate',title:'Debug & Validate',kinds:['BUG_FIX','TEST'],triggers:/bug|debug|error|خطأ|مشكلة|test|اختبر|فحص|lint|syntax/i,instructions:'Localize the failure before editing. Read only the smallest relevant windows, make one atomic fix, then validate touched files. Never invent test success when the local validator cannot run the project stack.'},
  {id:'safe-refactor',title:'Safe Refactor',kinds:['MULTI_FILE'],triggers:/refactor|rename|migration|عدة ملفات|كل الملفات|component|feature|انقل/i,instructions:'Map dependencies and symbols before mutation. Group related changes into one transaction, avoid partial migrations, and validate every touched file. Prefer stable indexed blocks over global text replacement.'},
  {id:'repo-analysis',title:'Repository Analysis',kinds:['ANALYZE'],triggers:/راجع|review|حلل|analy|اشرح|explain|architecture|معمار/i,instructions:'Start from the repository map, then search for evidence and read only relevant windows. Separate observations from proposed changes. Do not mutate unless the user explicitly asks for an edit.'},
@@ -1523,7 +1524,7 @@ function buildRepoIntelligence(ws){
 }
 function repoMapSummary(index,limit=80){const files=index.files.map(f=>`${f.path} · ${f.lines} lines · ${f.ext||'text'}`);const syms=index.symbols.slice(0,limit).map(x=>`${x.path}:${x.line} ${x.kind} ${x.name}`);const vars=index.cssVars.slice(0,50).map(x=>`${x.path}:${x.line} css-var ${x.selector} ${x.name}=${x.value}`);return [...files,...syms,...vars].join('\n')}
 function searchWorkspaceLocal(ws,query,pathFilter='',max=18){const q=String(query||'').toLowerCase().trim();if(!q)return [];const out=[];for(const f of ws.files){if(pathFilter&&!f.path.includes(pathFilter))continue;const lines=String(f.text||'').split(/\r?\n/);for(let i=0;i<lines.length&&out.length<max;i++)if(lines[i].toLowerCase().includes(q))out.push({path:f.path,line:i+1,snippet:lines[i].trim().slice(0,180)});if(out.length>=max)break}return out}
-function codingKeywords(text=''){const t=String(text||'').toLowerCase(),a=(t.match(/[a-zA-Z_$][\w$-]{2,}|#[0-9a-fA-F]{3,8}/g)||[]).map(x=>x.toLowerCase());if(/لون|ألوان|الوان|color|theme|ابيض|أبيض|اسود|أسود|purple|white|black|ارجوان|أرجوان/.test(t))a.push('background','color',':root','--bg','--accent','body');if(/زر|button|btn/.test(t))a.push('button','btn');return [...new Set(a)].slice(0,16)}
+function codingKeywords(text=''){const t=String(text||'').toLowerCase(),a=(t.match(/[a-zA-Z_$][\w$-]{2,}|#[0-9a-fA-F]{3,8}/g)||[]).map(x=>x.toLowerCase());if(/لون|ألوان|الوان|color|theme|ابيض|أبيض|اسود|أسود|purple|white|black|ارجوان|أرجوان/.test(t))a.push('background','color',':root','--bg','--accent','body');if(/زر|button|btn/.test(t))a.push('button','btn');if(/متوافق|responsive|شاشات|شاشة|كمبيوتر|desktop|mobile|موبايل|tablet|breakpoint|width|عرض/i.test(t))a.push('@media','max-width','min-width','width','max-width','grid','flex','container','wrapper');return [...new Set(a)].slice(0,20)}
 function relevantRepoContext(text,ws,index,maxChars=12500){const terms=codingKeywords(text),scored=[];for(const f of ws.files){let score=0,lower=f.text.toLowerCase();for(const t of terms)if(lower.includes(t))score+=t.startsWith('--')?4:1;if(/\.css$|\.html?$/.test(f.path)&&/(color|لون|theme|ستايل|style)/i.test(text))score+=6;scored.push({f,score})}scored.sort((a,b)=>b.score-a.score||a.f.text.length-b.f.text.length);let out='',used=[];for(const {f} of scored.slice(0,4)){const lines=f.text.split(/\r?\n/),hits=[];for(let i=0;i<lines.length;i++){const l=lines[i].toLowerCase();if(terms.some(t=>l.includes(t)))hits.push(i)}const centers=hits.length?hits.slice(0,5):[0];for(const c of centers){const start=Math.max(0,c-18),end=Math.min(lines.length,c+35),chunk=lines.slice(start,end).map((x,i)=>`${start+i+1}: ${x}`).join('\n');const piece=`\n### ${f.path} [${start+1}-${end}] hash=${f.hash}\n${chunk}\n`;if(out.length+piece.length>maxChars)break;out+=piece;used.push({path:f.path,start:start+1,end,hash:f.hash})}if(out.length>=maxChars)break}
  const css=index.cssVars.slice(0,80).map(v=>`${v.path} ${v.selector} ${v.name}=${v.value}`).join('\n');if(css&&out.length<maxChars)out+=`\n### CSS INVENTORY\n${css.slice(0,maxChars-out.length)}\n`;return {text:out,used}}
 function dynamicToolPolicy(task){
@@ -1614,7 +1615,7 @@ async function applySafeEditOperations(args={}){
    if(next===f.text){noops.push({op:type,path,reason:'already_satisfied'});continue}f.text=next;touched.add(path)
   }
   for(const path of touched){const f=ws.files.find(x=>x.path===path),check=basicValidateText(path,String(f?.text||''));if(!check.ok)throw new Error(`${path}: ${check.error}`)}
-  const changed=[];for(const path of touched){const f=ws.files.find(x=>x.path===path),before=beforeMap.get(path)||'',after=String(f?.text||'');if(before===after)continue;const rev={id:uid(),type:'edit',path,before,after,created:!beforeMap.has(path),createdAt:Date.now(),engine:'safe-edit-v4'};if(toolOn('versions'))ws.revisions.push(rev);f.hash=quickHash(after);f.size=after.length;f.modifiedAt=Date.now();lastAgentChanges.push({path,before,after,revisionId:rev.id});changed.push({path,hash:f.hash})}
+  const changed=[];for(const path of touched){const f=ws.files.find(x=>x.path===path),before=beforeMap.get(path)||'',after=String(f?.text||'');if(before===after)continue;const rev={id:uid(),type:'edit',path,before,after,created:!beforeMap.has(path),createdAt:Date.now(),engine:'safe-edit-v6'};if(toolOn('versions'))ws.revisions.push(rev);f.hash=quickHash(after);f.size=after.length;f.modifiedAt=Date.now();lastAgentChanges.push({path,before,after,revisionId:rev.id});changed.push({path,hash:f.hash})}
   if(!changed.length){lastAgentSatisfiedNoop=true;return {ok:true,atomic:true,validated:true,no_changes:true,already_satisfied:true,operation_count:ops.length,noops}}
   ws.updatedAt=Date.now();ws.cache={};ws.revisions=ws.revisions.slice(-40);await dbWorkspacePut(ws);workspaceReadCache.clear();repoIntelligenceCache.clear();await updateWorkspaceChip();return {ok:true,atomic:true,validated:true,operation_count:ops.length,changed_files:changed,noops};
  }catch(e){ws.files=ws.files.filter(f=>beforeMap.has(f.path));for(const f of ws.files){if(beforeMap.has(f.path)){f.text=beforeMap.get(f.path);f.hash=quickHash(f.text);f.size=f.text.length}}return {ok:false,rolled_back:true,error:e.message}}
@@ -1645,8 +1646,8 @@ function runWorkerSandbox(code,timeout=2500){return new Promise(resolve=>{
  })}
 function agentInstruction(ws,task=null){const t=task||classifyCodingTask('');return `${settings.systemPrompt||''}${transientSearchContext||''}
 
-[AiWay Coding Runtime v5]
-Task class: ${t.kind}. Tools are executable capabilities; skills are procedural knowledge loaded only when relevant.${agentSkillsInstruction()} You have a compact deterministic tool interface with provider-native structured tool calls. Use repo map/search/batch-read only when necessary. Independent read-only calls may run in parallel; state-changing calls are always serialized. Never read a whole large file. For edits, use workspace_safe_edit ONCE with all related operations in one atomic transaction. Prefer set_css_var/set_css_property for styling, replace_block for stable indexed code, and replace_literal only as a last fallback. The application validates every changed file and rolls back the transaction on failure. Do not create checkpoints or use version tools unless explicitly requested. After a successful safe edit, stop immediately unless a real validation error requires one bounded correction. Never claim success without a tool result. Never reveal API keys, MCP headers, or hidden credentials.
+[AiWay Coding Runtime v6]
+Task class: ${t.kind}. Tools are executable capabilities; skills are procedural knowledge loaded only when relevant.${agentSkillsInstruction()} You have a compact deterministic tool interface with provider-native structured tool calls. Use repo map/search/batch-read only when necessary. Independent read-only calls may run in parallel; state-changing calls are always serialized. Never read a whole large file. For edits, use workspace_safe_edit ONCE with all related operations in one atomic transaction. Prefer set_css_var/set_css_property for styling, replace_block for stable indexed code, and replace_literal only as a last fallback. The application validates every changed file and rolls back the transaction on failure. Do not create checkpoints or use version tools unless explicitly requested. After a safe edit, do not claim success from mutation alone: the runtime performs persisted-diff and request-level verification and may roll back unrelated or insufficient edits. Make the smallest change that materially satisfies the user request. Never claim success without a tool result. Never reveal API keys, MCP headers, or hidden credentials.
 Workspace manifest:
 ${workspaceManifest(ws)}`.trim()}
 function agentConversation(currentText,ws){
@@ -1806,7 +1807,7 @@ async function runGeminiAgent(text,ws,defs,assistantIdx,maxRounds=AGENT_MAX_ROUN
 }
 
 function directEditCandidate(text=''){return classifyCodingTask(text).kind==='DIRECT_EDIT'&&toolOn('smartPatch')&&toolOn('selectiveRead')}
-function directEditSystem(ws,index){return `You are AiWay's direct code editor. The application will force exactly one workspace_safe_edit tool call.${agentSkillsInstruction()} Put every related change in that single atomic call. Never answer with prose or markdown. Prefer set_css_var/set_css_property for visual styling, replace_block for indexed functions/classes, replace_literal only when the exact literal and occurrence count are known, and create_file only when explicitly needed. Do not rewrite a whole file for a small change. Never include secrets or configured MCP headers in edits. Repository map:
+function directEditSystem(ws,index){return `You are AiWay's direct code editor. The application will request exactly one workspace_safe_edit transaction and then independently verify the persisted diff against the user request.${agentSkillsInstruction()} Put every related change in that single atomic call. Never answer with prose or markdown. Prefer set_css_var/set_css_property for visual styling, replace_block for indexed functions/classes, replace_literal only when the exact literal and occurrence count are known, and create_file only when explicitly needed. Do not rewrite a whole file for a small change. Never include secrets or configured MCP headers in edits. Repository map:
 ${repoMapSummary(index,90)}`}
 function directOpenAITool(def){
   const fn={name:def.name,description:def.description,parameters:def.parameters};if(settings.provider==='openai'&&schemaStrictReady(def.parameters))fn.strict=true;return {type:'function',function:fn};
@@ -1833,8 +1834,11 @@ function extractEditPlan(raw){
   }
   return null;
 }
+function recentCodingTaskContext(currentText=''){
+ const users=(activeChat?.messages||[]).filter(m=>m.role==='user'&&String(m.content||'').trim()).slice(-4).map(m=>String(m.content||'').trim().slice(0,1400));const cur=String(currentText||'').trim();if(cur&&users.at(-1)!==cur)users.push(cur);return users.slice(-4).map((x,i)=>`USER_${i+1}: ${x}`).join('\n');
+}
 async function callDirectPlanner(text,ws,index,assistantIdx,repair=''){
- const proto=providerProtocol(),ctx=relevantRepoContext(text,ws,index,10500),def=safeEditToolDefinition(),prompt=`EXACT WORKSPACE PATHS (copy one into every operation.path):\n${ws.files.map(f=>f.path).join('\n')}\n\nUSER REQUEST:\n${text}\n\nRELEVANT WORKSPACE CONTEXT:\n${ctx.text}${repair?`\n\nTHE LOCAL EXECUTOR REJECTED THE PREVIOUS TOOL ARGUMENTS:\n${repair}\nCorrect the tool arguments. Do not repeat the invalid operation.`:''}`;let usage=null,plan=null,raw='';setAgentStage(assistantIdx,repair?'أصحح معاملات أداة التعديل…':'أجهز عملية Safe Edit مهيكلة…');
+ const proto=providerProtocol(),ctx=relevantRepoContext(text,ws,index,10500),def=safeEditToolDefinition(),taskContext=recentCodingTaskContext(text),prompt=`EXACT WORKSPACE PATHS (copy one into every operation.path):\n${ws.files.map(f=>f.path).join('\n')}\n\nRECENT USER TASK CONTEXT (use this to resolve follow-ups like \"لسه... ارجع وعدل\"):\n${taskContext}\n\nCURRENT USER REQUEST:\n${text}\n\nRELEVANT WORKSPACE CONTEXT:\n${ctx.text}${repair?`\n\nTHE LOCAL EXECUTOR REJECTED THE PREVIOUS TOOL ARGUMENTS:\n${repair}\nCorrect the tool arguments. Do not repeat the invalid operation.`:''}`;let usage=null,plan=null,raw='';setAgentStage(assistantIdx,repair?'أصحح معاملات أداة التعديل…':'أجهز عملية Safe Edit مهيكلة…');
  if(proto==='anthropic'){
   const body={model:settings.model,max_tokens:Math.min(settings.maxTokens||1800,2200),system:directEditSystem(ws,index),messages:[{role:'user',content:prompt}],tools:[{name:def.name,description:def.description,input_schema:def.parameters,...(settings.provider==='anthropic'&&schemaStrictReady(def.parameters)?{strict:true}:{})}],tool_choice:{type:'tool',name:def.name,disable_parallel_tool_use:true},stream:false,temperature:Math.min(.15,settings.temperature??.15)};
   bumpAIRequest(assistantIdx);const r=await fetch(resolveAnthropicEndpoints().messagesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let d={};try{d=await r.json()}catch{}if(!r.ok)throw new Error(providerErrorMessage(d,`Direct edit HTTP ${r.status}`));usage=extractUsage(d);const call=(d.content||[]).find(x=>x.type==='tool_use'&&x.name===def.name);plan=normalizeEditPlan(call?.input);raw=(d.content||[]).filter(x=>x.type==='text').map(x=>x.text||'').join('');
@@ -1926,12 +1930,58 @@ async function runPortableAgent(text,ws,defs,assistantIdx,maxRounds=AGENT_MAX_RO
  }
  return {text:agentLocalSummary(),usage,portable:true,limitReached:!lastAgentChanges.length&&!lastAgentSatisfiedNoop};
 }
+
+function agentRunSnapshot(ws){
+ return {files:(ws?.files||[]).map(f=>({...f})),revisions:(ws?.revisions||[]).map(r=>({...r,snapshot:Array.isArray(r.snapshot)?r.snapshot.map(f=>({...f})):r.snapshot})),updatedAt:ws?.updatedAt||Date.now()};
+}
+async function restoreAgentRunSnapshot(snapshot){
+ const ws=await getWorkspace(true);ws.files=(snapshot?.files||[]).map(f=>({...f}));ws.revisions=(snapshot?.revisions||[]).map(r=>({...r,snapshot:Array.isArray(r.snapshot)?r.snapshot.map(f=>({...f})):r.snapshot}));ws.updatedAt=Date.now();ws.cache={};await dbWorkspacePut(ws);workspaceReadCache.clear();repoIntelligenceCache.clear();lastAgentChanges=[];lastAgentSatisfiedNoop=false;await updateWorkspaceChip();
+}
+async function verifyPersistedAgentChanges(){
+ if(!lastAgentChanges.length)return {ok:!!lastAgentSatisfiedNoop,reason:lastAgentSatisfiedNoop?'no-op state reported':'no changed files'};
+ const ws=await getWorkspace(false);if(!ws)return {ok:false,reason:'workspace missing after edit'};
+ for(const ch of lastAgentChanges){const f=ws.files.find(x=>x.path===ch.path);if(!f)return {ok:false,reason:`changed file disappeared: ${ch.path}`};if(String(f.text||'')!==String(ch.after||''))return {ok:false,reason:`persisted content mismatch: ${ch.path}`};if((f.hash||quickHash(f.text||''))!==quickHash(ch.after||''))return {ok:false,reason:`persisted hash mismatch: ${ch.path}`}}
+ return {ok:true,reason:'all changed files were read back from workspace storage'};
+}
+function requestAwareLocalVerification(request,changes=[]){
+ const q=String(request||'').toLowerCase(),joined=changes.map(c=>String(c.after||'')+'\n'+String(c.before||'')).join('\n'),diff=changes.map(c=>diffText(c.before,c.after,120).map(x=>x.s).join('\n')).join('\n');
+ if(!changes.length)return {ok:true,applicable:false,reason:'no changed files'};
+ if(/متوافق|responsive|شاشات|شاشة|كمبيوتر|desktop|mobile|موبايل|tablet|عرض|width|breakpoint/i.test(q)){
+   const responsive=/(?:@media\s*\(|min-width|max-width|clamp\(|min\(|max\(|grid-template|flex-wrap|width\s*:\s*(?:100%|min\(|max\(|clamp\())/i.test(diff);
+   return {ok:responsive,applicable:true,reason:responsive?'responsive/layout evidence exists in the actual diff':'the actual diff has no responsive/layout evidence'};
+ }
+ if(/لون|ألوان|الوان|color|theme|خلفية|background|ابيض|أبيض|اسود|أسود|غامق|فاتح|ارجوان|أرجوان|purple|white|black/i.test(q)){
+   const themed=/(?:background(?:-color)?|color|--[\w-]*(?:bg|color|accent|surface|text|theme)|#[0-9a-f]{3,8}|rgb\(|hsl\()/i.test(diff);
+   return {ok:themed,applicable:true,reason:themed?'theme/color evidence exists in the actual diff':'the actual diff has no theme/color evidence'};
+ }
+ return {ok:true,applicable:false,reason:'no deterministic request-specific rule'};
+}
+function verificationEvidence(request,changes=[]){
+ const blocks=[];for(const ch of changes.slice(0,6)){const d=diffText(ch.before,ch.after,120).map(x=>x.s).join('\n');blocks.push(`FILE ${ch.path}\n${d.slice(0,6500)}`)}return `RECENT USER TASK CONTEXT:\n${recentCodingTaskContext(request).slice(0,5200)}\n\nCURRENT USER REQUEST:\n${String(request||'').slice(0,2200)}\n\nACTUAL PERSISTED DIFF:\n${blocks.join('\n\n').slice(0,18000)}`;
+}
+async function verifyMutationAgainstRequest(request,assistantIdx){
+ const persisted=await verifyPersistedAgentChanges();if(!persisted.ok)return {ok:false,source:'storage',reason:persisted.reason};
+ const local=requestAwareLocalVerification(request,lastAgentChanges);if(local.applicable&&!local.ok)return {ok:false,source:'deterministic',reason:local.reason};
+ if(!lastAgentChanges.length&&lastAgentSatisfiedNoop)return {ok:true,source:'noop',reason:'executor reported the requested operation as already satisfied'};
+ const system=`You are a strict post-edit verifier. You do NOT edit code and you do NOT trust the editor's success claim. Judge only whether the ACTUAL PERSISTED DIFF is relevant and sufficient to satisfy the user's request. A syntactically valid but unrelated, cosmetic, partial, or tiny change is NOT success. For responsive/layout requests, require concrete responsive/layout changes. For theme/color requests, require concrete color/background/theme changes. Return JSON only: {"verified":true|false,"reason":"short specific reason"}.`;
+ try{
+   setAgentStage(assistantIdx,'أتحقق من الـ Diff الفعلي قبل إعلان نجاح التعديل…');const turn=await callPortableModel([{role:'user',content:verificationEvidence(request,lastAgentChanges)}],system,assistantIdx),obj=extractFirstJsonObject(turn.text);if(!obj||typeof obj.verified!=='boolean')return {ok:false,source:'semantic',reason:'verifier returned an invalid verdict',usage:turn.usage};return {ok:obj.verified,source:'semantic',reason:String(obj.reason||''),usage:turn.usage};
+ }catch(e){
+   // Do not convert a verified persisted edit into a false success solely because the optional semantic model call is unavailable.
+   // Request-specific deterministic checks above still block the common false-positive UI cases.
+   return {ok:true,source:'mechanical-fallback',reason:`semantic verifier unavailable; persistence and deterministic checks passed (${e.message||'provider error'})`};
+ }
+}
+async function repairAfterFailedVerification(request,assistantIdx,feedback){
+ if(!toolOn('autoFix')||agentSideEffects)return {ok:false,error:'automatic verification repair disabled'};
+ const ws=await getWorkspace(true),index=buildRepoIntelligence(ws),planTurn=await callDirectPlanner(request,ws,index,assistantIdx,`POST-EDIT VERIFICATION FAILED: ${feedback}. Inspect the actual current state and produce a corrective transaction that materially satisfies the original request.`);if(!planTurn.plan)return {ok:false,error:'repair planner returned no valid edit plan',usage:planTurn.usage};const applied=await applySafeEditOperations(planTurn.plan);return {...applied,usage:planTurn.usage};
+}
 async function runDirectSafeEdit(text,ws,assistantIdx){const index=buildRepoIntelligence(ws);let total=null,first=await callDirectPlanner(text,ws,index,assistantIdx);total=sumUsage(total,first.usage);if(!first.plan)return {failed:true,error:'The provider did not return the required workspace_safe_edit tool call.',usage:total};let res=await applySafeEditOperations(first.plan);if(res.ok)return {text:agentLocalSummary(),usage:total,direct:true};if(!toolOn('autoFix'))return {failed:true,error:res.error,usage:total};const second=await callDirectPlanner(text,ws,buildRepoIntelligence(ws),assistantIdx,res.error);total=sumUsage(total,second.usage);if(!second.plan)return {failed:true,error:'The provider did not return a valid repair tool call.',usage:total};res=await applySafeEditOperations(second.plan);return res.ok?{text:agentLocalSummary(),usage:total,direct:true,repaired:true}:{failed:true,error:res.error,usage:total}}
 async function shouldUseCodingAgent(){if(!settings.toolsMaster)return false;const ws=await getWorkspace(false);if(!ws?.files?.length)return false;const t=settings.codingTools||{};return !!(t.smartPatch||t.selectiveRead||t.sandbox||t.versions||(t.skillSystem&&settings.mcpUrl?.trim()))}
 function setAgentStage(idx,label){const m=activeChat?.messages?.[idx];if(!m)return;m.agentStage=label;scheduleStreamPaint(idx,false)}
 function shouldLoadMcpForTask(text,task){return toolOn('skillSystem')&&!!settings.mcpUrl?.trim()&&(task.kind==='EXTERNAL'||/mcp|remote|github|gitlab|jira|database|slack/i.test(String(text||'')))}
 async function runCodingAgent(text,assistantIdx){
- const ws=await getWorkspace(false);if(!ws)throw new Error('لا يوجد Workspace');lastAgentChanges=[];lastAgentSatisfiedNoop=false;agentSideEffects=false;const task=classifyCodingTask(text);currentAgentTask=task;currentAgentSkills=selectLocalAgentSkills(text,task,ws);
+ const ws=await getWorkspace(false);if(!ws)throw new Error('لا يوجد Workspace');const runSnapshot=agentRunSnapshot(ws);lastAgentChanges=[];lastAgentSatisfiedNoop=false;lastAgentVerification=null;agentSideEffects=false;const task=classifyCodingTask(text);currentAgentTask=task;currentAgentSkills=selectLocalAgentSkills(text,task,ws);
  try{
   let result=null,directFailure='',directUsage=null;
   if(task.direct){
@@ -1948,13 +1998,23 @@ async function runCodingAgent(text,assistantIdx){
    if(task.mutating&&!lastAgentChanges.length&&!lastAgentSatisfiedNoop&&!agentSideEffects&&!result?.portable){const nativeUsage=result?.usage||null;setAgentStage(assistantIdx,'النموذج لم ينفذ أداة تعديل؛ أستخدم fallback متوافق…');const portable=await runPortableAgent(text,ws,defs,assistantIdx,budget);portable.usage=sumUsage(nativeUsage,portable.usage);result=portable}
    if(directUsage)result.usage=sumUsage(directUsage,result.usage);
   }
-  if(directFailure&&!lastAgentChanges.length&&!lastAgentSatisfiedNoop&&result?.limitReached)result.text=`تعذر مسار Safe Edit المباشر (${directFailure})، ثم لم يؤكد مسار الأدوات العام أي تعديل ناجح. لم يتم حفظ أي تغيير غير متحقق.`;
-  const m=activeChat.messages[assistantIdx];m.content=result.text||'تم تنفيذ المهمة.';m.usage=result.usage||m.usage;m.streaming=false;m.toolRun=true;m.changedFiles=[...new Set(lastAgentChanges.map(x=>x.path))];m.artifacts=m.changedFiles.map(path=>({path}));renderMessages();if(lastAgentChanges.length&&toolOn('diffViewer')){renderDiffModal();toast(`تم تعديل ${m.changedFiles.length} ملف`)}await updateWorkspaceChip();return result;
+  if(task.mutating&&(lastAgentChanges.length||lastAgentSatisfiedNoop)){
+    let verdict=await verifyMutationAgainstRequest(text,assistantIdx);lastAgentVerification=verdict;result.usage=sumUsage(result.usage,verdict.usage);
+    if(!verdict.ok&&!agentSideEffects){
+      setAgentStage(assistantIdx,'التعديل لم يجتز التحقق؛ أحاول تصحيحًا واحدًا قبل الحفظ…');const repair=await repairAfterFailedVerification(text,assistantIdx,verdict.reason);result.usage=sumUsage(result.usage,repair.usage);
+      if(repair.ok){verdict=await verifyMutationAgainstRequest(text,assistantIdx);lastAgentVerification=verdict;result.usage=sumUsage(result.usage,verdict.usage)}
+    }
+    if(!verdict.ok){
+      await restoreAgentRunSnapshot(runSnapshot);result.text=`لم أعتبر التعديل ناجحًا لأن التحقق بعد التنفيذ فشل: ${verdict.reason||'التغيير لا يثبت أنه يحقق الطلب'}. تم التراجع عن تغييرات هذه المحاولة بدل عرض نجاح غير حقيقي.`;result.verified=false;result.limitReached=true;
+    }else{result.text=agentLocalSummary();result.verified=true}
+  }
+  if(directFailure&&!lastAgentChanges.length&&!lastAgentSatisfiedNoop&&result?.limitReached&&!result?.text?.includes('التحقق'))result.text=`تعذر مسار Safe Edit المباشر (${directFailure})، ثم لم يؤكد مسار الأدوات العام أي تعديل ناجح. لم يتم حفظ أي تغيير غير متحقق.`;
+  const m=activeChat.messages[assistantIdx];m.content=result.text||'تم تنفيذ المهمة.';m.usage=result.usage||m.usage;m.streaming=false;m.toolRun=true;m.toolVerified=result.verified===true;m.verificationReason=lastAgentVerification?.reason||'';m.changedFiles=[...new Set(lastAgentChanges.map(x=>x.path))];m.artifacts=m.changedFiles.map(path=>({path}));renderMessages();if(lastAgentChanges.length&&result.verified===true&&toolOn('diffViewer')){renderDiffModal();toast(`تم تعديل ${m.changedFiles.length} ملف والتحقق من التغيير`)}await updateWorkspaceChip();return result;
  }finally{
   currentAgentTask=null;currentAgentSkills=[];
  }
 }
-function artifactHtml(m={},i=-1){const files=m.artifacts||[];if(!files.length&&!m.toolRun)return '';const buttons=files.map(a=>`<button class="artifact-btn" type="button" data-download-artifact="${i}" data-path="${esc(a.path)}">↓ ${esc(a.path.split('/').pop())}</button>`).join('');return `<div class="agent-trace"><span class="tool-run-status"><i></i><strong>Agent Tools</strong> · ${files.length?`${files.length} ملف معدل`:'تم استخدام الأدوات'}</span>${files.length?`<div class="artifact-actions">${buttons}${toolOn('diffViewer')?`<button class="artifact-btn" type="button" data-show-diff="1">± عرض Diff</button>`:''}</div>`:''}</div>`}
+function artifactHtml(m={},i=-1){const files=m.artifacts||[];if(!files.length&&!m.toolRun)return '';const buttons=files.map(a=>`<button class="artifact-btn" type="button" data-download-artifact="${i}" data-path="${esc(a.path)}">↓ ${esc(a.path.split('/').pop())}</button>`).join(''),status=files.length?(m.toolVerified?`${files.length} ملف معدل · تم التحقق`:`${files.length} ملف معدل`):'تم استخدام الأدوات';return `<div class="agent-trace"><span class="tool-run-status"><i></i><strong>Agent Tools</strong> · ${status}</span>${files.length?`<div class="artifact-actions">${buttons}${toolOn('diffViewer')?`<button class="artifact-btn" type="button" data-show-diff="1">± عرض Diff</button>`:''}</div>`:''}</div>`}
 async function downloadArtifact(path){const ws=await getWorkspace(false),f=ws?.files?.find(x=>x.path===normalizePath(path));if(!f){toast('الملف غير موجود','error');return}downloadWorkspaceFile(f)}
 
 async function send(){
