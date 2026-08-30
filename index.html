@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <meta name="description" content="AiWay — واجهة محادثة ذكية موحدة لتجربة أي نموذج AI مع مرفقات وتفكير وسجل محلي، بدون أي بيانات تُرسل لخوادم غير بروفايدر النموذج."/>
-<meta name="theme-color" content="#090b10"/>
+<meta name="theme-color" content="#ffffff"/>
 <title>AiWay — Universal AI Chat</title>
 <style>
 :root{
@@ -355,6 +355,17 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
 @media(max-width:600px){.coding-tool-card{padding:10px}.coding-tool-copy small{font-size:8px}.workspace-chip{padding:0 8px}.workspace-chip .workspace-label{display:none}}
 
 </style>
+
+<style id="aiway-light-purple-theme">
+:root{--bg:#ffffff;--bg2:#faf8ff;--panel:rgba(255,255,255,.96);--panel2:#ffffff;--text:#1f1830;--muted:#71677f;--line:rgba(91,63,122,.16);--accent:#7c3aed;--accent2:#a855f7;--shadow:0 20px 60px rgba(72,45,104,.13)}
+html,body{background:radial-gradient(circle at 85% -10%,rgba(124,58,237,.10),transparent 32%),linear-gradient(180deg,#fff,#fbf9ff 60%,#fff);color:var(--text)}
+.topbar{background:rgba(255,255,255,.88);border-color:var(--line)} .brand-button:hover,.icon-btn:hover{background:#f5efff}.icon-btn{background:#fff;color:#3a2d49}.assistant-head,.assistant-doc>.content,.tools-item,.task-card,.source-popup-item{color:#261b35}.assistant-doc .msg-meta{border-color:rgba(91,63,122,.12)}
+.composer{background:rgba(255,255,255,.96);border-color:rgba(91,63,122,.18);box-shadow:0 16px 50px rgba(76,46,110,.12)}.composer textarea{color:#24172f}.composer textarea::placeholder{color:#978ba4}.composer-action,.workspace-chip{background:#fff;color:#5c5069;border-color:rgba(91,63,122,.16)}.composer-action:hover,.workspace-chip:hover{background:#f6f0ff;color:#5b21b6}.workspace-chip{display:flex!important}.workspace-chip .workspace-count{background:#eee5ff;color:#6d28d9}
+.user .bubble{background:linear-gradient(135deg,#f1e8ff,#faf7ff);border-color:#d8c4fa;color:#2b1b3b}.modal-card,.drawer,.tools-menu,.sources-popup-card{background:rgba(255,255,255,.99)!important;color:#291c38;border-color:rgba(91,63,122,.17)!important;box-shadow:0 24px 80px rgba(65,38,96,.16)}
+.field input,.field textarea,.field select,.models-list,.tools-master-row{background:#fff!important;color:#281c35!important;border-color:rgba(91,63,122,.16)!important}.notice,.coding-tool-card,.workspace-file,.diff-card,.model-card,.task-card{background:#fff!important;border-color:rgba(91,63,122,.13)!important}.coding-tool-copy b,.tools-settings-intro b,.model-name{color:#261a34!important}.coding-tool-copy small,.tools-item small,.workspace-file small,.model-meta,.history-date,.thinking-time,.status,.hint,.brand-sub,.history-title{color:#756980!important}
+.tools-item:hover,.model-card:hover,.workspace-file button:hover{background:#f7f2ff!important}.assistant-doc>.content code{background:#f0e8fb;color:#5b21b6}.code-block,.diff-body{background:#17131f}.btn{background:#fff;color:#4b3b59;border-color:rgba(91,63,122,.18)}.btn.primary,.send{background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff}.msg-meta{color:#766a83}.elapsed-time{font-variant-numeric:tabular-nums;color:#6d28d9}.source-orb{border-color:#fff}.sources-summary-btn{background:#fff;color:#3a2949;border-color:rgba(91,63,122,.14)}
+@media(max-width:600px){.workspace-chip{width:38px;padding:0;justify-content:center}.workspace-chip .workspace-count{position:absolute;transform:translate(12px,-12px);min-width:15px;height:15px;padding:0;font-size:7px}.workspace-chip{position:relative}}
+</style>
 </head>
 <body>
 <div class="app">
@@ -572,8 +583,8 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
 <div class="modal" id="workspaceModal">
   <div class="modal-card" style="max-width:650px">
     <div class="modal-head"><h3>Project Workspace</h3><span class="status" id="workspaceMeta" style="margin-inline-start:8px"></span><button class="icon-btn" data-close="workspaceModal" style="margin-inline-start:auto" aria-label="إغلاق"><svg viewBox="0 0 24 24" fill="none"><path d="m8 8 8 8m0-8-8 8" stroke-width="1.7"/></svg></button></div>
-    <div class="modal-body"><div class="workspace-list" id="workspaceList"></div><div class="version-list" id="workspaceVersions"></div><input type="file" id="workspaceFolderInput" webkitdirectory directory multiple hidden></div>
-    <div class="modal-foot"><button class="btn" id="importFolderBtn">＋ استيراد مجلد</button><button class="btn" id="undoWorkspaceBtn">↶ تراجع عن آخر تعديل</button><button class="btn" data-close="workspaceModal">إغلاق</button></div>
+    <div class="modal-body"><div class="workspace-list" id="workspaceList"></div><div class="version-list" id="workspaceVersions"></div><input type="file" id="workspaceFileInput" multiple accept=".txt,.md,.csv,.json,.js,.ts,.jsx,.tsx,.html,.css,.py,.java,.c,.cpp,.h,.xml,.yaml,.yml,.mjs,.cjs,.vue,.svelte,.go,.rs,.php,.rb,.swift,.kt,.kts,.sql,.sh" hidden><input type="file" id="workspaceFolderInput" webkitdirectory directory multiple hidden></div>
+    <div class="modal-foot"><button class="btn primary" id="importWorkspaceFilesBtn">＋ رفع ملفات</button><button class="btn" id="importFolderBtn">＋ استيراد مجلد</button><button class="btn" id="undoWorkspaceBtn">↶ تراجع عن آخر تعديل</button><button class="btn" data-close="workspaceModal">إغلاق</button></div>
   </div>
 </div>
 <div class="modal" id="diffModal">
@@ -646,6 +657,8 @@ let lastStreamPaintAt = 0;
 const STREAM_PAINT_MS = 34;
 let transientSearchContext = '';
 let thinkingTimer = 0;
+let responseTimer=0;
+let responseModelRequests=0;
 let thinkingStartedAt = 0;
 let db;
 let workspaceReadCache=new Map();
@@ -654,7 +667,9 @@ let mcpToolMap=new Map();
 let mcpSessionId='';
 let mcpProtocolVersion='2026-07-28';
 let mcpLegacyMode=false;
-const AGENT_MAX_ROUNDS=12;
+const AGENT_MAX_ROUNDS=10;
+const MODEL_REQUEST_LIMIT=10;
+const GLOBAL_WORKSPACE_ID="__aiway_global_workspace__";
 const AGENT_MAX_IDENTICAL_TOOL_CALLS=2;
 let agentToolCallCounts=new Map();
 
@@ -767,6 +782,7 @@ function dbClear(){return new Promise((res,rej)=>{const tx=db.transaction('chats
 function dbWorkspaceGet(id){return new Promise((res,rej)=>{const r=db.transaction('workspaces').objectStore('workspaces').get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 function dbWorkspacePut(ws){return new Promise((res,rej)=>{const tx=db.transaction('workspaces','readwrite');tx.objectStore('workspaces').put(ws);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
 function dbWorkspaceDelete(id){return new Promise((res,rej)=>{const tx=db.transaction('workspaces','readwrite');tx.objectStore('workspaces').delete(id);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)})}
+function dbWorkspaceAll(){return new Promise((res,rej)=>{const r=db.transaction('workspaces').objectStore('workspaces').getAll();r.onsuccess=()=>res(r.result||[]);r.onerror=()=>rej(r.error)})}
 
 function loadSettings(){
  try{Object.assign(settings,JSON.parse(localStorage.getItem('aiway-settings')||'{}'));}
@@ -801,13 +817,23 @@ function readSettings(){
  normalizeEndpointFields(false);
 }
 function shortModelName(id=''){
- const raw=String(id||'').split('/').pop().trim();if(!raw)return 'اختر نموذج';
- return raw.replace(/^(openai|anthropic|google|meta-llama|mistralai)[/:_-]?/i,'').replace(/-20\d{2}[-.]?\d{2}[-.]?\d{2}$/,'').slice(0,24);
+ let raw=String(id||'').split('/').pop().trim();if(!raw)return 'اختر نموذج';
+ raw=raw.replace(/^(openai|anthropic|google|meta-llama|mistralai)[/:_-]?/i,'').replace(/-20\d{2}[-.]?\d{2}[-.]?\d{2}$/,'');
+ raw=raw.replace(/:free$/i,'').replace(/-(preview|latest)$/i,'');
+ const aliases=[[/^deepseek-v?4-flash-vision/i,'DeepSeek V4 Vision'],[/^deepseek-v?3(?:\.\d+)?/i,'DeepSeek V3'],[/^claude-([\d.-]+)-sonnet/i,'Claude Sonnet'],[/^claude-([\d.-]+)-opus/i,'Claude Opus'],[/^gemini-([\d.]+)-flash/i,'Gemini Flash'],[/^gemini-([\d.]+)-pro/i,'Gemini Pro'],[/^gpt-5/i,'GPT-5'],[/^gpt-4o-mini/i,'GPT-4o mini'],[/^gpt-4o/i,'GPT-4o'],[/^qwen.*coder/i,'Qwen Coder']];
+ for(const [re,name] of aliases)if(re.test(raw))return name;
+ return raw.replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim().slice(0,20);
 }
 function estimateTokens(text=''){return Math.max(0,Math.ceil(String(text||'').length/4))}
 function currentPromptTokens(){
  const msgs=historyForRequest?.()||[];return msgs.reduce((n,m)=>n+estimateTokens(typeof m.content==='string'?m.content:JSON.stringify(m.content||'')),0)+estimateTokens(settings.systemPrompt||'');
 }
+function formatDuration(ms=0){const sec=Math.max(0,Math.round(ms/1000));if(sec<60)return sec+'s';const min=Math.floor(sec/60),rest=sec%60;return rest?`${min}m ${rest}s`:`${min}m`}
+function addUsage(total,u){if(!u)return total||null;const base=total||{prompt_tokens:0,completion_tokens:0,total_tokens:0};const p=Number(u.prompt_tokens??u.input_tokens??0)||0,c=Number(u.completion_tokens??u.output_tokens??0)||0,t=Number(u.total_tokens??(p+c))||0;return {prompt_tokens:(base.prompt_tokens||0)+p,completion_tokens:(base.completion_tokens||0)+c,total_tokens:(base.total_tokens||0)+t}}
+function claimModelRequest(){if(responseModelRequests>=MODEL_REQUEST_LIMIT)throw new Error(`تم الوصول لحد ${MODEL_REQUEST_LIMIT} طلبات للنموذج في الرد الواحد`);responseModelRequests++;return responseModelRequests}
+function startResponseTimer(idx){clearInterval(responseTimer);responseTimer=setInterval(()=>{const m=activeChat?.messages?.[idx];if(!m||!m.streaming){clearInterval(responseTimer);responseTimer=0;return}m.elapsedMs=Date.now()-(m.startedAt||m.time||Date.now());const row=$(`[data-index="${idx}"]`);const el=row?.querySelector('.elapsed-time');if(el)el.textContent=formatDuration(m.elapsedMs)},1000)}
+function stopResponseTimer(m){clearInterval(responseTimer);responseTimer=0;if(m){m.elapsedMs=Date.now()-(m.startedAt||m.time||Date.now());m.durationMs=m.elapsedMs}}
+
 function renderModelSelect(){
  const sel=$('#modelSelect');sel.innerHTML='';
  if(!Array.isArray(settings.models))settings.models=[];
@@ -855,7 +881,7 @@ async function renderHistory(){
  const list=$('#historyList'), chats=await dbAll();
  list.innerHTML=chats.length?chats.map(c=>`<div class="history-item ${activeChat?.id===c.id?'active':''}" data-id="${c.id}"><div class="history-info"><div class="history-name">${esc(c.title||'محادثة')}</div><div class="history-date">${fmtDate(c.updatedAt)} · ${c.messages?.length||0} رسائل</div></div><button class="mini-btn delete-chat" data-del="${c.id}" title="حذف"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 11v6m4-6v6M9 7l1-2h4l1 2m-8 0 1 13h8l1-13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>`).join(''):'<div class="empty">لا توجد محادثات محفوظة</div>';
  $$('.history-item').forEach(x=>x.onclick=e=>{if(!e.target.closest('[data-del]'))loadChat(x.dataset.id)});
- $$('[data-del]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(await customConfirm('حذف هذه المحادثة؟')){await dbDelete(b.dataset.del);await dbWorkspaceDelete(b.dataset.del);if(activeChat?.id===b.dataset.del)await newChat();else renderHistory()}});
+ $$('[data-del]').forEach(b=>b.onclick=async e=>{e.stopPropagation();if(await customConfirm('حذف هذه المحادثة؟')){await dbDelete(b.dataset.del);if(activeChat?.id===b.dataset.del)await newChat();else renderHistory()}});
 }
 function heroHtml(){
  return `<div class="hero"><div class="hero-inner"><div class="hero-kicker"><span class="hero-spark">✦</span> AiWay</div><h1>ماذا تريد أن تنجز؟</h1><p>اختر نقطة بداية، أو اكتب طلبك مباشرة. AiWay يجمع الموديلات والأدوات في مساحة عمل واحدة هادئة وسريعة.</p><div class="task-grid"><button class="task-card" data-prompt="ابحث على الويب عن الموضوع التالي وقارن أهم النتائج بالمصادر: "><span class="task-icon">⌕</span><span><b>ابحث على الويب</b><small>ابحث وقارن بمصادر موثوقة</small></span></button><button class="task-card" data-prompt="ساعدني في كتابة وصياغة: "><span class="task-icon">✎</span><span><b>اكتب وأنشئ</b><small>محتوى، رسائل وأفكار</small></span></button><button class="task-card" data-prompt="ساعدني في البرمجة. هذا هو المطلوب: "><span class="task-icon">&lt;/&gt;</span><span><b>برمجة</b><small>اكتب، اشرح أو أصلح كود</small></span></button><button class="task-card" data-prompt="حلل الملف المرفق واستخرج أهم النتائج والنقاط العملية."><span class="task-icon">▤</span><span><b>حلل ملف</b><small>PDF، صورة أو بيانات</small></span></button></div><div class="hero-foot">يدعم البحث، المرفقات، وتبديل الموديلات بدون مغادرة المحادثة</div></div></div>`;
@@ -897,7 +923,7 @@ function messageHtml(m,i){
  const user=m.role==='user';const icon=user?`<path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`:`<path d="M12 3 14 10l7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" stroke="currentColor" stroke-width="1.4"/>`;
  const atts=(m.attachments||[]).map(a=>a.type?.startsWith('image/')&&a.dataUrl?`<img class="attachment-img" src="${a.dataUrl}" alt="${esc(a.name)}">`:`<div class="attachment-chip">📎 <span>${esc(a.name)}</span></div>`).join('');
  const tokens=m.usage?.total_tokens||m.liveTokens||0;
- const meta=!user?`<div class="msg-meta assistant-meta"><span class="assistant-signature"><span class="assistant-dot">✦</span>${esc(settings.assistantName||'AiWay')}</span><span class="model-short" title="${esc(m.model||'')}">${esc(shortModelName(m.model))}</span><span class="token-count">${m.streaming?'≈ ':''}${Number(tokens).toLocaleString('en-US')} tokens</span><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`:`<div class="msg-meta"><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`;
+ const meta=!user?`<div class="msg-meta assistant-meta"><span class="assistant-signature"><span class="assistant-dot">✦</span>${esc(settings.assistantName||'AiWay')}</span><span class="model-short" title="${esc(m.model||'')}">${esc(shortModelName(m.model))}</span><span class="token-count">${m.streaming?'≈ ':''}${Number(tokens).toLocaleString('en-US')} tokens</span><span class="elapsed-time">${formatDuration(m.streaming?(m.elapsedMs||0):(m.durationMs||m.elapsedMs||0))}</span><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`:`<div class="msg-meta"><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`;
  const emptyState=!user&&m.streaming&&!m.content?`<div class="stream-stage"><span class="stage-spinner"></span><span>${m.agentStage|| (m.searching?'أبحث في الويب وأجمع المصادر…':'أجهز الإجابة…')}</span></div>`:'';
  if(user)return `<div class="msg-row user ${m.streaming?'streaming':''}" data-index="${i}"><div class="bubble"><div class="content">${markdown(m.content||'',!!m.streaming,m.sources||[],i)}</div>${atts?`<div class="attachment-list">${atts}</div>`:''}${meta}</div><div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div></div>`;
  return `<div class="msg-row assistant ${m.streaming?'streaming':''}" data-index="${i}"><div class="assistant-doc"><div class="assistant-head"><div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div><span>${esc(settings.assistantName||'AiWay')}</span></div><div class="content">${emptyState}${markdown(m.content||'',!!m.streaming,m.sources||[],i)}${m.streaming&&m.content?'<span class="stream-caret"></span>':''}</div>${atts?`<div class="attachment-list">${atts}</div>`:''}${sourcesHtml(m.sources,i)}${artifactHtml(m,i)}${meta}</div></div>`;
@@ -990,16 +1016,10 @@ function isTextFile(file){
  return file.type.startsWith('text/') || /\.(txt|md|csv|json|js|ts|jsx|tsx|html|css|py|java|c|cpp|h|xml|ya?ml)$/i.test(file.name);
 }
 async function addAttachments(files){
- const incoming=[...files].slice(0,6-pendingAttachments.length);
- for(const file of incoming){
-   if(file.size>15*1024*1024){toast(`الملف ${file.name} أكبر من 15MB`,'error');continue}
-   try{
-     const a={id:uid(),name:file.name,type:file.type||'application/octet-stream',size:file.size};
-     if(isTextFile(file))a.text=await textFromFile(file);
-     else a.dataUrl=await dataUrlFromFile(file);
-     pendingAttachments.push(a);
-   }catch(e){toast(`تعذر قراءة ${file.name}`,'error')}
- }
+ const all=[...files];const workspaceFiles=all.filter(isTextFile),chatFiles=all.filter(f=>!isTextFile(f));
+ if(workspaceFiles.length)await importWorkspaceFiles(workspaceFiles);
+ const incoming=chatFiles.slice(0,6-pendingAttachments.length);
+ for(const file of incoming){if(file.size>15*1024*1024){toast(`الملف ${file.name} أكبر من 15MB`,'error');continue}try{const a={id:uid(),name:file.name,type:file.type||'application/octet-stream',size:file.size};a.dataUrl=await dataUrlFromFile(file);pendingAttachments.push(a)}catch(e){toast(`تعذر قراءة ${file.name}`,'error')}}
  renderAttachPreview();
 }
 function renderAttachPreview(){
@@ -1045,7 +1065,7 @@ function scheduleStreamPaint(idx,final=false){
    el.innerHTML=empty+markdown(m.content||'',!final,m.sources||[],idx)+((!final&&!openCode)?'<span class="stream-caret"></span>':'');
    row.classList.toggle('streaming',!final);
    row.querySelectorAll('.code-block').forEach(b=>b.classList.toggle('streaming-code',!final&&openCode));
-   const tc=row.querySelector('.token-count');if(tc){const n=m.usage?.total_tokens||m.liveTokens||0;tc.textContent=(m.streaming&&!m.usage?.total_tokens?'≈ ':'')+Number(n).toLocaleString('en-US')+' tokens'}
+   const tc=row.querySelector('.token-count');if(tc){const n=m.usage?.total_tokens||m.liveTokens||0;tc.textContent=(m.streaming&&!m.usage?.total_tokens?'≈ ':'')+Number(n).toLocaleString('en-US')+' tokens'} const et=row.querySelector('.elapsed-time');if(et)et.textContent=formatDuration(m.streaming?(Date.now()-(m.startedAt||m.time||Date.now())):(m.durationMs||m.elapsedMs||0));
    const oldSources=row.querySelector('.sources-strip');
    if(!oldSources&&m.sources?.length){row.querySelector('.msg-meta')?.insertAdjacentHTML('beforebegin',sourcesHtml(m.sources,idx));bindSourceUI(row)}
    bindCodeCopy(row);followStreamBottom();
@@ -1255,8 +1275,8 @@ function finishThinkingUI(){
  el.style.transition='opacity .18s,transform .18s';el.style.opacity='0';el.style.transform='translateY(-3px)';setTimeout(()=>el.remove(),180);
 }
 function beginAssistantBubble(searching=false){
- finishThinkingUI();const m={role:'assistant',content:'',time:Date.now(),model:settings.model,streaming:true,searching,promptTokenEstimate:currentPromptTokens(),liveTokens:0,sources:[]};activeChat.messages.push(m);
- const idx=activeChat.messages.length-1;streamAssistantIdx=idx;autoFollow=true;const box=$('#messages');box.insertAdjacentHTML('beforeend',messageHtml(m,idx));bindMsgActions();scrollBottom(false);return idx;
+ finishThinkingUI();const now=Date.now();const m={role:'assistant',content:'',time:now,startedAt:now,elapsedMs:0,model:settings.model,streaming:true,searching,promptTokenEstimate:currentPromptTokens(),liveTokens:0,sources:[]};activeChat.messages.push(m);
+ const idx=activeChat.messages.length-1;streamAssistantIdx=idx;autoFollow=true;const box=$('#messages');box.insertAdjacentHTML('beforeend',messageHtml(m,idx));bindMsgActions();scrollBottom(false);startResponseTimer(idx);return idx;
 }
 function setGenerating(on){
  isGenerating=on;const b=$('#sendBtn');
@@ -1275,8 +1295,12 @@ function fillCodingToolsUI(){
 function quickHash(text=''){let h=2166136261;const str=String(text);for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0).toString(16).padStart(8,'0')+':'+str.length}
 function normalizePath(path=''){return String(path).replace(/\\/g,'/').replace(/^\/+/, '').replace(/\.\.(?:\/|$)/g,'').trim()}
 async function getWorkspace(create=true){
- if(!activeChat?.id)return null;let ws=await dbWorkspaceGet(activeChat.id);
- if(!ws&&create){ws={id:activeChat.id,createdAt:Date.now(),updatedAt:Date.now(),files:[],revisions:[],cache:{}};await dbWorkspacePut(ws)}
+ let ws=await dbWorkspaceGet(GLOBAL_WORKSPACE_ID);
+ if(!ws&&create){
+   const legacy=(await dbWorkspaceAll()).filter(x=>x&&x.id!==GLOBAL_WORKSPACE_ID);const byPath=new Map();
+   for(const old of legacy)for(const f of (old.files||[])){const prev=byPath.get(f.path);if(!prev||(f.modifiedAt||0)>(prev.modifiedAt||0))byPath.set(f.path,{...f})}
+   ws={id:GLOBAL_WORKSPACE_ID,createdAt:Date.now(),updatedAt:Date.now(),files:[...byPath.values()],revisions:[],cache:{}};await dbWorkspacePut(ws);
+ }
  if(ws){ws.files=Array.isArray(ws.files)?ws.files:[];ws.revisions=Array.isArray(ws.revisions)?ws.revisions:[];ws.cache=ws.cache&&typeof ws.cache==='object'?ws.cache:{}}
  return ws;
 }
@@ -1287,12 +1311,17 @@ async function syncWorkspaceAttachments(atts=[]){
  ws.updatedAt=Date.now();ws.cache={};await dbWorkspacePut(ws);workspaceReadCache.clear();await updateWorkspaceChip();
 }
 async function updateWorkspaceChip(){
- const b=$('#workspaceBtn'),c=$('#workspaceCount');if(!b)return;const ws=activeChat?.id?await getWorkspace(false):null;const n=ws?.files?.length||0;b.classList.toggle('show',!!(toolOn('workspace')&&n));if(c)c.textContent=n;
+ const b=$('#workspaceBtn'),c=$('#workspaceCount');if(!b)return;const ws=await getWorkspace(true);const n=ws?.files?.length||0;b.classList.add('show');b.title=`Workspace مشترك · ${n} ملف`;if(c)c.textContent=n;
 }
 function fmtBytes(n=0){if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';return (n/1048576).toFixed(1)+' MB'}
 function workspaceTreeHtml(files=[]){
  const root={};files.forEach((f,i)=>{const parts=f.path.split('/').filter(Boolean);let node=root;parts.forEach((part,n)=>{if(n===parts.length-1)node[part]={__file:f,__index:i};else node=node[part]||(node[part]={})})});
  const walk=(node,depth=0)=>Object.entries(node).sort(([a,A],[b,B])=>Number(!!A.__file)-Number(!!B.__file)||a.localeCompare(b)).map(([name,val])=>val.__file?`<div class="workspace-file"><div class="wf-icon">${/\.(js|ts|jsx|tsx)$/i.test(val.__file.path)?'JS':/\.(html?)$/i.test(val.__file.path)?'⌘':/\.css$/i.test(val.__file.path)?'#':'📄'}</div><div class="wf-main"><b>${esc(name)}</b><small>${fmtBytes((val.__file.text||'').length)} · ${esc(val.__file.hash||quickHash(val.__file.text||''))}</small></div><button type="button" data-ws-download="${val.__index}" title="تنزيل">↓</button></div>`:`<div class="workspace-folder"><div class="workspace-folder-head">▾ ${esc(name)}</div><div class="workspace-folder-body">${walk(val,depth+1)}</div></div>`).join('');return walk(root)
+}
+async function importWorkspaceFiles(fileList){
+ const all=[...fileList].filter(isTextFile).slice(0,120);if(!all.length){toast('اختر ملفات كود أو ملفات نصية مدعومة','error');return}const ws=await getWorkspace(true);let imported=0;
+ for(const file of all){if(file.size>3*1024*1024)continue;try{const text=await textFromFile(file),path=normalizePath(file.name),entry={path,name:file.name,type:file.type||'text/plain',text,size:text.length,hash:quickHash(text),modifiedAt:Date.now()},old=ws.files.find(f=>f.path===path);if(old)Object.assign(old,entry);else ws.files.push(entry);imported++}catch{}}
+ ws.updatedAt=Date.now();ws.cache={};await dbWorkspacePut(ws);workspaceReadCache.clear();await updateWorkspaceChip();await renderWorkspaceModal();toast(`تم حفظ ${imported} ملف في Workspace المشترك بدون إرساله للشات`)
 }
 async function importWorkspaceFolder(fileList){
  const all=[...fileList].filter(isTextFile).slice(0,120);if(!all.length){toast('لم يتم العثور على ملفات نصية/كود مدعومة','error');return}const ws=await getWorkspace(true);let imported=0;
@@ -1301,7 +1330,7 @@ async function importWorkspaceFolder(fileList){
 }
 async function renderWorkspaceModal(){
  const ws=await getWorkspace(false),list=$('#workspaceList'),meta=$('#workspaceMeta');if(!list)return;const files=ws?.files||[];if(meta)meta.textContent=files.length?`${files.length} ملفات · ${ws.revisions?.length||0} revisions`:'فارغ';
- list.innerHTML=files.length?workspaceTreeHtml(files):'<div class="notice" style="margin:0">ارفع ملفات نصية أو ملفات كود من زر + أو استورد مجلد مشروع. في وضع الأدوات لا يتم إرسال الملف كاملًا للنموذج؛ النموذج يقرأ فقط النطاقات التي يحتاجها.</div>';
+ list.innerHTML=files.length?workspaceTreeHtml(files):'<div class="notice" style="margin:0">ارفع الملفات هنا مباشرة. الـ Workspace مشترك بين كل المحادثات، والملفات لا تُضاف إلى رسالة الشات؛ النموذج يقرأ فقط النطاقات التي يحتاجها بالأدوات.</div>';
  $$('[data-ws-download]').forEach(b=>b.onclick=()=>downloadWorkspaceFile(files[+b.dataset.wsDownload]));
  const versions=$('#workspaceVersions');if(versions){const revs=(ws?.revisions||[]).slice(-8).reverse();versions.innerHTML=revs.length?'<div class="history-title" style="margin:5px 0">آخر الإصدارات</div>'+revs.map(r=>`<div class="version-item"><span>${r.type==='checkpoint'?'◇':'✎'}</span><div><b>${esc(r.label||r.path||'Revision')}</b><div>${new Date(r.createdAt).toLocaleString('ar-EG')}</div></div>${r.type==='checkpoint'?`<button data-restore-checkpoint="${r.id}">استعادة</button>`:''}</div>`).join(''):'';$$('[data-restore-checkpoint]').forEach(b=>b.onclick=async()=>{const result=await restoreCheckpoint(b.dataset.restoreCheckpoint);if(result.ok){toast('تمت استعادة الـ checkpoint');renderWorkspaceModal();updateWorkspaceChip()}else toast(result.error||'تعذر الاستعادة','error')})}
 }
@@ -1440,13 +1469,13 @@ function agentConversation(currentText,ws){
 }
 function toOpenAITools(defs){return defs.map(d=>({type:'function',function:{name:d.name,description:d.description,parameters:d.parameters}}))}
 async function callOpenAIAgent(messages,defs,signal){
- const body={model:settings.model,messages,tools:toOpenAITools(defs),tool_choice:'auto',stream:false,max_tokens:settings.maxTokens||2048};if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;applyReasoningOpenAI(body);
+ claimModelRequest();const body={model:settings.model,messages,tools:toOpenAITools(defs),tool_choice:'auto',stream:false,max_tokens:settings.maxTokens||2048};if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;applyReasoningOpenAI(body);
  const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||data?.message||`Tool calling HTTP ${r.status}`);return data;
 }
 async function runOpenAIAgent(text,ws,defs,assistantIdx){
  let messages=[{role:'system',content:agentInstruction(ws)},...agentConversation(text,ws)],usage=null;
  for(let round=0;round<AGENT_MAX_ROUNDS;round++){
-  const data=await callOpenAIAgent(messages,defs,aborter.signal),msg=data?.choices?.[0]?.message||{};usage=data.usage||usage;const calls=msg.tool_calls||[];
+  const data=await callOpenAIAgent(messages,defs,aborter.signal),msg=data?.choices?.[0]?.message||{};usage=addUsage(usage,data.usage);const calls=msg.tool_calls||[];
   if(!calls.length){return {text:typeof msg.content==='string'?msg.content:(msg.content||[]).map(x=>x.text||'').join('')||'تم تنفيذ المهمة.',usage}}
   messages.push(msg);
   for(const c of calls){let args={};try{args=JSON.parse(c.function?.arguments||'{}')}catch{}setAgentStage(assistantIdx,`أستخدم ${c.function?.name||'tool'}…`);const result=await guardedExecuteCodingTool(c.function?.name,args);messages.push({role:'tool',tool_call_id:c.id,content:JSON.stringify(result)});if(!result.ok&&toolOn('autoFix'))setAgentStage(assistantIdx,'وجدت مشكلة؛ أحاول الإصلاح وإعادة الفحص…')}
@@ -1455,25 +1484,25 @@ async function runOpenAIAgent(text,ws,defs,assistantIdx){
 }
 function toAnthropicTools(defs){return defs.map(d=>({name:d.name,description:d.description,input_schema:d.parameters}))}
 async function callAnthropicAgent(messages,defs,ws){
- const body={model:settings.model,max_tokens:settings.maxTokens||2048,system:agentInstruction(ws),messages,tools:toAnthropicTools(defs),tool_choice:{type:'auto'},stream:false};if(Number.isFinite(settings.temperature))body.temperature=Math.min(1,Math.max(0,settings.temperature));
+ claimModelRequest();const body={model:settings.model,max_tokens:settings.maxTokens||2048,system:agentInstruction(ws),messages,tools:toAnthropicTools(defs),tool_choice:{type:'auto'},stream:false};if(Number.isFinite(settings.temperature))body.temperature=Math.min(1,Math.max(0,settings.temperature));
  const r=await fetch(resolveAnthropicEndpoints().messagesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||data?.message||`Anthropic tool HTTP ${r.status}`);return data;
 }
 async function runAnthropicAgent(text,ws,defs,assistantIdx){
  let messages=agentConversation(text,ws).map(m=>({role:m.role,content:m.content})),usage=null;
  for(let round=0;round<AGENT_MAX_ROUNDS;round++){
-  const data=await callAnthropicAgent(messages,defs,ws);usage=extractUsage(data)||usage;const blocks=data.content||[],calls=blocks.filter(x=>x.type==='tool_use');if(!calls.length)return {text:blocks.filter(x=>x.type==='text').map(x=>x.text||'').join('')||'تم تنفيذ المهمة.',usage};messages.push({role:'assistant',content:blocks});const results=[];for(const c of calls){setAgentStage(assistantIdx,`أستخدم ${c.name}…`);const result=await guardedExecuteCodingTool(c.name,c.input||{});results.push({type:'tool_result',tool_use_id:c.id,content:JSON.stringify(result),is_error:!result.ok})}messages.push({role:'user',content:results});
+  const data=await callAnthropicAgent(messages,defs,ws);usage=addUsage(usage,extractUsage(data));const blocks=data.content||[],calls=blocks.filter(x=>x.type==='tool_use');if(!calls.length)return {text:blocks.filter(x=>x.type==='text').map(x=>x.text||'').join('')||'تم تنفيذ المهمة.',usage};messages.push({role:'assistant',content:blocks});const results=[];for(const c of calls){setAgentStage(assistantIdx,`أستخدم ${c.name}…`);const result=await guardedExecuteCodingTool(c.name,c.input||{});results.push({type:'tool_result',tool_use_id:c.id,content:JSON.stringify(result),is_error:!result.ok})}messages.push({role:'user',content:results});
  }
  return {text:'تم الوصول للحد الأقصى لجولات الأدوات. راجع التعديلات الحالية قبل المتابعة.',usage};
 }
 function toGeminiDeclarations(defs){return defs.map(d=>{const parameters=JSON.parse(JSON.stringify(d.parameters));delete parameters.additionalProperties;return {name:d.name,description:d.description,parameters}})}
 async function callGeminiAgent(contents,defs,ws){
- const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;const body={contents,systemInstruction:{parts:[{text:agentInstruction(ws)}]},tools:[{functionDeclarations:toGeminiDeclarations(defs)}],toolConfig:{functionCallingConfig:{mode:'AUTO'}},generationConfig:{temperature:settings.temperature,topP:settings.topP,maxOutputTokens:settings.maxTokens}};
- const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||`Gemini tool HTTP ${r.status}`);return data;
+ claimModelRequest();const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;const body={contents,systemInstruction:{parts:[{text:agentInstruction(ws)}]},tools:[{functionDeclarations:toGeminiDeclarations(defs)}],toolConfig:{functionCallingConfig:{mode:'AUTO'}},generationConfig:{temperature:settings.temperature,topP:settings.topP,maxOutputTokens:settings.maxTokens}};
+ claimModelRequest();const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||`Gemini tool HTTP ${r.status}`);return data;
 }
 async function runGeminiAgent(text,ws,defs,assistantIdx){
  let contents=agentConversation(text,ws).map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),usage=null;
  for(let round=0;round<AGENT_MAX_ROUNDS;round++){
-  const data=await callGeminiAgent(contents,defs,ws);usage=extractUsage(data)||usage;const content=data?.candidates?.[0]?.content||{role:'model',parts:[]},parts=content.parts||[],calls=parts.filter(p=>p.functionCall);if(!calls.length)return {text:parts.map(p=>p.text||'').join('')||'تم تنفيذ المهمة.',usage};contents.push(content);const responseParts=[];for(const p of calls){const c=p.functionCall;setAgentStage(assistantIdx,`أستخدم ${c.name}…`);const result=await guardedExecuteCodingTool(c.name,c.args||{});responseParts.push({functionResponse:{name:c.name,response:result,id:c.id}})}contents.push({role:'user',parts:responseParts});
+  const data=await callGeminiAgent(contents,defs,ws);usage=addUsage(usage,extractUsage(data));const content=data?.candidates?.[0]?.content||{role:'model',parts:[]},parts=content.parts||[],calls=parts.filter(p=>p.functionCall);if(!calls.length)return {text:parts.map(p=>p.text||'').join('')||'تم تنفيذ المهمة.',usage};contents.push(content);const responseParts=[];for(const p of calls){const c=p.functionCall;setAgentStage(assistantIdx,`أستخدم ${c.name}…`);const result=await guardedExecuteCodingTool(c.name,c.args||{});responseParts.push({functionResponse:{name:c.name,response:result,id:c.id}})}contents.push({role:'user',parts:responseParts});
  }
  return {text:'تم الوصول للحد الأقصى لجولات الأدوات. راجع التعديلات الحالية قبل المتابعة.',usage};
 }
@@ -1494,7 +1523,7 @@ async function send(){
  if(!activeChat)await newChat();
  const sentAttachments=pendingAttachments.map(a=>({...a}));activeChat.messages.push({role:'user',content:text,time:Date.now(),attachments:sentAttachments});await syncWorkspaceAttachments(sentAttachments);
  if(settings.autoTitle && (activeChat.title==='محادثة جديدة'||!activeChat.title))activeChat.title=text.replace(/\s+/g,' ').slice(0,46)+(text.length>46?'…':'');
- $('#prompt').value='';pendingAttachments=[];renderAttachPreview();autoGrow();renderMessages();await saveChat();setGenerating(true);aborter=new AbortController();transientSearchContext='';const assistantIdx=beginAssistantBubble(!!settings.webSearch);
+ $('#prompt').value='';pendingAttachments=[];renderAttachPreview();autoGrow();renderMessages();await saveChat();setGenerating(true);responseModelRequests=0;aborter=new AbortController();transientSearchContext='';const assistantIdx=beginAssistantBubble(!!settings.webSearch);
  try{
    if(settings.webSearch){const results=await searchWeb(text);const m=activeChat.messages[assistantIdx];m.sources=results.map(r=>({title:r.title,url:r.url,domain:r.domain,publishedDate:r.publishedDate}));m.searching=false;transientSearchContext=searchContextText(results);scheduleStreamPaint(assistantIdx,false)}
    if(await shouldUseCodingAgent()){
@@ -1520,15 +1549,15 @@ async function send(){
    if(streamRAF){cancelAnimationFrame(streamRAF);streamRAF=0}
    const last=activeChat?.messages?.[activeChat.messages.length-1];
    if(last?.role==='assistant'&&last.streaming){last.streaming=false;scheduleStreamPaint(activeChat.messages.length-1,true)}
-   setGenerating(false);aborter=null;streamAssistantIdx=-1;transientSearchContext='';await saveChat()
+   const finalMsg=activeChat?.messages?.[streamAssistantIdx>=0?streamAssistantIdx:activeChat.messages.length-1];stopResponseTimer(finalMsg);renderMessages();setGenerating(false);aborter=null;streamAssistantIdx=-1;transientSearchContext='';await saveChat()
  }
 }
 async function sendAnthropic(){
  const url=resolveAnthropicEndpoints().messagesUrl;let body=anthropicRequest();
- let r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});
+ claimModelRequest();let r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});
  if(!r.ok && (body.thinking||body.output_config)){
    const fallback={...body};delete fallback.thinking;delete fallback.output_config;
-   r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(fallback),signal:aborter.signal});
+   claimModelRequest();r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(fallback),signal:aborter.signal});
  }
  if(!r.ok){let err;try{err=await r.json()}catch(err){err={}};throw new Error(err?.error?.message||err?.message||('Anthropic HTTP '+r.status))}
  const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم في هذا المتصفح أو البروفايدر');
@@ -1562,10 +1591,10 @@ async function sendAnthropic(){
 }
 async function sendGemini(){
  const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(settings.apiKey)}`;
- let r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(geminiRequest()),signal:aborter.signal});
+ claimModelRequest();let r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(geminiRequest()),signal:aborter.signal});
  if(!r.ok && settings.reasoningLevel!=='auto' && settings.reasoningLevel!=='off'){
    const body=geminiRequest();if(body.generationConfig)delete body.generationConfig.thinkingConfig;
-   r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});
+   claimModelRequest();r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});
  }
  if(!r.ok){let err;try{err=await r.json()}catch(err){err={}};throw new Error(err?.error?.message||('Gemini HTTP '+r.status))}
  const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم هنا');
@@ -1590,10 +1619,10 @@ async function sendGemini(){
 }
 async function sendOpenAICompatible(){
  const url=resolveCompatibleEndpoints().chatUrl;let body=openAIRequest();
- let r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});
+ claimModelRequest();let r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});
  if(!r.ok && (body.reasoning||body.reasoning_effort)){
    const fallback={...body};delete fallback.reasoning;delete fallback.reasoning_effort;
-   r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(fallback),signal:aborter.signal});
+   claimModelRequest();r=await fetch(url,{method:'POST',headers:headers(),body:JSON.stringify(fallback),signal:aborter.signal});
  }
  if(!r.ok){let err=null;try{err=await r.json()}catch(errParse){err=null};throw new Error(err?.error?.message||err?.message||('HTTP '+r.status))}
  const reader=r.body?.getReader();if(!reader)throw new Error('Streaming غير مدعوم في هذا المتصفح أو البروفايدر');
@@ -1618,11 +1647,11 @@ async function sendOpenAICompatible(){
  activeChat.messages[idx].streaming=false;scheduleStreamPaint(idx,true);
 }
 async function exportAll(){
- const data={version:1,exportedAt:new Date().toISOString(),settings:{...settings,apiKey:''},chats:await dbAll()};
+ const data={version:2,exportedAt:new Date().toISOString(),settings:{...settings,apiKey:''},chats:await dbAll(),workspace:await getWorkspace(false)};
  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='aiway-chat-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)
 }
 async function importBackup(file){
- try{const data=JSON.parse(await file.text());if(!Array.isArray(data.chats))throw new Error('ملف غير صالح');for(const c of data.chats)await dbPut(c);if(data.settings)Object.assign(settings,data.settings,{apiKey:settings.apiKey});persistSettings();fillSettings();await renderHistory();toast('تم الاستيراد بنجاح')}catch(e){toast('فشل الاستيراد: '+e.message,'error')}
+ try{const data=JSON.parse(await file.text());if(!Array.isArray(data.chats))throw new Error('ملف غير صالح');for(const c of data.chats)await dbPut(c);if(data.workspace){data.workspace.id=GLOBAL_WORKSPACE_ID;await dbWorkspacePut(data.workspace)}if(data.settings)Object.assign(settings,data.settings,{apiKey:settings.apiKey});persistSettings();fillSettings();await renderHistory();toast('تم الاستيراد بنجاح')}catch(e){toast('فشل الاستيراد: '+e.message,'error')}
 }
 
 function customConfirm(message){
@@ -1681,7 +1710,7 @@ function bind(){
  [['saveKeySwitch'],['historySwitch'],['autoTitleSwitch']].forEach(([id])=>$('#'+id).onclick=()=>$('#'+id).classList.toggle('on'));
  $('#toolsMasterSwitch').onclick=()=>{$('#toolsMasterSwitch').classList.toggle('on');settings.toolsMaster=$('#toolsMasterSwitch').classList.contains('on');fillCodingToolsUI()};
  $$('.coding-tool-switch').forEach(sw=>sw.onclick=()=>{sw.classList.toggle('on');settings.codingTools={...(settings.codingTools||DEFAULTS.codingTools),[sw.dataset.tool]:sw.classList.contains('on')};fillCodingToolsUI()});
- $('#workspaceBtn').onclick=()=>{renderWorkspaceModal();modal('workspaceModal')};$('#importFolderBtn').onclick=()=>$('#workspaceFolderInput').click();$('#workspaceFolderInput').onchange=async e=>{await importWorkspaceFolder(e.target.files||[]);e.target.value=''};$('#undoWorkspaceBtn').onclick=async()=>{const r=await workspaceUndo();if(r.ok){toast('تم التراجع عن آخر تعديل');renderWorkspaceModal();updateWorkspaceChip()}else toast(r.error||'لا يوجد تعديل للتراجع عنه','error')};
+ $('#workspaceBtn').onclick=()=>{renderWorkspaceModal();modal('workspaceModal')};$('#importWorkspaceFilesBtn').onclick=()=>$('#workspaceFileInput').click();$('#workspaceFileInput').onchange=async e=>{await importWorkspaceFiles(e.target.files||[]);e.target.value=''};$('#importFolderBtn').onclick=()=>$('#workspaceFolderInput').click();$('#workspaceFolderInput').onchange=async e=>{await importWorkspaceFolder(e.target.files||[]);e.target.value=''};$('#undoWorkspaceBtn').onclick=async()=>{const r=await workspaceUndo();if(r.ok){toast('تم التراجع عن آخر تعديل');renderWorkspaceModal();updateWorkspaceChip()}else toast(r.error||'لا يوجد تعديل للتراجع عنه','error')};
  $('#temperatureRange').oninput=e=>$('#temperature').value=e.target.value;$('#temperature').oninput=e=>$('#temperatureRange').value=e.target.value;$('#topPRange').oninput=e=>$('#topP').value=e.target.value;$('#topP').oninput=e=>$('#topPRange').value=e.target.value;
  $$('#settingsTabs .tab').forEach(t=>t.onclick=()=>{$$('#settingsTabs .tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');$$('.tabpane').forEach(p=>p.hidden=p.dataset.pane!==t.dataset.tab)});
  $('#modelSearch').oninput=e=>renderModelsModal(e.target.value);
@@ -1691,7 +1720,7 @@ function bind(){
 }
 
 async function init(){
- loadSettings();await openDB();bind();fillSettings();updateSearchUI();
+ loadSettings();await openDB();bind();fillSettings();updateSearchUI();await getWorkspace(true);
  const chats=await dbAll();if(chats.length)activeChat=chats[0];else await newChat();
  renderMessages();renderHistory();await updateWorkspaceChip();
  if(settings.model){$('#topModel').textContent=shortModelName(settings.model);const cm=$('#composerModelName');if(cm)cm.textContent=shortModelName(settings.model);$('#connText').textContent='جاهز'}
