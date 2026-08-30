@@ -714,14 +714,16 @@ let loadedMcpTools=new Set();
 let mcpSessionId='';
 let mcpProtocolVersion='2026-07-28';
 let mcpLegacyMode=false;
-const AGENT_MAX_ROUNDS=10;
-const MODEL_REQUEST_LIMIT=10;
-const AGENT_TARGET_REQUESTS=5;
-const AGENT_MAX_READ_LINES=96;
-const AGENT_MAX_SEARCH_RESULTS=8;
-const AGENT_MAX_TOOL_RESULT_CHARS=6500;
-const AGENT_MAX_EXPLORE_TOOL_CALLS=4;
-const AGENT_FORCE_ACTION_AT_REQUEST=6;
+const AGENT_MAX_ROUNDS=4;
+const MODEL_REQUEST_LIMIT=4;
+const AGENT_TARGET_REQUESTS=3;
+const AGENT_MAX_READ_LINES=72;
+const AGENT_MAX_SEARCH_RESULTS=6;
+const AGENT_MAX_TOOL_RESULT_CHARS=4200;
+const AGENT_MAX_EXPLORE_TOOL_CALLS=2;
+const AGENT_FORCE_ACTION_AT_REQUEST=3;
+const WORKSPACE_CACHE_MAX_ENTRIES=24;
+const WORKSPACE_CACHE_TTL_MS=30*60*1000;
 const GLOBAL_WORKSPACE_ID="__aiway_global_workspace__";
 const AGENT_MAX_IDENTICAL_TOOL_CALLS=2;
 let agentToolCallCounts=new Map();
@@ -1437,7 +1439,7 @@ async function mcpRpc(method,params={},notification=false){
  const id=uid(),modern=!mcpLegacyMode;
  const headers={'Content-Type':'application/json','Accept':'application/json, text/event-stream',...parseMcpHeaders()};
  if(modern){headers['MCP-Protocol-Version']=mcpProtocolVersion;headers['Mcp-Method']=method;const n=params?.name||params?.uri||params?.taskId;if(n)headers['Mcp-Name']=String(n)}else if(mcpSessionId)headers['Mcp-Session-Id']=mcpSessionId;
- const meta=modern?{'io.modelcontextprotocol/clientInfo':{name:'AiWay',version:'1.5.0'},'io.modelcontextprotocol/clientCapabilities':{}}:null;
+ const meta=modern?{'io.modelcontextprotocol/clientInfo':{name:'AiWay',version:'1.6.0'},'io.modelcontextprotocol/clientCapabilities':{}}:null;
  const finalParams=modern?{...(params||{}),_meta:{...(params?._meta||{}),...meta}}:(params||{});
  const body=notification?{jsonrpc:'2.0',method,params:finalParams}:{jsonrpc:'2.0',id,method,params:finalParams};
  const r=await fetch(url,{method:'POST',headers,body:JSON.stringify(body),signal:aborter?.signal});const sid=r.headers.get('mcp-session-id');if(sid)mcpSessionId=sid;const raw=await r.text();if(!r.ok)throw new Error(`MCP HTTP ${r.status}: ${raw.slice(0,320)}`);if(notification)return {ok:true};
@@ -1447,7 +1449,7 @@ async function loadMcpTools(){
  mcpToolMap.clear();mcpToolDefs=[];loadedMcpTools.clear();mcpSessionId='';mcpLegacyMode=false;mcpProtocolVersion='2026-07-28';if(!toolOn('skillSystem')||!settings.mcpUrl?.trim())return [];
  let result;
  try{result=await mcpRpc('tools/list',{})}catch(modernError){
-  try{mcpLegacyMode=true;mcpProtocolVersion='2025-03-26';await mcpRpc('initialize',{protocolVersion:'2025-03-26',capabilities:{},clientInfo:{name:'AiWay',version:'1.5.0'}});try{await mcpRpc('notifications/initialized',{},true)}catch{}result=await mcpRpc('tools/list',{})}catch(legacyError){console.warn('MCP tools unavailable:',modernError,legacyError);toast('تعذر تحميل MCP: '+legacyError.message,'error');return []}
+  try{mcpLegacyMode=true;mcpProtocolVersion='2025-03-26';await mcpRpc('initialize',{protocolVersion:'2025-03-26',capabilities:{},clientInfo:{name:'AiWay',version:'1.6.0'}});try{await mcpRpc('notifications/initialized',{},true)}catch{}result=await mcpRpc('tools/list',{})}catch(legacyError){console.warn('MCP tools unavailable:',modernError,legacyError);toast('تعذر تحميل MCP: '+legacyError.message,'error');return []}
  }
  const tools=Array.isArray(result?.tools)?result.tools:[];mcpToolDefs=tools.slice(0,80).map(t=>{const safe=('mcp__'+String(t.name||'tool')).replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,64);mcpToolMap.set(safe,t.name);return {name:safe,description:`Remote MCP: ${t.description||t.name||'tool'}`,parameters:t.inputSchema&&typeof t.inputSchema==='object'?t.inputSchema:{type:'object',properties:{}}}});
  return mcpToolDefs;
@@ -1491,7 +1493,7 @@ function toolError(code,message,details){return {ok:false,error:message,error_co
 async function commitWorkspaceEdit(ws,f,path,before,after,extra={}){
  const rev={id:uid(),type:'edit',path,before,after,created:!!extra.created,createdAt:Date.now()};if(toolOn('versions'))ws.revisions.push(rev);
  if(f){f.text=after;f.hash=quickHash(after);f.size=after.length;f.modifiedAt=Date.now()}
- ws.updatedAt=Date.now();ws.cache={};ws.revisions=ws.revisions.slice(-80);await dbWorkspacePut(ws);workspaceReadCache.clear();lastAgentChanges.push({path,before,after,revisionId:rev.id});await updateWorkspaceChip();return {ok:true,path,new_hash:quickHash(after),revision_id:rev.id};
+ ws.updatedAt=Date.now();ws.cache={};ws.revisions=ws.revisions.slice(-80);await dbWorkspacePut(ws);workspaceReadCache.clear();lastAgentChanges.push({path,before,after,revisionId:rev.id});await updateWorkspaceChip();return {ok:true,path,new_hash:quickHash(after),revision_id:rev.id,changed:before!==after};
 }
 async function guardedExecuteCodingTool(name,args={}){
  const key=name+':'+JSON.stringify(args||{});const n=(agentToolCallCounts.get(key)||0)+1;agentToolCallCounts.set(key,n);
@@ -1504,7 +1506,7 @@ async function guardedExecuteCodingTool(name,args={}){
    agentExploreToolCalls++;if(recovery)agentRecoveryReads++;
  }
  const result=await executeCodingTool(name,args);
- if(result?.ok&&['workspace_edit_lines','workspace_apply_patch','workspace_write_file','workspace_delete_file','workspace_move_file'].includes(name))agentSuccessfulEdits++;
+ if(result?.ok&&['workspace_edit_lines','workspace_apply_patch','workspace_write_file','workspace_delete_file','workspace_move_file'].includes(name)&&result.changed!==false)agentSuccessfulEdits++;
  if(!result?.ok&&['workspace_edit_lines','workspace_apply_patch'].includes(name)&&['STALE_FILE','PATCH_NO_MATCH','PATCH_NOT_UNIQUE'].includes(result.error_code))agentRecoveryReads=0;
  return result;
 }
@@ -1530,7 +1532,7 @@ async function executeCodingTool(name,args={}){
   for(const f of ws.files){if(args.path&&!f.path.includes(String(args.path)))continue;const lines=String(f.text||'').split('\n');for(let i=0;i<lines.length&&out.length<max;i++){const hay=sensitive?lines[i]:lines[i].toLowerCase();const hit=re?re.test(lines[i]):hay.includes(needle);if(!hit)continue;const a=Math.max(0,i-ctx),b=Math.min(lines.length-1,i+ctx);out.push({path:f.path,line:i+1,hash:f.hash,snippet:lines.slice(a,b+1).map((x,j)=>`${a+j+1}: ${x}`).join('\n')});if(re)re.lastIndex=0}if(out.length>=max)break}return {ok:true,query:raw,mode,results:out};
  }
  if(name==='workspace_read_range'){
-  const f=ws.files.find(x=>x.path===path);if(!f)return toolError('FILE_NOT_FOUND',`File not found: ${path}`);const lines=String(f.text||'').split('\n'),start=Math.max(1,args.start_line||1),requestedEnd=Math.max(start,args.end_line||start+79),end=Math.min(lines.length,start+AGENT_MAX_READ_LINES-1,requestedEnd);const key=`${f.hash}:${start}:${end}`;if(toolOn('contextCache')&&workspaceReadCache.has(key))return {...workspaceReadCache.get(key),cached:true};if(toolOn('contextCache')&&ws.cache?.[key]){workspaceReadCache.set(key,ws.cache[key]);return {...ws.cache[key],cached:true,persistent_cache:true}}const result={ok:true,path,hash:f.hash,start_line:start,end_line:end,total_lines:lines.length,truncated:requestedEnd>end,content:lines.slice(start-1,end).map((x,i)=>`${start+i}: ${x}`).join('\n')};if(toolOn('contextCache')){workspaceReadCache.set(key,result);ws.cache=ws.cache||{};ws.cache[key]=result;const keys=Object.keys(ws.cache);if(keys.length>60)for(const k of keys.slice(0,keys.length-60))delete ws.cache[k];await dbWorkspacePut(ws)}return result;
+  const f=ws.files.find(x=>x.path===path);if(!f)return toolError('FILE_NOT_FOUND',`File not found: ${path}`);const lines=String(f.text||'').split('\n'),start=Math.max(1,args.start_line||1),requestedEnd=Math.max(start,args.end_line||start+59),end=Math.min(lines.length,start+AGENT_MAX_READ_LINES-1,requestedEnd);const key=`read:v2:${path}:${f.hash}:${start}:${end}`,now=Date.now();if(toolOn('contextCache')&&workspaceReadCache.has(key)){const hit=workspaceReadCache.get(key);if(now-hit.at<WORKSPACE_CACHE_TTL_MS)return {...hit.result,cached:true};workspaceReadCache.delete(key)}if(toolOn('contextCache')&&ws.cache?.[key]){const hit=ws.cache[key];if(hit&&now-(hit.at||0)<WORKSPACE_CACHE_TTL_MS){workspaceReadCache.set(key,hit);return {...hit.result,cached:true,persistent_cache:true}}delete ws.cache[key]}const result={ok:true,path,hash:f.hash,start_line:start,end_line:end,total_lines:lines.length,truncated:requestedEnd>end,content:lines.slice(start-1,end).map((x,i)=>`${start+i}: ${x}`).join('\n')};if(toolOn('contextCache')){const entry={at:now,result};workspaceReadCache.set(key,entry);ws.cache=ws.cache||{};ws.cache[key]=entry;const keys=Object.keys(ws.cache).sort((a,b)=>(ws.cache[a]?.at||0)-(ws.cache[b]?.at||0));while(keys.length>WORKSPACE_CACHE_MAX_ENTRIES)delete ws.cache[keys.shift()];await dbWorkspacePut(ws)}return result;
  }
  if(name==='workspace_read_many'){
   const ranges=Array.isArray(args.ranges)?args.ranges.slice(0,6):[];if(!ranges.length)return toolError('INVALID_ARGUMENTS','ranges is required');const results=[];
@@ -1568,7 +1570,7 @@ function runWorkerSandbox(code,timeout=2500){return new Promise(resolve=>{
  })}
 function projectInstructionContext(ws){
  if(!toolOn('projectInstructions'))return '';const preferred=['AGENTS.md','GEMINI.md','CLAUDE.md','.github/copilot-instructions.md'];const files=ws?.files||[],picked=[];
- for(const name of preferred){for(const f of files.filter(x=>x.path===name||x.path.endsWith('/'+name)).slice(0,2)){const text=String(f.text||'').trim();if(text)picked.push(`--- ${f.path} ---\n${text.slice(0,3200)}`)}}
+ for(const name of preferred){for(const f of files.filter(x=>x.path===name).slice(0,1)){const text=String(f.text||'').trim();if(text)picked.push(`--- ${f.path} ---\n${text.slice(0,1800)}`)}}
  return picked.length?`\n[Project instructions discovered in workspace]\n${picked.join('\n')}\n[End project instructions]\n`:'';
 }
 function agentInstruction(ws){
@@ -1576,7 +1578,7 @@ function agentInstruction(ws){
 
 [AiWay Coding Agent]
 Edit the real workspace with minimum tokens and requests.
-Preferred path for edits: workspace_locate_code -> ONE precise workspace_edit_lines/apply_patch -> finish. locate_code already includes editable code, line numbers and a fresh hash, so do NOT call search/read afterward unless the located region is truly insufficient.
+Preferred path for edits: workspace_locate_code -> ONE precise workspace_edit_lines/apply_patch -> finish. For a simple edit this should usually take 2 model turns. locate_code already includes editable code, line numbers and a fresh hash, so do NOT call search/read afterward unless the located region is truly insufficient.
 Exploration is capped. Never repeat search/read/list calls with the same intent. After enough context, edit instead of investigating further.
 If several known ranges are needed, prefer workspace_read_many over serial reads. Respect project instructions such as AGENTS.md when present.
 External MCP tools are deferred: use mcp_tool_search only when an external capability is actually needed, then call one of the loaded MCP tools on the next round.
@@ -1585,7 +1587,7 @@ By model request ${AGENT_FORCE_ACTION_AT_REQUEST}, if the user asked for a chang
 Use workspace_edit_lines with the fresh hash. Do not rewrite a whole existing file for a small change.
 Do not re-read after a successful edit; edit tools already return a verification snippet.
 Never invent code or claim success before ok:true. Recover at most once from STALE_FILE/PATCH_NO_MATCH by re-reading only the target.
-Aim to finish in <=${AGENT_TARGET_REQUESTS} model requests; hard limit is ${MODEL_REQUEST_LIMIT}.
+Aim to finish in <=${AGENT_TARGET_REQUESTS} model requests; hard limit is ${MODEL_REQUEST_LIMIT}. If the request requires an edit, a text-only answer before a successful changed edit is a failure, not completion.
 Workspace: ${workspaceManifest(ws)}`.trim()
 }
 function compactAgentText(text='',max=1400){
@@ -1623,49 +1625,52 @@ function toOpenAITools(defs){return defs.map(d=>({type:'function',function:{name
 function effectiveAgentDefs(defs){
  let visible=defs.filter(d=>!d.name.startsWith('mcp__')||loadedMcpTools.has(d.name));
  if(!agentTaskRequiresEdit||agentSuccessfulEdits>0)return visible;
- if(responseModelRequests<AGENT_FORCE_ACTION_AT_REQUEST&&agentExploreToolCalls<AGENT_MAX_EXPLORE_TOOL_CALLS)return visible;
- const blocked=new Set(['workspace_locate_code','workspace_search','workspace_read_range','workspace_read_many','workspace_list_files','workspace_file_info']);
+ // Once any useful exploration happened, move decisively to the action phase.
+ if(agentExploreToolCalls<1&&responseModelRequests<2)return visible;
+ const blocked=new Set(['workspace_locate_code','workspace_search','workspace_read_many','workspace_list_files','workspace_file_info']);
+ // Keep read_range only for one stale/patch recovery; otherwise expose write tools only.
+ if(agentRecoveryReads>0)blocked.add('workspace_read_range');
  const actionDefs=visible.filter(d=>!blocked.has(d.name));
  return actionDefs.length?actionDefs:visible;
 }
 async function callOpenAIAgent(messages,defs,signal){
- claimModelRequest();const activeDefs=effectiveAgentDefs(defs);const body={model:settings.model,messages,tools:toOpenAITools(activeDefs),tool_choice:'auto',stream:false,max_tokens:settings.maxTokens||2048};if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;applyReasoningOpenAI(body);
+ claimModelRequest();const activeDefs=effectiveAgentDefs(defs);const mustAct=agentTaskRequiresEdit&&agentSuccessfulEdits===0&&agentExploreToolCalls>=1;const body={model:settings.model,messages,tools:toOpenAITools(activeDefs),tool_choice:mustAct?'required':'auto',stream:false,max_tokens:Math.min(settings.maxTokens||2048,mustAct?1200:1800)};if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;applyReasoningOpenAI(body);
  const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||data?.message||`Tool calling HTTP ${r.status}`);return data;
 }
 async function runOpenAIAgent(text,ws,defs,assistantIdx){
  const baseMessages=[{role:'system',content:agentInstruction(ws)},...agentConversation(text,ws)];let messages=[...baseMessages],usage=null;
  for(let round=0;round<AGENT_MAX_ROUNDS;round++){
   const data=await callOpenAIAgent(messages,defs,aborter.signal),msg=data?.choices?.[0]?.message||{};usage=addUsage(usage,data.usage);const calls=msg.tool_calls||[];
-  if(!calls.length){return {text:typeof msg.content==='string'?msg.content:(msg.content||[]).map(x=>x.text||'').join('')||'تم تنفيذ المهمة.',usage}}
+  if(!calls.length){const textOut=typeof msg.content==='string'?msg.content:(msg.content||[]).map(x=>x.text||'').join('');if(agentTaskRequiresEdit&&agentSuccessfulEdits===0)return {text:'لم يتم تطبيق أي تعديل فعلي. أوقف AiWay المهمة بدل إعلان نجاح وهمي؛ حاول تحديد العنصر أو الملف المستهدف أكثر.',usage,failed_edit:true};return {text:textOut||'تم تنفيذ المهمة.',usage}}
   const toolMessages=[];
   for(const c of calls){let args={};try{args=JSON.parse(c.function?.arguments||'{}')}catch{}setAgentStage(assistantIdx,`أستخدم ${c.function?.name||'tool'}…`);const result=await guardedExecuteCodingTool(c.function?.name,args);toolMessages.push({role:'tool',tool_call_id:c.id,content:compactToolResultForModel(result)});if(!result.ok&&toolOn('autoFix'))setAgentStage(assistantIdx,'وجدت مشكلة؛ أحاول الإصلاح وإعادة الفحص…')}
-  messages=[...baseMessages,msg,...toolMessages];
+  messages=[...messages,msg,...toolMessages];
   if(responseModelRequests>=MODEL_REQUEST_LIMIT)return {text:agentBudgetSummary(),usage};
  }
  return {text:'تم الوصول للحد الأقصى لجولات الأدوات. راجع التعديلات الحالية قبل المتابعة.',usage};
 }
 function toAnthropicTools(defs){return defs.map(d=>({name:d.name,description:d.description,input_schema:d.parameters}))}
 async function callAnthropicAgent(messages,defs,ws){
- claimModelRequest();const body={model:settings.model,max_tokens:settings.maxTokens||2048,system:agentInstruction(ws),messages,tools:toAnthropicTools(effectiveAgentDefs(defs)),tool_choice:{type:'auto'},stream:false};if(Number.isFinite(settings.temperature))body.temperature=Math.min(1,Math.max(0,settings.temperature));
+ claimModelRequest();const body={model:settings.model,max_tokens:settings.maxTokens||2048,system:agentInstruction(ws),messages,tools:toAnthropicTools(effectiveAgentDefs(defs)),tool_choice:(agentTaskRequiresEdit&&agentSuccessfulEdits===0&&agentExploreToolCalls>=1)?{type:'any'}:{type:'auto'},stream:false};if(Number.isFinite(settings.temperature))body.temperature=Math.min(1,Math.max(0,settings.temperature));
  const r=await fetch(resolveAnthropicEndpoints().messagesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||data?.message||`Anthropic tool HTTP ${r.status}`);return data;
 }
 async function runAnthropicAgent(text,ws,defs,assistantIdx){
  const baseMessages=agentConversation(text,ws).map(m=>({role:m.role,content:m.content}));let messages=[...baseMessages],usage=null;
  for(let round=0;round<AGENT_MAX_ROUNDS;round++){
-  const data=await callAnthropicAgent(messages,defs,ws);usage=addUsage(usage,extractUsage(data));const blocks=data.content||[],calls=blocks.filter(x=>x.type==='tool_use');if(!calls.length)return {text:blocks.filter(x=>x.type==='text').map(x=>x.text||'').join('')||'تم تنفيذ المهمة.',usage};const results=[];for(const c of calls){setAgentStage(assistantIdx,`أستخدم ${c.name}…`);const result=await guardedExecuteCodingTool(c.name,c.input||{});results.push({type:'tool_result',tool_use_id:c.id,content:compactToolResultForModel(result),is_error:!result.ok})}messages=[...baseMessages,{role:'assistant',content:blocks},{role:'user',content:results}];
+  const data=await callAnthropicAgent(messages,defs,ws);usage=addUsage(usage,extractUsage(data));const blocks=data.content||[],calls=blocks.filter(x=>x.type==='tool_use');if(!calls.length){const textOut=blocks.filter(x=>x.type==='text').map(x=>x.text||'').join('');if(agentTaskRequiresEdit&&agentSuccessfulEdits===0)return {text:'لم يتم تطبيق أي تعديل فعلي. أوقف AiWay المهمة بدل إعلان نجاح وهمي؛ حاول تحديد العنصر أو الملف المستهدف أكثر.',usage,failed_edit:true};return {text:textOut||'تم تنفيذ المهمة.',usage}};const results=[];for(const c of calls){setAgentStage(assistantIdx,`أستخدم ${c.name}…`);const result=await guardedExecuteCodingTool(c.name,c.input||{});results.push({type:'tool_result',tool_use_id:c.id,content:compactToolResultForModel(result),is_error:!result.ok})}messages=[...messages,{role:'assistant',content:blocks},{role:'user',content:results}];
   if(responseModelRequests>=MODEL_REQUEST_LIMIT)return {text:agentBudgetSummary(),usage};
  }
  return {text:'تم الوصول للحد الأقصى لجولات الأدوات. راجع التعديلات الحالية قبل المتابعة.',usage};
 }
 function toGeminiDeclarations(defs){return defs.map(d=>{const parameters=JSON.parse(JSON.stringify(d.parameters));delete parameters.additionalProperties;return {name:d.name,description:d.description,parameters}})}
 async function callGeminiAgent(contents,defs,ws){
- claimModelRequest();const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;const body={contents,systemInstruction:{parts:[{text:agentInstruction(ws)}]},tools:[{functionDeclarations:toGeminiDeclarations(effectiveAgentDefs(defs))}],toolConfig:{functionCallingConfig:{mode:'AUTO'}},generationConfig:{temperature:settings.temperature,topP:settings.topP,maxOutputTokens:settings.maxTokens}};
+ claimModelRequest();const url=`${settings.baseUrl}/models/${encodeURIComponent(settings.model)}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;const body={contents,systemInstruction:{parts:[{text:agentInstruction(ws)}]},tools:[{functionDeclarations:toGeminiDeclarations(effectiveAgentDefs(defs))}],toolConfig:{functionCallingConfig:{mode:(agentTaskRequiresEdit&&agentSuccessfulEdits===0&&agentExploreToolCalls>=1)?'ANY':'AUTO'}},generationConfig:{temperature:settings.temperature,topP:settings.topP,maxOutputTokens:Math.min(settings.maxTokens||2048,agentTaskRequiresEdit?1600:settings.maxTokens||2048)}};
  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:aborter.signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||`Gemini tool HTTP ${r.status}`);return data;
 }
 async function runGeminiAgent(text,ws,defs,assistantIdx){
  const baseContents=agentConversation(text,ws).map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}));let contents=[...baseContents],usage=null;
  for(let round=0;round<AGENT_MAX_ROUNDS;round++){
-  const data=await callGeminiAgent(contents,defs,ws);usage=addUsage(usage,extractUsage(data));const content=data?.candidates?.[0]?.content||{role:'model',parts:[]},parts=content.parts||[],calls=parts.filter(p=>p.functionCall);if(!calls.length)return {text:parts.map(p=>p.text||'').join('')||'تم تنفيذ المهمة.',usage};const responseParts=[];for(const p of calls){const c=p.functionCall;setAgentStage(assistantIdx,`أستخدم ${c.name}…`);const result=await guardedExecuteCodingTool(c.name,c.args||{});responseParts.push({functionResponse:{name:c.name,response:compactToolResultObject(result),id:c.id}})}contents=[...baseContents,content,{role:'user',parts:responseParts}];
+  const data=await callGeminiAgent(contents,defs,ws);usage=addUsage(usage,extractUsage(data));const content=data?.candidates?.[0]?.content||{role:'model',parts:[]},parts=content.parts||[],calls=parts.filter(p=>p.functionCall);if(!calls.length){const textOut=parts.map(p=>p.text||'').join('');if(agentTaskRequiresEdit&&agentSuccessfulEdits===0)return {text:'لم يتم تطبيق أي تعديل فعلي. أوقف AiWay المهمة بدل إعلان نجاح وهمي؛ حاول تحديد العنصر أو الملف المستهدف أكثر.',usage,failed_edit:true};return {text:textOut||'تم تنفيذ المهمة.',usage}};const responseParts=[];for(const p of calls){const c=p.functionCall;setAgentStage(assistantIdx,`أستخدم ${c.name}…`);const result=await guardedExecuteCodingTool(c.name,c.args||{});responseParts.push({functionResponse:{name:c.name,response:compactToolResultObject(result),id:c.id}})}contents=[...contents,content,{role:'user',parts:responseParts}];
   if(responseModelRequests>=MODEL_REQUEST_LIMIT)return {text:agentBudgetSummary(),usage};
  }
  return {text:'تم الوصول للحد الأقصى لجولات الأدوات. راجع التعديلات الحالية قبل المتابعة.',usage};
@@ -1673,15 +1678,29 @@ async function runGeminiAgent(text,ws,defs,assistantIdx){
 function selectAgentTools(defs,text=''){
  const q=String(text||'').toLowerCase();
  const wantsEdit=/\b(edit|fix|change|update|add|implement|remove|delete|rename|refactor|modify|create)\b|عدل|عدّل|اصلح|أصلح|غي[ّ]?ر|أضف|اضف|احذف|نفذ|طب[ّ]?ق|طو[ّ]?ر|أنشئ|انشئ/.test(q);
- const wantsMove=/\b(rename|move|relocate)\b|انقل|غي[ّ]?ر اسم|إعادة تسمية/.test(q),wantsDelete=/\b(delete|remove file)\b|احذف ملف|حذف الملف/.test(q),wantsTest=/\b(test|validate|syntax|check|lint|build)\b|اختبر|افحص|تحقق|ابنِ|بناء/.test(q),wantsHistory=/\b(undo|checkpoint|restore|version)\b|تراجع|استعادة|نقطة حفظ|إصدار/.test(q),wantsDiff=/\bdiff\b|فرق|التغييرات/.test(q);
- const readCore=new Set(['workspace_locate_code','workspace_search','workspace_read_range','workspace_read_many','workspace_list_files','workspace_file_info','mcp_tool_search']);
- return defs.filter(d=>{if(d.name.startsWith('mcp__'))return true;if(readCore.has(d.name))return true;if(['workspace_edit_lines','workspace_apply_patch','workspace_write_file'].includes(d.name))return wantsEdit;if(d.name==='workspace_move_file')return wantsEdit&&wantsMove;if(d.name==='workspace_delete_file')return wantsEdit&&wantsDelete;if(d.name==='sandbox_check')return wantsTest;if(d.name==='workspace_diff')return wantsDiff;if(['workspace_checkpoint','workspace_restore_checkpoint','workspace_undo'].includes(d.name))return wantsHistory;return false});
+ const wantsCreate=/\b(create|new file|add file)\b|أنشئ|انشئ|ملف جديد/.test(q),wantsMove=/\b(rename|move|relocate)\b|انقل|غي[ّ]?ر اسم|إعادة تسمية/.test(q),wantsDelete=/\b(delete|remove file)\b|احذف ملف|حذف الملف/.test(q),wantsTest=/\b(test|validate|syntax|check|lint|build)\b|اختبر|افحص|تحقق|ابنِ|بناء/.test(q),wantsHistory=/\b(undo|checkpoint|restore|version)\b|تراجع|استعادة|نقطة حفظ|إصدار/.test(q),wantsDiff=/\bdiff\b|فرق|التغييرات/.test(q);
+ const keep=new Set();
+ if(wantsEdit){
+   // Keep the edit surface intentionally tiny. locate_code supplies lines + hash in one call.
+   ['workspace_locate_code','workspace_edit_lines','workspace_apply_patch','workspace_read_range'].forEach(x=>keep.add(x));
+   if(wantsCreate)keep.add('workspace_write_file');
+   if(wantsMove)keep.add('workspace_move_file');
+   if(wantsDelete)keep.add('workspace_delete_file');
+   if(wantsTest)keep.add('sandbox_check');
+ }else{
+   ['workspace_locate_code','workspace_search','workspace_read_range','workspace_read_many','workspace_list_files','workspace_file_info'].forEach(x=>keep.add(x));
+   if(wantsTest)keep.add('sandbox_check');
+ }
+ if(wantsDiff)keep.add('workspace_diff');
+ if(wantsHistory)['workspace_checkpoint','workspace_restore_checkpoint','workspace_undo'].forEach(x=>keep.add(x));
+ if(toolOn('skillSystem')&&settings.mcpUrl?.trim())keep.add('mcp_tool_search');
+ return defs.filter(d=>d.name.startsWith('mcp__')||keep.has(d.name));
 }
 async function shouldUseCodingAgent(){if(!settings.toolsMaster)return false;const ws=await getWorkspace(false);const hasWorkspace=!!ws?.files?.length&&codingToolDefinitions().length>0;const hasMcp=toolOn('skillSystem')&&!!settings.mcpUrl?.trim();return hasWorkspace||hasMcp}
 function setAgentStage(idx,label){const m=activeChat?.messages?.[idx];if(!m)return;m.agentStage=label;scheduleStreamPaint(idx,false)}
 async function runCodingAgent(text,assistantIdx){
  const ws=(await getWorkspace(false))||{files:[],revisions:[],cache:{}};lastAgentChanges=[];agentToolCallCounts=new Map();agentExploreToolCalls=0;agentSuccessfulEdits=0;agentRecoveryReads=0;agentTaskRequiresEdit=/\b(edit|fix|change|update|add|implement|remove|delete|rename|refactor|modify|create)\b|عدل|عدّل|اصلح|أصلح|غي[ّ]?ر|أضف|اضف|احذف|نفذ|طب[ّ]?ق|طو[ّ]?ر|أنشئ|انشئ/.test(String(text||'').toLowerCase());let defs=codingToolDefinitions();defs.push(...await loadMcpTools());defs=selectAgentTools(defs,text);if(!defs.length)throw new Error('لا توجد أدوات Agent مفعلة');setAgentStage(assistantIdx,`أجهّز ${effectiveAgentDefs(defs).length} أدوات مطلوبة فقط…`);let result;const proto=providerProtocol();if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx);else result=await runOpenAIAgent(text,ws,defs,assistantIdx);
- const m=activeChat.messages[assistantIdx];m.content=result.text||'تم تنفيذ المهمة.';m.usage=result.usage||m.usage;m.streaming=false;m.toolRun=true;m.changedFiles=[...new Set(lastAgentChanges.map(x=>x.path))];m.artifacts=m.changedFiles.map(path=>({path}));renderMessages();if(lastAgentChanges.length&&toolOn('diffViewer')){renderDiffModal();toast(`تم تعديل ${m.changedFiles.length} ملف`)}await updateWorkspaceChip();return result;
+ const m=activeChat.messages[assistantIdx];m.content=result.text||'تم تنفيذ المهمة.';m.usage=result.usage||m.usage;m.streaming=false;m.toolRun=true;m.agentFailedEdit=!!result.failed_edit;m.changedFiles=[...new Set(lastAgentChanges.map(x=>x.path))];m.artifacts=m.changedFiles.map(path=>({path}));renderMessages();if(lastAgentChanges.length&&toolOn('diffViewer')){renderDiffModal();toast(`تم تعديل ${m.changedFiles.length} ملف`)}await updateWorkspaceChip();return result;
 }
 function artifactHtml(m={},i=-1){const files=m.artifacts||[];if(!files.length&&!m.toolRun)return '';const buttons=files.map(a=>`<button class="artifact-btn" type="button" data-download-artifact="${i}" data-path="${esc(a.path)}">↓ ${esc(a.path.split('/').pop())}</button>`).join('');return `<div class="agent-trace"><span class="tool-run-status"><i></i><strong>Agent Tools</strong> · ${files.length?`${files.length} ملف معدل`:'تم استخدام الأدوات'}</span>${files.length?`<div class="artifact-actions">${buttons}${toolOn('diffViewer')?`<button class="artifact-btn" type="button" data-show-diff="1">± عرض Diff</button>`:''}</div>`:''}</div>`}
 async function downloadArtifact(path){const ws=await getWorkspace(false),f=ws?.files?.find(x=>x.path===normalizePath(path));if(!f){toast('الملف غير موجود','error');return}downloadWorkspaceFile(f)}
