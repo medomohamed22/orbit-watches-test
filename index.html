@@ -766,7 +766,7 @@ function updateProtocolHint(){
  const p=settings.provider||$('#provider')?.value, proto=providerProtocol(p);
  if(p==='agentrouter_anthropic') el.innerHTML='AgentRouter + Claude: بروتوكول <b>Anthropic Messages</b>، وBase URL الصحيح <b dir="ltr">https://co.agentrouter.org</b> بدون /v1.';
  else if(p==='agentrouter_openai') el.innerHTML='AgentRouter + GPT/Kimi/GLM: بروتوكول <b>OpenAI Chat Completions</b>، وBase URL الصحيح <b dir="ltr">https://co.agentrouter.org/v1</b>.';
- else if(p==='bai') el.innerHTML='B.AI متوافق مع <b>OpenAI</b>. الشات يستخدم <span dir="ltr">/chat/completions</span>، ومحرك الأدوات يفضّل <span dir="ltr">/responses</span> تلقائياً مع fallback إلى Chat Completions.';
+ else if(p==='bai') el.innerHTML='B.AI متوافق مع <b>OpenAI</b>. الشات يستخدم <span dir="ltr">/chat/completions</span>، ومحرك الأدوات يستخدم OpenAI Function Calling الحقيقي عبر <span dir="ltr">/responses</span>، ولا ينتقل إلى Chat Completions إلا إذا أعاد السيرفر صراحةً أن النموذج غير مدعوم على Responses.';
  else if(proto==='anthropic') el.innerHTML='بروتوكول <b>Anthropic Messages API</b>. AiWay يرسل إلى <span dir="ltr">/v1/messages</span> ويستخدم headers المتوافقة مع Anthropic.';
  else if(proto==='gemini') el.innerHTML='بروتوكول <b>Gemini Native</b> باستخدام streamGenerateContent.';
  else el.innerHTML='بروتوكول <b>OpenAI Chat Completions</b>. AiWay يشتق <span dir="ltr">/chat/completions</span> و<span dir="ltr">/models</span> تلقائياً.';
@@ -1462,7 +1462,7 @@ async function mcpRpc(method,params={},notification=false){
  const id=uid(),modern=!mcpLegacyMode;
  const headers={'Content-Type':'application/json','Accept':'application/json, text/event-stream',...parseMcpHeaders()};
  if(modern){headers['MCP-Protocol-Version']=mcpProtocolVersion;headers['Mcp-Method']=method;const n=params?.name||params?.uri||params?.taskId;if(n)headers['Mcp-Name']=String(n)}else if(mcpSessionId)headers['Mcp-Session-Id']=mcpSessionId;
- const meta=modern?{'io.modelcontextprotocol/clientInfo':{name:'AiWay',version:'1.6.0'},'io.modelcontextprotocol/clientCapabilities':{}}:null;
+ const meta=modern?{'io.modelcontextprotocol/clientInfo':{name:'AiWay',version:'2.0.0'},'io.modelcontextprotocol/clientCapabilities':{}}:null;
  const finalParams=modern?{...(params||{}),_meta:{...(params?._meta||{}),...meta}}:(params||{});
  const body=notification?{jsonrpc:'2.0',method,params:finalParams}:{jsonrpc:'2.0',id,method,params:finalParams};
  const r=await fetch(url,{method:'POST',headers,body:JSON.stringify(body),signal:aborter?.signal});const sid=r.headers.get('mcp-session-id');if(sid)mcpSessionId=sid;const raw=await r.text();if(!r.ok)throw new Error(`MCP HTTP ${r.status}: ${raw.slice(0,320)}`);if(notification)return {ok:true};
@@ -1472,7 +1472,7 @@ async function loadMcpTools(){
  mcpToolMap.clear();mcpToolDefs=[];loadedMcpTools.clear();mcpSessionId='';mcpLegacyMode=false;mcpProtocolVersion='2026-07-28';if(!toolOn('skillSystem')||!settings.mcpUrl?.trim())return [];
  let result;
  try{result=await mcpRpc('tools/list',{})}catch(modernError){
-  try{mcpLegacyMode=true;mcpProtocolVersion='2025-03-26';await mcpRpc('initialize',{protocolVersion:'2025-03-26',capabilities:{},clientInfo:{name:'AiWay',version:'1.6.0'}});try{await mcpRpc('notifications/initialized',{},true)}catch{}result=await mcpRpc('tools/list',{})}catch(legacyError){console.warn('MCP tools unavailable:',modernError,legacyError);toast('تعذر تحميل MCP: '+legacyError.message,'error');return []}
+  try{mcpLegacyMode=true;mcpProtocolVersion='2025-03-26';await mcpRpc('initialize',{protocolVersion:'2025-03-26',capabilities:{},clientInfo:{name:'AiWay',version:'2.0.0'}});try{await mcpRpc('notifications/initialized',{},true)}catch{}result=await mcpRpc('tools/list',{})}catch(legacyError){console.warn('MCP tools unavailable:',modernError,legacyError);toast('تعذر تحميل MCP: '+legacyError.message,'error');return []}
  }
  const tools=Array.isArray(result?.tools)?result.tools:[];mcpToolDefs=tools.slice(0,80).map(t=>{const safe=('mcp__'+String(t.name||'tool')).replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,64);mcpToolMap.set(safe,t.name);return {name:safe,description:`Remote MCP: ${t.description||t.name||'tool'}`,parameters:t.inputSchema&&typeof t.inputSchema==='object'?t.inputSchema:{type:'object',properties:{}}}});
  return mcpToolDefs;
@@ -1653,8 +1653,38 @@ function compactToolResultObject(value){
  const text=compactToolResultForModel(value);
  try{return JSON.parse(text)}catch{return {ok:value?.ok!==false,error_code:value?.error_code||null,summary:text.slice(0,6000),truncated:true}}
 }
-function toOpenAITools(defs){return defs.map(d=>({type:'function',function:{name:d.name,description:d.description,parameters:d.parameters}}))}
-function toResponsesTools(defs){return defs.map(d=>({type:'function',name:d.name,description:d.description,parameters:d.parameters,strict:false}))}
+function openAIStrictSchema(schema){
+ const walk=(node,optional=false)=>{
+  if(!node||typeof node!=='object'||Array.isArray(node))return node;
+  const out={...node};
+  if(out.type==='object'||out.properties){
+   out.type='object';const props=out.properties||{};const originalRequired=new Set(Array.isArray(out.required)?out.required:[]);
+   out.properties=Object.fromEntries(Object.entries(props).map(([k,v])=>[k,walk(v,!originalRequired.has(k))]));
+   out.required=Object.keys(props);out.additionalProperties=false;
+  }
+  if(out.items)out.items=walk(out.items,false);
+  if(Array.isArray(out.anyOf))out.anyOf=out.anyOf.map(x=>walk(x,false));
+  if(Array.isArray(out.oneOf))out.oneOf=out.oneOf.map(x=>walk(x,false));
+  if(Array.isArray(out.allOf))out.allOf=out.allOf.map(x=>walk(x,false));
+  if(optional){
+   // OpenAI strict mode requires every property to be listed in required. Preserve
+   // AiWay's optional arguments by making the property nullable instead.
+   if(Array.isArray(out.type)){if(!out.type.includes('null'))out.type=[...out.type,'null'];return out}
+   if(typeof out.type==='string'){out.type=[out.type,'null'];return out}
+   return {anyOf:[out,{type:'null'}]};
+  }
+  return out;
+ };
+ return walk(JSON.parse(JSON.stringify(schema||{type:'object',properties:{}})),false);
+}
+function toOpenAITools(defs){return defs.map(d=>({type:'function',function:{name:d.name,description:d.description,parameters:openAIStrictSchema(d.parameters),strict:true}}))}
+function toResponsesTools(defs){return defs.map(d=>({type:'function',name:d.name,description:d.description,parameters:openAIStrictSchema(d.parameters),strict:true}))}
+function apiErrorFromResponse(status,data={},prefix='API'){
+ const e=data?.error||{};const msg=e.message||data?.message||`${prefix} HTTP ${status}`;const parts=[msg];
+ if(e.code)parts.push(`code=${e.code}`);if(e.param)parts.push(`param=${e.param}`);
+ const err=new Error(parts.join(' · '));err.status=status;err.code=e.code||'';err.param=e.param||'';err.apiData=data;return err;
+}
+function isResponsesEndpointUnsupported(err){return err?.code==='model_not_supported_on_endpoint'||/not supported on \/v1\/responses|responses.*not supported|unsupported.*responses/i.test(String(err?.message||''))}
 function responseText(data={}){
  return (data.output||[]).filter(x=>x?.type==='message').flatMap(x=>x.content||[]).filter(x=>x?.type==='output_text'||x?.type==='text').map(x=>x.text||'').join('');
 }
@@ -1667,8 +1697,14 @@ async function callOpenAIResponsesAgent(input,defs,ws,signal){
  const body={model:settings.model,instructions:agentInstruction(ws),input,tools:toResponsesTools(activeDefs),tool_choice:mustAct?'required':'auto',parallel_tool_calls:false,stream:false,max_output_tokens:Math.min(settings.maxTokens||2048,mustAct?1600:2400)};
  if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;
  const ep=resolveCompatibleEndpoints();let r=await fetch(ep.responsesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});
- if(!r.ok&&body.temperature!==undefined){delete body.temperature;r=await fetch(ep.responsesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal})}
- let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||data?.message||`Responses tool HTTP ${r.status}`);return data;
+ let data={};try{data=await r.json()}catch{}
+ // Some OpenAI-compatible reasoning models reject temperature. Retry the exact
+ // Responses function-calling request without that optional sampling parameter.
+ if(!r.ok&&body.temperature!==undefined&&/temperature|unsupported parameter|unknown parameter/i.test(data?.error?.message||data?.message||'')){
+  if(responseModelRequests>=MODEL_REQUEST_LIMIT)throw apiErrorFromResponse(r.status,data,'Responses');
+  delete body.temperature;claimModelRequest();r=await fetch(ep.responsesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});data={};try{data=await r.json()}catch{}
+ }
+ if(!r.ok)throw apiErrorFromResponse(r.status,data,'Responses tool');return data;
 }
 async function runOpenAIResponsesAgent(text,ws,defs,assistantIdx){
  const convo=agentConversation(text,ws).map(m=>({role:m.role,content:m.content}));let input=[...convo],usage=null,noProgress=0,lastProgress='';
@@ -1699,8 +1735,8 @@ function effectiveAgentDefs(defs){
  return actionDefs.length?actionDefs:visible;
 }
 async function callOpenAIAgent(messages,defs,signal){
- claimModelRequest();const activeDefs=effectiveAgentDefs(defs);const mustAct=agentTaskRequiresEdit&&agentSuccessfulEdits===0&&(agentTaskCreatesNewFile||agentExploreToolCalls>=1);const body={model:settings.model,messages,tools:toOpenAITools(activeDefs),tool_choice:mustAct?'required':'auto',stream:false,max_tokens:Math.min(settings.maxTokens||2048,mustAct?1200:1800)};if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;applyReasoningOpenAI(body);
- const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||data?.message||`Tool calling HTTP ${r.status}`);return data;
+ claimModelRequest();const activeDefs=effectiveAgentDefs(defs);const mustAct=agentTaskRequiresEdit&&agentSuccessfulEdits===0&&(agentTaskCreatesNewFile||agentExploreToolCalls>=1);const body={model:settings.model,messages,tools:toOpenAITools(activeDefs),tool_choice:mustAct?'required':'auto',parallel_tool_calls:false,stream:false,max_tokens:Math.min(settings.maxTokens||2048,mustAct?1200:1800)};if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;applyReasoningOpenAI(body);
+ const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw apiErrorFromResponse(r.status,data,'Chat Completions tool');return data;
 }
 async function runOpenAIAgent(text,ws,defs,assistantIdx){
  const baseMessages=[{role:'system',content:agentInstruction(ws)},...agentConversation(text,ws)];let messages=[...baseMessages],usage=null;
@@ -1760,7 +1796,7 @@ function selectAgentTools(defs,text=''){
 async function shouldUseCodingAgent(text=''){if(!settings.toolsMaster)return false;const ws=await getWorkspace(false);const intent=detectCodingIntent(text);const hasWorkspace=!!ws?.files?.length&&codingToolDefinitions().length>0;const canCreate=intent.createArtifact&&codingToolDefinitions().some(d=>d.name==='workspace_write_file');const hasMcp=toolOn('skillSystem')&&!!settings.mcpUrl?.trim();return hasWorkspace||canCreate||hasMcp}
 function setAgentStage(idx,label){const m=activeChat?.messages?.[idx];if(!m)return;m.agentStage=label;scheduleStreamPaint(idx,false)}
 async function runCodingAgent(text,assistantIdx){
- const ws=(await getWorkspace(false))||{files:[],revisions:[],cache:{}};lastAgentChanges=[];agentToolCallCounts=new Map();agentExploreToolCalls=0;agentSuccessfulEdits=0;agentSuccessfulCreates=0;agentRecoveryReads=0;const intent=detectCodingIntent(text);agentTaskRequiresEdit=intent.requiresEdit;agentTaskCreatesNewFile=intent.createArtifact;let defs=codingToolDefinitions();defs.push(...await loadMcpTools());defs=selectAgentTools(defs,text);if(!defs.length)throw new Error('لا توجد أدوات Agent مفعلة');setAgentStage(assistantIdx,`أرسل طلبك للنموذج مع ${effectiveAgentDefs(defs).length} أداة ليختار الخطوة التالية · 1/${MODEL_REQUEST_LIMIT}…`);let result;const proto=providerProtocol();if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx);else if(preferResponsesAgent()){try{result=await runOpenAIResponsesAgent(text,ws,defs,assistantIdx)}catch(e){console.warn('Responses agent fallback to Chat Completions:',e);setAgentStage(assistantIdx,'Responses غير متاح؛ أتابع بـ Chat Completions…');responseModelRequests=Math.max(0,responseModelRequests-1);result=await runOpenAIAgent(text,ws,defs,assistantIdx)}}else result=await runOpenAIAgent(text,ws,defs,assistantIdx);
+ const ws=(await getWorkspace(false))||{files:[],revisions:[],cache:{}};lastAgentChanges=[];agentToolCallCounts=new Map();agentExploreToolCalls=0;agentSuccessfulEdits=0;agentSuccessfulCreates=0;agentRecoveryReads=0;const intent=detectCodingIntent(text);agentTaskRequiresEdit=intent.requiresEdit;agentTaskCreatesNewFile=intent.createArtifact;let defs=codingToolDefinitions();defs.push(...await loadMcpTools());defs=selectAgentTools(defs,text);if(!defs.length)throw new Error('لا توجد أدوات Agent مفعلة');setAgentStage(assistantIdx,`أرسل طلبك للنموذج مع ${effectiveAgentDefs(defs).length} أداة ليختار الخطوة التالية · 1/${MODEL_REQUEST_LIMIT}…`);let result;const proto=providerProtocol();if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx);else if(preferResponsesAgent()){try{result=await runOpenAIResponsesAgent(text,ws,defs,assistantIdx)}catch(e){if(!isResponsesEndpointUnsupported(e))throw e;console.warn('Responses endpoint unavailable for this model; switching protocol to OpenAI Chat Completions tools:',e);setAgentStage(assistantIdx,`الموديل لا يقبل /responses؛ أتابع بنفس OpenAI Function Calling عبر /chat/completions · ${Math.min(responseModelRequests+1,MODEL_REQUEST_LIMIT)}/${MODEL_REQUEST_LIMIT}…`);result=await runOpenAIAgent(text,ws,defs,assistantIdx)}}else result=await runOpenAIAgent(text,ws,defs,assistantIdx);
  const m=activeChat.messages[assistantIdx];m.content=result.text||'تم تنفيذ المهمة.';m.usage=result.usage||m.usage;m.streaming=false;m.toolRun=true;m.agentFailedEdit=!!result.failed_edit;m.changedFiles=[...new Set(lastAgentChanges.map(x=>x.path))];m.artifacts=m.changedFiles.map(path=>({path}));renderMessages();if(lastAgentChanges.length&&toolOn('diffViewer')){renderDiffModal();toast(`تم تعديل ${m.changedFiles.length} ملف`)}await updateWorkspaceChip();return result;
 }
 function artifactHtml(m={},i=-1){const files=m.artifacts||[];if(!files.length&&!m.toolRun)return '';const buttons=files.map(a=>`<button class="artifact-btn" type="button" data-download-artifact="${i}" data-path="${esc(a.path)}">↓ ${esc(a.path.split('/').pop())}</button>`).join('');return `<div class="agent-trace"><span class="tool-run-status"><i></i><strong>Agent Tools</strong> · ${files.length?`${files.length} ملف تم إنشاؤه/تعديله`:'تم استخدام الأدوات'}</span>${files.length?`<div class="artifact-actions">${buttons}${toolOn('diffViewer')?`<button class="artifact-btn" type="button" data-show-diff="1">± عرض Diff</button>`:''}</div>`:''}</div>`}
@@ -1779,10 +1815,12 @@ async function send(){
    if(settings.webSearch){const results=await searchWeb(text);const m=activeChat.messages[assistantIdx];m.sources=results.map(r=>({title:r.title,url:r.url,domain:r.domain,publishedDate:r.publishedDate}));m.searching=false;transientSearchContext=searchContextText(results);scheduleStreamPaint(assistantIdx,false)}
    if(await shouldUseCodingAgent(text)){
      try{await runCodingAgent(text,assistantIdx)}catch(agentError){
-       if(lastAgentChanges.length)throw agentError;
-       console.warn('Tool calling unavailable; falling back to normal chat:',agentError);toast('هذا النموذج/البروفايدر لم يقبل الأدوات؛ تم الرجوع لوضع الشات العادي');
-       const m=activeChat.messages[assistantIdx];m.agentStage='';m.searching=false;
-       const proto=providerProtocol();if(proto==='gemini')await sendGemini();else if(proto==='anthropic')await sendAnthropic();else await sendOpenAICompatible();
+       console.error('Agent tool loop failed:',agentError);
+       const m=activeChat.messages[assistantIdx];m.agentStage='';m.searching=false;m.streaming=false;m.toolRun=true;m.agentFailedEdit=true;
+       const detail=String(agentError?.message||'فشل غير معروف');
+       m.content=`فشل اتصال الأدوات ولم يتم التحويل إلى شات عادي.\n\n${detail}\n\nAiWay أبقى المهمة في وضع Agent حتى لا يدّعي تنفيذ ملفات بدون Tool Call حقيقي.`;
+       scheduleStreamPaint(assistantIdx,true);
+       toast('فشل Tool Calling — لم يتم الرجوع للشات العادي','error');
      }
    }else{
      const proto=providerProtocol();
