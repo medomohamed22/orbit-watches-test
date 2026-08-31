@@ -501,6 +501,7 @@ html,body{background:radial-gradient(circle at 86% -8%,rgba(109,40,217,.14),tran
                 <option value="agentrouter_openai">AgentRouter — OpenAI Compatible</option>
               </optgroup>
               <optgroup label="OpenAI-Compatible presets">
+                <option value="bai">B.AI — DeepSeek / OpenAI Compatible</option>
                 <option value="deepseek">DeepSeek</option>
                 <option value="groq">Groq</option>
                 <option value="together">Together AI</option>
@@ -581,7 +582,7 @@ html,body{background:radial-gradient(circle at 86% -8%,rgba(109,40,217,.14),tran
           <div class="tool-orb">⌘</div>
           <div><b>Agentic Coding Tools</b><p>عند تفعيل الأدوات، يرسل AiWay تعريفات Functions حقيقية للنموذج. النموذج يختار تلقائياً الأداة المناسبة، والتطبيق ينفذها على ملفات الـWorkspace ثم يعيد النتيجة للنموذج.</p></div>
         </div>
-        <div class="tools-master-row"><div class="grow"><b>تمكين محرك الأدوات الذكي</b><small>Auto tool choice · بحد أقصى 8 جولات لمنع الحلقات غير المنتهية</small></div><span class="tool-count" id="toolsEnabledCount">0/10</span><span class="switch" id="toolsMasterSwitch"></span></div>
+        <div class="tools-master-row"><div class="grow"><b>تمكين محرك الأدوات الذكي</b><small>Loop Tools ذكي · حتى 8 جولات مع كشف التكرار ووقف الحلقات تلقائياً</small></div><span class="tool-count" id="toolsEnabledCount">0/12</span><span class="switch" id="toolsMasterSwitch"></span></div>
         <div class="coding-tools-list" id="codingToolsList">
           <div class="coding-tool-card" data-tool-card="smartPatch"><div class="coding-tool-icon">✎</div><div class="coding-tool-copy"><b>Smart File Patch <span class="tool-badge">Function</span></b><small>تعديل الجزء المطلوب فقط داخل الملف عبر exact patch بدل إعادة كتابة الملف كاملًا.</small></div><span class="switch coding-tool-switch" data-tool="smartPatch"></span></div>
           <div class="coding-tool-card" data-tool-card="workspace"><div class="coding-tool-icon">▦</div><div class="coding-tool-copy"><b>Project Workspace + File Tree <span class="tool-badge local">Local</span></b><small>مساحة مشروع مستمرة للملفات المرفوعة مع قائمة ملفات قابلة للتنزيل.</small></div><span class="switch coding-tool-switch" data-tool="workspace"></span></div>
@@ -591,7 +592,7 @@ html,body{background:radial-gradient(circle at 86% -8%,rgba(109,40,217,.14),tran
           <div class="coding-tool-card" data-tool-card="contextCache"><div class="coding-tool-icon">◇</div><div class="coding-tool-copy"><b>Persistent File Context + Caching <span class="tool-badge local">Cache</span></b><small>تخزين الملفات والفهارس في IndexedDB وإعادة استخدام نتائج القراءة حسب hash الملف.</small></div><span class="switch coding-tool-switch" data-tool="contextCache"></span></div>
           <div class="coding-tool-card" data-tool-card="multiFile"><div class="coding-tool-icon">⋯</div><div class="coding-tool-copy"><b>Multi-file Agent Editing <span class="tool-badge">Agent</span></b><small>السماح للنموذج بتنفيذ سلسلة تعديلات على أكثر من ملف في نفس المهمة.</small></div><span class="switch coding-tool-switch" data-tool="multiFile"></span></div>
           <div class="coding-tool-card" data-tool-card="versions"><div class="coding-tool-icon">↶</div><div class="coding-tool-copy"><b>Undo / Version History / Checkpoints <span class="tool-badge">Function</span></b><small>إنشاء checkpoint تلقائي قبل التعديلات وإمكانية التراجع عن آخر تعديل.</small></div><span class="switch coding-tool-switch" data-tool="versions"></span></div>
-          <div class="coding-tool-card" data-tool-card="autoFix"><div class="coding-tool-icon">✓</div><div class="coding-tool-copy"><b>Automatic Error → Fix → Retest Loop <span class="tool-badge">Agent</span></b><small>نتيجة الفحص تعود للنموذج ليصحح الخطأ ويعيد الاختبار تلقائياً ضمن حد الجولات.</small></div><span class="switch coding-tool-switch" data-tool="autoFix"></span></div>
+          <div class="coding-tool-card" data-tool-card="autoFix"><div class="coding-tool-icon">✓</div><div class="coding-tool-copy"><b>Loop Tools · Error → Fix → Retest <span class="tool-badge">Agent</span></b><small>حلقة أدوات حقيقية متعددة الجولات: تنفيذ → نتيجة → قرار جديد، مع منع التكرار، ميزانية أدوات، وإيقاف آمن عند عدم التقدم.</small></div><span class="switch coding-tool-switch" data-tool="autoFix"></span></div>
           <div class="coding-tool-card" data-tool-card="skillSystem"><div class="coding-tool-icon">⌘</div><div class="coding-tool-copy"><b>Tool / Skill System · Function Calling + MCP <span class="tool-badge">Auto</span></b><small>يشغل orchestration حقيقي عبر Function Calling، ويمكنه تحميل أدوات Remote MCP تلقائياً عند إدخال endpoint أدناه.</small></div><span class="switch coding-tool-switch" data-tool="skillSystem"></span></div>
           <div class="coding-tool-card" data-tool-card="batchRead"><div class="coding-tool-icon">≋</div><div class="coding-tool-copy"><b>Batch Context Reads <span class="tool-badge">2026</span></b><small>قراءة عدة نطاقات صغيرة من ملفات مختلفة في استدعاء واحد لتقليل الجولات والـtokens.</small></div><span class="switch coding-tool-switch" data-tool="batchRead"></span></div>
           <div class="coding-tool-card" data-tool-card="projectInstructions"><div class="coding-tool-icon">◎</div><div class="coding-tool-copy"><b>Project Instructions · AGENTS.md <span class="tool-badge local">Context</span></b><small>تحميل تعليمات المشروع تلقائياً من AGENTS.md / GEMINI.md / CLAUDE.md وإعطاؤها أولوية أثناء التعديل والاختبار.</small></div><span class="switch coding-tool-switch" data-tool="projectInstructions"></span></div>
@@ -714,9 +715,10 @@ let loadedMcpTools=new Set();
 let mcpSessionId='';
 let mcpProtocolVersion='2026-07-28';
 let mcpLegacyMode=false;
-const AGENT_MAX_ROUNDS=4;
-const MODEL_REQUEST_LIMIT=4;
-const AGENT_TARGET_REQUESTS=3;
+const AGENT_MAX_ROUNDS=8;
+const MODEL_REQUEST_LIMIT=8;
+const AGENT_TARGET_REQUESTS=5;
+const AGENT_MAX_NO_PROGRESS_ROUNDS=2;
 const AGENT_MAX_READ_LINES=72;
 const AGENT_MAX_SEARCH_RESULTS=6;
 const AGENT_MAX_TOOL_RESULT_CHARS=4200;
@@ -740,6 +742,7 @@ const providerDefaults = {
   gemini_openai:'https://generativelanguage.googleapis.com/v1beta/openai',
   agentrouter_anthropic:'https://co.agentrouter.org',
   agentrouter_openai:'https://co.agentrouter.org/v1',
+  bai:'https://api.b.ai/v1',
   deepseek:'https://api.deepseek.com/v1',
   groq:'https://api.groq.com/openai/v1',
   together:'https://api.together.xyz/v1',
@@ -761,6 +764,7 @@ function updateProtocolHint(){
  const p=settings.provider||$('#provider')?.value, proto=providerProtocol(p);
  if(p==='agentrouter_anthropic') el.innerHTML='AgentRouter + Claude: بروتوكول <b>Anthropic Messages</b>، وBase URL الصحيح <b dir="ltr">https://co.agentrouter.org</b> بدون /v1.';
  else if(p==='agentrouter_openai') el.innerHTML='AgentRouter + GPT/Kimi/GLM: بروتوكول <b>OpenAI Chat Completions</b>، وBase URL الصحيح <b dir="ltr">https://co.agentrouter.org/v1</b>.';
+ else if(p==='bai') el.innerHTML='B.AI متوافق مع <b>OpenAI</b>. الشات يستخدم <span dir="ltr">/chat/completions</span>، ومحرك الأدوات يفضّل <span dir="ltr">/responses</span> تلقائياً مع fallback إلى Chat Completions.';
  else if(proto==='anthropic') el.innerHTML='بروتوكول <b>Anthropic Messages API</b>. AiWay يرسل إلى <span dir="ltr">/v1/messages</span> ويستخدم headers المتوافقة مع Anthropic.';
  else if(proto==='gemini') el.innerHTML='بروتوكول <b>Gemini Native</b> باستخدام streamGenerateContent.';
  else el.innerHTML='بروتوكول <b>OpenAI Chat Completions</b>. AiWay يشتق <span dir="ltr">/chat/completions</span> و<span dir="ltr">/models</span> تلقائياً.';
@@ -1167,7 +1171,7 @@ function resolveCompatibleEndpoints(){
    else if(/\/responses\/?(?:[?#].*)?$/i.test(rawModels)) modelsUrl=normalizeOpenAIBase(rawModels)+'/models';
    else modelsUrl=stripQueryHash(rawModels);
  }else modelsUrl=base+'/models';
- return {base,chatUrl,modelsUrl};
+ return {base,chatUrl,responsesUrl:base+'/responses',modelsUrl};
 }
 function normalizeAnthropicBase(raw=''){
  let x=stripQueryHash(raw).replace(/\/+$/,'');
@@ -1190,6 +1194,23 @@ function resolveCurrentEndpoints(){
  if(proto==='anthropic')return resolveAnthropicEndpoints();
  if(proto==='openai')return resolveCompatibleEndpoints();
  return {base:settings.baseUrl,modelsUrl:(settings.modelsUrl||settings.baseUrl+'/models')};
+}
+function isBAIProvider(){
+ const raw=String(settings.baseUrl||'').toLowerCase();
+ return settings.provider==='bai'||raw.includes('api.b.ai');
+}
+function isDeepSeekV4Model(){return /^deepseek-v4(?:-|$)/i.test(String(settings.model||''))}
+function preferResponsesAgent(){return isBAIProvider()||isDeepSeekV4Model()}
+function parseToolArguments(value){
+ if(value==null||value==='')return {};
+ if(typeof value==='object')return value;
+ try{return JSON.parse(String(value))}catch{return {__raw:String(value)}}
+}
+function normalizeChatToolCalls(msg={}){
+ const calls=Array.isArray(msg.tool_calls)?msg.tool_calls:[];
+ if(calls.length)return calls.map((c,i)=>({id:c.id||`call_${Date.now()}_${i}`,type:'function',function:{name:c.function?.name||c.name||'',arguments:typeof (c.function?.arguments??c.arguments)==='string'?(c.function?.arguments??c.arguments):JSON.stringify(c.function?.arguments??c.arguments??{})}})).filter(c=>c.function.name);
+ if(msg.function_call?.name)return [{id:`call_${Date.now()}_legacy`,type:'function',function:{name:msg.function_call.name,arguments:typeof msg.function_call.arguments==='string'?msg.function_call.arguments:JSON.stringify(msg.function_call.arguments||{})}}];
+ return [];
 }
 function normalizeEndpointFields(showNotice=false){
  const proto=providerProtocol();
@@ -1582,6 +1603,8 @@ Preferred path for edits: workspace_locate_code -> ONE precise workspace_edit_li
 Exploration is capped. Never repeat search/read/list calls with the same intent. After enough context, edit instead of investigating further.
 If several known ranges are needed, prefer workspace_read_many over serial reads. Respect project instructions such as AGENTS.md when present.
 External MCP tools are deferred: use mcp_tool_search only when an external capability is actually needed, then call one of the loaded MCP tools on the next round.
+Tool loop rule: every round must make progress (new evidence, a changed file, a validation result, or final answer). Never repeat the same function with the same arguments. If a tool fails, change the arguments/strategy before retrying.
+For OpenAI-compatible providers, AiWay may use Responses API for the agent loop when supported; tool outputs are returned with matching call_id values.
 Use least privilege: do not edit/delete/move files for read-only questions, and do not use destructive tools unless the user request clearly requires them.
 By model request ${AGENT_FORCE_ACTION_AT_REQUEST}, if the user asked for a change and no edit has succeeded, you MUST stop exploring and call an edit tool using the best context gathered, unless a concrete blocker makes editing unsafe.
 Use workspace_edit_lines with the fresh hash. Do not rewrite a whole existing file for a small change.
@@ -1622,6 +1645,36 @@ function compactToolResultObject(value){
  try{return JSON.parse(text)}catch{return {ok:value?.ok!==false,error_code:value?.error_code||null,summary:text.slice(0,6000),truncated:true}}
 }
 function toOpenAITools(defs){return defs.map(d=>({type:'function',function:{name:d.name,description:d.description,parameters:d.parameters}}))}
+function toResponsesTools(defs){return defs.map(d=>({type:'function',name:d.name,description:d.description,parameters:d.parameters,strict:false}))}
+function responseText(data={}){
+ return (data.output||[]).filter(x=>x?.type==='message').flatMap(x=>x.content||[]).filter(x=>x?.type==='output_text'||x?.type==='text').map(x=>x.text||'').join('');
+}
+function responseFunctionCalls(data={}){
+ return (data.output||[]).filter(x=>x?.type==='function_call'&&x.name).map((x,i)=>({call_id:x.call_id||x.id||`call_${Date.now()}_${i}`,name:x.name,arguments:x.arguments??'{}',raw:x}));
+}
+function responseUsage(data={}){const u=data.usage||{};return {prompt_tokens:u.input_tokens,completion_tokens:u.output_tokens,total_tokens:u.total_tokens??((u.input_tokens||0)+(u.output_tokens||0))}}
+async function callOpenAIResponsesAgent(input,defs,ws,signal){
+ claimModelRequest();const activeDefs=effectiveAgentDefs(defs);const mustAct=agentTaskRequiresEdit&&agentSuccessfulEdits===0&&agentExploreToolCalls>=1;
+ const body={model:settings.model,instructions:agentInstruction(ws),input,tools:toResponsesTools(activeDefs),tool_choice:mustAct?'required':'auto',parallel_tool_calls:false,stream:false,max_output_tokens:Math.min(settings.maxTokens||2048,mustAct?1600:2400)};
+ if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;
+ const ep=resolveCompatibleEndpoints();let r=await fetch(ep.responsesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});
+ if(!r.ok&&body.temperature!==undefined){delete body.temperature;r=await fetch(ep.responsesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal})}
+ let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data?.error?.message||data?.message||`Responses tool HTTP ${r.status}`);return data;
+}
+async function runOpenAIResponsesAgent(text,ws,defs,assistantIdx){
+ const convo=agentConversation(text,ws).map(m=>({role:m.role,content:m.content}));let input=[...convo],usage=null,noProgress=0,lastProgress='';
+ for(let round=0;round<AGENT_MAX_ROUNDS;round++){
+  const data=await callOpenAIResponsesAgent(input,defs,ws,aborter.signal);usage=addUsage(usage,responseUsage(data));const calls=responseFunctionCalls(data);const outText=responseText(data);
+  if(!calls.length){if(agentTaskRequiresEdit&&agentSuccessfulEdits===0)return {text:outText||'لم يتم تطبيق أي تعديل فعلي. أوقف AiWay المهمة بدل إعلان نجاح وهمي؛ حاول تحديد العنصر أو الملف المستهدف أكثر.',usage,failed_edit:true};return {text:outText||'تم تنفيذ المهمة.',usage}}
+  const outputs=[];let roundChanged=0;
+  for(const c of calls){setAgentStage(assistantIdx,`Loop ${round+1}/${AGENT_MAX_ROUNDS} · ${c.name}…`);const args=parseToolArguments(c.arguments);const result=args.__raw?toolError('INVALID_TOOL_ARGUMENTS','Tool arguments were not valid JSON',{raw:args.__raw.slice(0,500)}):await guardedExecuteCodingTool(c.name,args);if(result?.ok&&result?.changed!==false)roundChanged++;outputs.push({type:'function_call_output',call_id:c.call_id,output:compactToolResultForModel(result)});if(!result.ok&&toolOn('autoFix'))setAgentStage(assistantIdx,'الأداة فشلت؛ أغيّر الاستراتيجية في الجولة التالية…')}
+  const progress=`${agentSuccessfulEdits}:${agentExploreToolCalls}:${roundChanged}:${calls.map(c=>c.name).join(',')}`;noProgress=progress===lastProgress?noProgress+1:0;lastProgress=progress;
+  if(noProgress>=AGENT_MAX_NO_PROGRESS_ROUNDS)return {text:agentBudgetSummary()+' تم إيقاف Loop Tools لعدم وجود تقدم جديد.',usage};
+  input=[...input,...(data.output||[]),...outputs];
+  if(responseModelRequests>=MODEL_REQUEST_LIMIT)return {text:agentBudgetSummary(),usage};
+ }
+ return {text:'تم الوصول للحد الأقصى لجولات Loop Tools. راجع التعديلات الحالية قبل المتابعة.',usage};
+}
 function effectiveAgentDefs(defs){
  let visible=defs.filter(d=>!d.name.startsWith('mcp__')||loadedMcpTools.has(d.name));
  if(!agentTaskRequiresEdit||agentSuccessfulEdits>0)return visible;
@@ -1640,10 +1693,10 @@ async function callOpenAIAgent(messages,defs,signal){
 async function runOpenAIAgent(text,ws,defs,assistantIdx){
  const baseMessages=[{role:'system',content:agentInstruction(ws)},...agentConversation(text,ws)];let messages=[...baseMessages],usage=null;
  for(let round=0;round<AGENT_MAX_ROUNDS;round++){
-  const data=await callOpenAIAgent(messages,defs,aborter.signal),msg=data?.choices?.[0]?.message||{};usage=addUsage(usage,data.usage);const calls=msg.tool_calls||[];
+  const data=await callOpenAIAgent(messages,defs,aborter.signal),msg=data?.choices?.[0]?.message||{};usage=addUsage(usage,data.usage);const calls=normalizeChatToolCalls(msg);
   if(!calls.length){const textOut=typeof msg.content==='string'?msg.content:(msg.content||[]).map(x=>x.text||'').join('');if(agentTaskRequiresEdit&&agentSuccessfulEdits===0)return {text:'لم يتم تطبيق أي تعديل فعلي. أوقف AiWay المهمة بدل إعلان نجاح وهمي؛ حاول تحديد العنصر أو الملف المستهدف أكثر.',usage,failed_edit:true};return {text:textOut||'تم تنفيذ المهمة.',usage}}
   const toolMessages=[];
-  for(const c of calls){let args={};try{args=JSON.parse(c.function?.arguments||'{}')}catch{}setAgentStage(assistantIdx,`أستخدم ${c.function?.name||'tool'}…`);const result=await guardedExecuteCodingTool(c.function?.name,args);toolMessages.push({role:'tool',tool_call_id:c.id,content:compactToolResultForModel(result)});if(!result.ok&&toolOn('autoFix'))setAgentStage(assistantIdx,'وجدت مشكلة؛ أحاول الإصلاح وإعادة الفحص…')}
+  for(const c of calls){let args=parseToolArguments(c.function?.arguments||'{}');if(args.__raw)args={};setAgentStage(assistantIdx,`أستخدم ${c.function?.name||'tool'}…`);const result=await guardedExecuteCodingTool(c.function?.name,args);toolMessages.push({role:'tool',tool_call_id:c.id,content:compactToolResultForModel(result)});if(!result.ok&&toolOn('autoFix'))setAgentStage(assistantIdx,'وجدت مشكلة؛ أحاول الإصلاح وإعادة الفحص…')}
   messages=[...messages,msg,...toolMessages];
   if(responseModelRequests>=MODEL_REQUEST_LIMIT)return {text:agentBudgetSummary(),usage};
  }
@@ -1699,7 +1752,7 @@ function selectAgentTools(defs,text=''){
 async function shouldUseCodingAgent(){if(!settings.toolsMaster)return false;const ws=await getWorkspace(false);const hasWorkspace=!!ws?.files?.length&&codingToolDefinitions().length>0;const hasMcp=toolOn('skillSystem')&&!!settings.mcpUrl?.trim();return hasWorkspace||hasMcp}
 function setAgentStage(idx,label){const m=activeChat?.messages?.[idx];if(!m)return;m.agentStage=label;scheduleStreamPaint(idx,false)}
 async function runCodingAgent(text,assistantIdx){
- const ws=(await getWorkspace(false))||{files:[],revisions:[],cache:{}};lastAgentChanges=[];agentToolCallCounts=new Map();agentExploreToolCalls=0;agentSuccessfulEdits=0;agentRecoveryReads=0;agentTaskRequiresEdit=/\b(edit|fix|change|update|add|implement|remove|delete|rename|refactor|modify|create)\b|عدل|عدّل|اصلح|أصلح|غي[ّ]?ر|أضف|اضف|احذف|نفذ|طب[ّ]?ق|طو[ّ]?ر|أنشئ|انشئ/.test(String(text||'').toLowerCase());let defs=codingToolDefinitions();defs.push(...await loadMcpTools());defs=selectAgentTools(defs,text);if(!defs.length)throw new Error('لا توجد أدوات Agent مفعلة');setAgentStage(assistantIdx,`أجهّز ${effectiveAgentDefs(defs).length} أدوات مطلوبة فقط…`);let result;const proto=providerProtocol();if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx);else result=await runOpenAIAgent(text,ws,defs,assistantIdx);
+ const ws=(await getWorkspace(false))||{files:[],revisions:[],cache:{}};lastAgentChanges=[];agentToolCallCounts=new Map();agentExploreToolCalls=0;agentSuccessfulEdits=0;agentRecoveryReads=0;agentTaskRequiresEdit=/\b(edit|fix|change|update|add|implement|remove|delete|rename|refactor|modify|create)\b|عدل|عدّل|اصلح|أصلح|غي[ّ]?ر|أضف|اضف|احذف|نفذ|طب[ّ]?ق|طو[ّ]?ر|أنشئ|انشئ/.test(String(text||'').toLowerCase());let defs=codingToolDefinitions();defs.push(...await loadMcpTools());defs=selectAgentTools(defs,text);if(!defs.length)throw new Error('لا توجد أدوات Agent مفعلة');setAgentStage(assistantIdx,`أجهّز ${effectiveAgentDefs(defs).length} أدوات · Loop Tools…`);let result;const proto=providerProtocol();if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx);else if(preferResponsesAgent()){try{result=await runOpenAIResponsesAgent(text,ws,defs,assistantIdx)}catch(e){console.warn('Responses agent fallback to Chat Completions:',e);setAgentStage(assistantIdx,'Responses غير متاح؛ أتابع بـ Chat Completions…');responseModelRequests=Math.max(0,responseModelRequests-1);result=await runOpenAIAgent(text,ws,defs,assistantIdx)}}else result=await runOpenAIAgent(text,ws,defs,assistantIdx);
  const m=activeChat.messages[assistantIdx];m.content=result.text||'تم تنفيذ المهمة.';m.usage=result.usage||m.usage;m.streaming=false;m.toolRun=true;m.agentFailedEdit=!!result.failed_edit;m.changedFiles=[...new Set(lastAgentChanges.map(x=>x.path))];m.artifacts=m.changedFiles.map(path=>({path}));renderMessages();if(lastAgentChanges.length&&toolOn('diffViewer')){renderDiffModal();toast(`تم تعديل ${m.changedFiles.length} ملف`)}await updateWorkspaceChip();return result;
 }
 function artifactHtml(m={},i=-1){const files=m.artifacts||[];if(!files.length&&!m.toolRun)return '';const buttons=files.map(a=>`<button class="artifact-btn" type="button" data-download-artifact="${i}" data-path="${esc(a.path)}">↓ ${esc(a.path.split('/').pop())}</button>`).join('');return `<div class="agent-trace"><span class="tool-run-status"><i></i><strong>Agent Tools</strong> · ${files.length?`${files.length} ملف معدل`:'تم استخدام الأدوات'}</span>${files.length?`<div class="artifact-actions">${buttons}${toolOn('diffViewer')?`<button class="artifact-btn" type="button" data-show-diff="1">± عرض Diff</button>`:''}</div>`:''}</div>`}
@@ -1876,6 +1929,7 @@ function bind(){
    const p=e.target.value;settings.provider=p;
    $('#baseUrl').value=providerDefaults[p]||'';$('#modelsUrl').value='';
    settings.baseUrl=providerDefaults[p]||'';settings.modelsUrl='';settings.models=[];
+   if(p==='bai'){settings.model='deepseek-v4-flash-vision-exp';$('#manualModel').value=settings.model;}
    updateProtocolHint();renderModelSelect();
  };
  $('#baseUrl').addEventListener('blur',()=>{readSettings();normalizeEndpointFields(true)});
@@ -1888,7 +1942,7 @@ function bind(){
      $('#urlHint').textContent=`Messages: ${ep.messagesUrl} • Models: ${ep.modelsUrl}`;
    }else if(proto==='openai'){
      const ep=resolveCompatibleEndpoints();
-     $('#urlHint').textContent=`Chat: ${ep.chatUrl} • Models: ${ep.modelsUrl}`;
+     $('#urlHint').textContent=`Chat: ${ep.chatUrl} • Responses: ${ep.responsesUrl} • Models: ${ep.modelsUrl}`;
    }else $('#urlHint').textContent='Gemini Native API';
    await fetchModels();
  }catch(e){toast(e.message,'error')}};
