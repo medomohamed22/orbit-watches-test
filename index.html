@@ -1494,26 +1494,37 @@ function searchMcpToolCatalog(query='',limit=6){
 async function executeMcpTool(name,args={}){const remote=mcpToolMap.get(name);if(!remote)return {ok:false,error:'Remote MCP tool not found',error_code:'MCP_TOOL_NOT_FOUND'};try{const result=await mcpRpc('tools/call',{name:remote,arguments:args});if(result?.resultType==='input_required')return {ok:false,mcp_tool:remote,error:'MCP tool requires additional user input',error_code:'MCP_INPUT_REQUIRED',details:result};return {ok:true,mcp_tool:remote,result}}catch(e){return {ok:false,mcp_tool:remote,error:e.message,error_code:'MCP_CALL_FAILED'}}}
 function codingToolDefinitions(){
  const defs=[];const add=(name,description,properties={},required=[])=>defs.push({name,description,parameters:{type:'object',properties,required,additionalProperties:false}});
- if(toolOn('skillSystem')&&settings.mcpUrl?.trim())add('mcp_tool_search','Search the connected MCP tool catalog and load only the most relevant external tools on demand. Use this before calling an MCP capability that is not already loaded.',{query:{type:'string',description:'Capability needed, e.g. github issue search, browser automation, database query'},limit:{type:'integer',minimum:1,maximum:10}},['query']);
- if(toolOn('workspace')){add('workspace_list_files','List project files with compact metadata. Use before guessing file paths.');add('workspace_file_info','Get metadata for one file without reading its contents.',{path:{type:'string'}},['path'])}
- if(toolOn('selectiveRead')){
-  add('workspace_locate_code','Best first tool for code edits. Find a symbol/text and return up to 3 compact editable regions with line numbers + fresh file hash in ONE call. Prefer this over separate search then read.',{query:{type:'string'},path:{type:'string',description:'Optional file/path hint'},mode:{type:'string',enum:['text','regex']},case_sensitive:{type:'boolean'},radius:{type:'integer',minimum:6,maximum:32},max_matches:{type:'integer',minimum:1,maximum:3}},['query']);
-  add('workspace_search','Fallback locator only. Search workspace and return tiny snippets; prefer workspace_locate_code for editing tasks.',{query:{type:'string'},path:{type:'string',description:'Optional path substring filter'},mode:{type:'string',enum:['text','regex']},case_sensitive:{type:'boolean'},context_lines:{type:'integer',minimum:0,maximum:1},max_results:{type:'integer',minimum:1,maximum:8}},['query']);
-  add('workspace_read_range','Read only when locate_code was insufficient or when recovering from a stale edit. Returns a fresh hash.',{path:{type:'string'},start_line:{type:'integer',minimum:1},end_line:{type:'integer',minimum:1,maximum:20000,description:'AiWay returns at most 96 lines per call'}},['path','start_line','end_line']);
-  if(toolOn('batchRead'))add('workspace_read_many','Read up to 6 narrow file ranges in one call. Prefer this when you already know multiple relevant paths/ranges and need cross-file context.',{ranges:{type:'array',minItems:1,maxItems:6,items:{type:'object',properties:{path:{type:'string'},start_line:{type:'integer',minimum:1},end_line:{type:'integer',minimum:1}},required:['path','start_line','end_line'],additionalProperties:false}}},['ranges']);
+ 
+ // 1. MCP / Dynamic Tool Loading (Anthropic Best Practice: On-Demand Tool Loading)
+ if(toolOn('skillSystem')&&settings.mcpUrl?.trim())add('mcp_tool_search','Search the connected MCP (Model Context Protocol) tool catalog and load only the most relevant external tools on demand. Use this when you need an external capability (e.g., github search, database, browser) that is not currently listed in your available tools. Returns a list of newly loaded tool names.',{query:{type:'string',description:'Semantic description of the capability needed (e.g., "search github issues", "query database").'},limit:{type:'integer',minimum:1,maximum:10,description:'Maximum number of tools to load.'}},['query']);
+ 
+ // 2. Workspace & Read Tools (Workflow-centric design)
+ if(toolOn('workspace')){
+  add('workspace_list_files','List project files with compact metadata (path, line count, hash). Use this as your first step to understand project structure before guessing file paths.',{});
+  add('workspace_file_info','Get metadata for a single file (size, lines, hash, type) without reading its full contents. Useful to check if a file exists or is too large.',{path:{type:'string',description:'Exact path to the file.'}},['path']);
  }
+ if(toolOn('selectiveRead')){
+  add('workspace_locate_code','Best first tool for code edits. Find a specific symbol, function, or text and return up to 3 compact editable regions with exact line numbers and a fresh file hash in ONE call. Prefer this over full-file reads to save tokens.',{query:{type:'string',description:'The exact text, function name, or regex pattern to find.'},path:{type:'string',description:'Optional file/path hint to narrow down the search.'},mode:{type:'string',enum:['text','regex'],description:'Search mode. Default is text.'},case_sensitive:{type:'boolean',description:'Whether the search should be case sensitive.'},radius:{type:'integer',minimum:6,maximum:32,description:'Number of context lines to return around the match.'},max_matches:{type:'integer',minimum:1,maximum:3,description:'Maximum number of match regions to return.'}},['query']);
+  add('workspace_search','Fallback locator. Search the workspace and return tiny 1-line snippets. Prefer workspace_locate_code if you intend to edit the code.',{query:{type:'string',description:'Search query.'},path:{type:'string',description:'Optional path substring filter.'},mode:{type:'string',enum:['text','regex']},case_sensitive:{type:'boolean'},context_lines:{type:'integer',minimum:0,maximum:1},max_results:{type:'integer',minimum:1,maximum:8}},['query']);
+  add('workspace_read_range','Read a specific line range from a file. Use this only when locate_code was insufficient, or to verify code surrounding an intended edit. Returns the lines and a fresh hash.',{path:{type:'string',description:'Exact path to the file.'},start_line:{type:'integer',minimum:1,description:'Starting line number (1-indexed).'},end_line:{type:'integer',minimum:1,maximum:20000,description:'Ending line number. AiWay returns at most 96 lines per call to conserve context.'}},['path','start_line','end_line']);
+  if(toolOn('batchRead'))add('workspace_read_many','Read up to 6 narrow file ranges in one call. Use this when you know multiple relevant paths/ranges and need cross-file context simultaneously.',{ranges:{type:'array',minItems:1,maxItems:6,items:{type:'object',properties:{path:{type:'string'},start_line:{type:'integer',minimum:1},end_line:{type:'integer',minimum:1}},required:['path','start_line','end_line'],additionalProperties:false}}},['ranges']);
+ }
+ 
+ // 3. Edit Tools (Atomic operations & Idempotency)
  if(toolOn('smartPatch')){
-  add('workspace_edit_lines','Preferred edit tool for existing files. Replace an exact inclusive line range with new text. Pass expected_hash from workspace_read_range. This minimizes tokens and avoids whole-file rewrites.',{path:{type:'string'},start_line:{type:'integer',minimum:1},end_line:{type:'integer',minimum:0},new_text:{type:'string'},expected_hash:{type:'string'}},['path','start_line','end_line','new_text','expected_hash']);
-  add('workspace_apply_patch','Fallback targeted SEARCH/REPLACE edit. Requires a unique exact old_text block and optionally expected_hash. Never send the whole file for a small edit.',{path:{type:'string'},old_text:{type:'string'},new_text:{type:'string'},expected_hash:{type:'string'},expected_occurrences:{type:'integer',minimum:1,maximum:20}},['path','old_text','new_text']);
+  add('workspace_edit_lines','Preferred edit tool for existing files. Replace an exact inclusive line range with new text. Pass expected_hash from a recent read tool to ensure consistency. This minimizes tokens and avoids dangerous whole-file rewrites.',{path:{type:'string',description:'Exact file path.'},start_line:{type:'integer',minimum:1,description:'The exact start line of the block to replace.'},end_line:{type:'integer',minimum:0,description:'The exact end line of the block to replace.'},new_text:{type:'string',description:'The new code to insert. To delete the lines, pass an empty string.'},expected_hash:{type:'string',description:'The file hash returned by your previous read/locate tool call.'}},['path','start_line','end_line','new_text','expected_hash']);
+  add('workspace_apply_patch','Fallback targeted SEARCH/REPLACE edit. Requires a unique exact old_text block. Use when line numbers are unreliable but the text is uniquely identifiable.',{path:{type:'string'},old_text:{type:'string',description:'The exact old text block to replace, including exact whitespace and indentation.'},new_text:{type:'string',description:'The new text to replace it with.'},expected_hash:{type:'string'},expected_occurrences:{type:'integer',minimum:1,maximum:20,description:'How many times old_text is expected to appear. Default is 1.'}},['path','old_text','new_text']);
  }
  if(toolOn('multiFile')){
-  add('workspace_write_file','Create a NEW file. On CREATE tasks, if the requested path already exists AiWay automatically chooses a unique sibling filename locally (for example index-2.html) instead of overwriting or spending another model request. Existing-file edits should use workspace_edit_lines or workspace_apply_patch.',{path:{type:'string'},content:{type:'string'},overwrite:{type:'boolean'}},['path','content']);
+  add('workspace_write_file','Create a NEW file from scratch. If the path exists and overwrite is false, AiWay automatically appends a numeric suffix to prevent data loss.',{path:{type:'string',description:'Target file path.'},content:{type:'string',description:'The complete initial content of the new file.'},overwrite:{type:'boolean',description:'Set to true ONLY if you explicitly intend to overwrite an existing file. Default false.'}},['path','content']);
   add('workspace_delete_file','Delete a workspace file.',{path:{type:'string'},expected_hash:{type:'string'}},['path']);
-  add('workspace_move_file','Rename or move a workspace file without rewriting its content.',{path:{type:'string'},new_path:{type:'string'},expected_hash:{type:'string'}},['path','new_path']);
+  add('workspace_move_file','Rename or move a workspace file without modifying its content.',{path:{type:'string',description:'Current file path.'},new_path:{type:'string',description:'New target file path.'},expected_hash:{type:'string'}},['path','new_path']);
  }
- if(toolOn('diffViewer'))add('workspace_diff','Get a compact diff for the most recent change to a file.',{path:{type:'string'}},['path']);
- if(toolOn('sandbox'))add('sandbox_check','Validate JSON or JavaScript-family syntax. Run plain script JS only when execution is appropriate; ESM/TS/JSX are checked conservatively.',{path:{type:'string'},mode:{type:'string',enum:['syntax','run']},test_code:{type:'string'}},['path']);
- if(toolOn('versions')){add('workspace_checkpoint','Create a named checkpoint snapshot.',{label:{type:'string'}},['label']);add('workspace_restore_checkpoint','Restore a checkpoint by id.',{checkpoint_id:{type:'string'}},['checkpoint_id']);add('workspace_undo','Undo the latest not-yet-undone edit without destroying history.',{},[])}
+ 
+ // 4. Verification & State Tools (Agent Self-Verification)
+ if(toolOn('diffViewer'))add('workspace_diff','Get a compact standard unified diff for the most recent change to a file. Use this to verify your edit was applied correctly.',{path:{type:'string'}},['path']);
+ if(toolOn('sandbox'))add('sandbox_check','Validate JSON or JavaScript syntax, or run a test script in an isolated Web Worker sandbox to verify logic correctness.',{path:{type:'string',description:'Path to the file to check.'},mode:{type:'string',enum:['syntax','run'],description:'"syntax" just parses the file. "run" executes it (JS only).'},test_code:{type:'string',description:'Optional inline test code to run against the file.'}},['path']);
+ if(toolOn('versions')){add('workspace_checkpoint','Create a named checkpoint snapshot before risky changes.',{label:{type:'string',description:'Human-readable name for the checkpoint.'}},['label']);add('workspace_restore_checkpoint','Restore the workspace to a specific checkpoint.',{checkpoint_id:{type:'string'}},['checkpoint_id']);add('workspace_undo','Undo the latest not-yet-undone edit without destroying history.',{},[])}
  return defs;
 }
 function workspaceManifest(ws){
@@ -1643,26 +1654,30 @@ function agentInstruction(ws){
  const remaining=Math.max(0,MODEL_REQUEST_LIMIT-requestNo);
  return `${settings.systemPrompt||''}${transientSearchContext||''}${projectInstructionContext(ws)}
 
-[AiWay Coding Agent]
+<agent_context>
+You are an autonomous tool-using coding agent in AiWay. You run in a continuous loop until the user's task is fully complete.
 Active skill: ${selectAgentSkill((activeChat?.messages||[]).filter(m=>m.role==='user').at(-1)?.content||'',ws).title}. ${selectAgentSkill((activeChat?.messages||[]).filter(m=>m.role==='user').at(-1)?.content||'',ws).instruction}
-You are an autonomous tool-using coding agent. The user's original request is sent to you together with the currently enabled tools. YOU decide which tool, if any, should be called next. After AiWay executes your tool call, its real result is returned to you so you can decide the next action. Continue this loop until the task is actually complete.
-Model request budget: ${requestNo}/${MODEL_REQUEST_LIMIT}. After this request there can be at most ${remaining} additional model request(s). There will NEVER be request ${MODEL_REQUEST_LIMIT+1}. On the final request, prefer a concise final answer if the task is complete; call another tool only if it is absolutely necessary because AiWay cannot ask the model again afterward.
-Edit the real workspace with minimum tokens and requests.
-When the user asks for a NEW website/page/app/file from scratch (for example: "عاوز موقع", "اعمل متجر", "ملف واحد HTML/CSS/JS", "new website"), this is a CREATE task, not an edit task. Do NOT inspect or modify existing files first. Call workspace_write_file directly with overwrite:false and create a new file containing the requested code. If that filename already exists, AiWay resolves the collision locally to a unique sibling path; do not inspect, edit, or retry just to find another filename. For a single-file website, prefer a new .html file with HTML + CSS + JS embedded unless the user specifies another path/name.
-Never say the new site/file was created unless workspace_write_file returned ok:true and created:true. Treat renamed_on_conflict:true as a successful NEW creation and report the actual returned path.
-Preferred path for edits to EXISTING files: workspace_locate_code -> ONE precise workspace_edit_lines/apply_patch -> finish. For a simple edit this should usually take 2 model turns. locate_code already includes editable code, line numbers and a fresh hash, so do NOT call search/read afterward unless the located region is truly insufficient.
-Exploration is capped. Never repeat search/read/list calls with the same intent. After enough context, edit instead of investigating further.
-If several known ranges are needed, prefer workspace_read_many over serial reads. Respect project instructions such as AGENTS.md when present.
-External MCP tools are deferred: use mcp_tool_search only when an external capability is actually needed, then call one of the loaded MCP tools on the next round.
-Tool loop rule: every round must make progress (new evidence, a changed file, a validation result, or final answer). Never repeat the same function with the same arguments. If a tool fails, change the arguments/strategy before retrying.
-For OpenAI-compatible providers, AiWay may use Responses API for the agent loop when supported; tool outputs are returned with matching call_id values.
-Use least privilege: do not edit/delete/move files for read-only questions, and do not use destructive tools unless the user request clearly requires them.
-By model request ${AGENT_FORCE_ACTION_AT_REQUEST}, if the user asked for a change and no edit has succeeded, you MUST stop exploring and call an edit tool using the best context gathered, unless a concrete blocker makes editing unsafe.
-Use workspace_edit_lines with the fresh hash. Do not rewrite a whole existing file for a small change.
-Do not re-read after a successful edit; edit tools already return a verification snippet.
-Never invent code or claim success before ok:true. Recover at most once from STALE_FILE/PATCH_NO_MATCH by re-reading only the target.
-Aim to finish in <=${AGENT_TARGET_REQUESTS} model requests; hard limit is ${MODEL_REQUEST_LIMIT}. If the request requires an edit, a text-only answer before a successful changed edit is a failure, not completion.
-Workspace: ${workspaceManifest(ws)}`.trim()
+Model request budget: ${requestNo}/${MODEL_REQUEST_LIMIT}. (Remaining: ${remaining}). On your final request, you MUST provide a final answer, no more tools.
+Workspace:
+${workspaceManifest(ws)}
+</agent_context>
+
+<system_rules>
+- EVERY turn must make progress (new evidence, changed file, validation, or final answer).
+- NEVER repeat a tool call with the exact same arguments. If a tool fails, change strategy.
+- NEVER invent tool results. You must actually invoke the tool and wait for the real response.
+- DO NOT claim success unless the tool returned \`ok: true\`.
+- LEAST PRIVILEGE: Do not use destructive tools (edit/delete/move) for read-only questions.
+</system_rules>
+
+<tool_best_practices>
+- NEW FILES (CREATE tasks): Do NOT inspect existing files. Call \`workspace_write_file\` immediately with \`overwrite:false\`. If a collision happens, AiWay resolves it automatically. Treat \`renamed_on_conflict:true\` as a success.
+- EXISTING FILES (EDIT tasks): Preferred path is \`workspace_locate_code\` -> ONE precise \`workspace_edit_lines\` or \`workspace_apply_patch\`.
+- \`workspace_locate_code\` already returns editable code and a fresh hash. DO NOT call search/read afterward unless the region is truly insufficient.
+- DO NOT re-read after a successful edit; edit tools automatically return a verification snippet.
+- EXPLORATION IS CAPPED: Stop searching once you have enough context. By request ${AGENT_FORCE_ACTION_AT_REQUEST}, if an edit is requested, you MUST attempt an edit tool.
+- EXTERNAL TOOLS (MCP): Use \`mcp_tool_search\` ONLY when a specific external capability (like internet or database) is required.
+</tool_best_practices>`.trim()
 }
 function compactAgentText(text='',max=1400){
  const x=String(text||'').replace(/\s+/g,' ').trim();
@@ -1872,10 +1887,26 @@ function detectCodingIntent(text=''){
 }
 function selectAgentSkill(text='',ws=null){
  const intent=detectCodingIntent(text),q=String(text||'').toLowerCase();
- if(intent.createArtifact)return {id:'create-artifact',title:'Create Artifact',instruction:'Create the requested artifact directly. Prefer workspace_write_file first; verify locally after creation. Do not inspect unrelated existing files.'};
- if(/(?:fix|bug|error|broken|اصلح|أصلح|خطأ|مشكلة)/.test(q))return {id:'debug-fix',title:'Debug & Fix',instruction:'Locate the smallest relevant region, make one targeted fix, then validate. Avoid broad rewrites.'};
- if(intent.requiresEdit)return {id:'targeted-edit',title:'Targeted Edit',instruction:'Find only the necessary code, apply the smallest safe edit, then validate. Do not explore after enough evidence exists.'};
- return {id:'workspace-read',title:'Workspace Read',instruction:'Use read-only tools unless the user explicitly asks for a change.'};
+ if(intent.createArtifact)return {
+  id:'create-artifact',
+  title:'Create Artifact',
+  instruction:'Create the requested artifact directly. Prefer workspace_write_file first; verify locally after creation. Do not inspect unrelated existing files.\nExample Workflow: 1. workspace_write_file -> 2. sandbox_check -> 3. Finish.'
+ };
+ if(/(?:fix|bug|error|broken|اصلح|أصلح|خطأ|مشكلة)/.test(q))return {
+  id:'debug-fix',
+  title:'Debug & Fix',
+  instruction:'Locate the smallest relevant region, make one targeted fix, then validate. Avoid broad rewrites.\nExample Workflow: 1. workspace_locate_code -> 2. workspace_edit_lines -> 3. sandbox_check -> 4. Finish.'
+ };
+ if(intent.requiresEdit)return {
+  id:'targeted-edit',
+  title:'Targeted Edit',
+  instruction:'Find only the necessary code, apply the smallest safe edit, then validate. Do not explore after enough evidence exists.\nExample Workflow: 1. workspace_locate_code -> 2. workspace_edit_lines -> 3. workspace_diff -> 4. Finish.'
+ };
+ return {
+  id:'workspace-read',
+  title:'Workspace Read',
+  instruction:'Use read-only tools unless the user explicitly asks for a change. Do not edit or create files.\nExample Workflow: 1. workspace_list_files -> 2. workspace_locate_code -> 3. Finish.'
+ };
 }
 function selectAgentTools(defs,text=''){
  const skill=selectAgentSkill(text);let names;
