@@ -766,7 +766,7 @@ function updateProtocolHint(){
  const p=settings.provider||$('#provider')?.value, proto=providerProtocol(p);
  if(p==='agentrouter_anthropic') el.innerHTML='AgentRouter + Claude: بروتوكول <b>Anthropic Messages</b>، وBase URL الصحيح <b dir="ltr">https://co.agentrouter.org</b> بدون /v1.';
  else if(p==='agentrouter_openai') el.innerHTML='AgentRouter + GPT/Kimi/GLM: بروتوكول <b>OpenAI Chat Completions</b>، وBase URL الصحيح <b dir="ltr">https://co.agentrouter.org/v1</b>.';
- else if(p==='bai') el.innerHTML='B.AI متوافق مع <b>OpenAI</b>. الشات يستخدم <span dir="ltr">/chat/completions</span>، ومحرك الأدوات يستخدم OpenAI Function Calling الحقيقي عبر <span dir="ltr">/responses</span>، ولا ينتقل إلى Chat Completions إلا إذا أعاد السيرفر صراحةً أن النموذج غير مدعوم على Responses.';
+ else if(p==='bai') el.innerHTML='B.AI متعدد البروتوكولات. AiWay يختار مسار الأدوات حسب <b>النموذج</b>: مع DeepSeek V4 يستخدم <span dir="ltr">/chat/completions</span> بصيغة Function Calling الدنيا المتوافقة (tools فقط، بدون فرض tool_choice أو معاملات خاصة)، ومع النماذج المتوافقة مع Responses يمكن استخدام <span dir="ltr">/responses</span>.';
  else if(proto==='anthropic') el.innerHTML='بروتوكول <b>Anthropic Messages API</b>. AiWay يرسل إلى <span dir="ltr">/v1/messages</span> ويستخدم headers المتوافقة مع Anthropic.';
  else if(proto==='gemini') el.innerHTML='بروتوكول <b>Gemini Native</b> باستخدام streamGenerateContent.';
  else el.innerHTML='بروتوكول <b>OpenAI Chat Completions</b>. AiWay يشتق <span dir="ltr">/chat/completions</span> و<span dir="ltr">/models</span> تلقائياً.';
@@ -1202,7 +1202,16 @@ function isBAIProvider(){
  return settings.provider==='bai'||raw.includes('api.b.ai');
 }
 function isDeepSeekV4Model(){return /^deepseek-v4(?:-|$)/i.test(String(settings.model||''))}
-function preferResponsesAgent(){return isBAIProvider()||isDeepSeekV4Model()}
+function preferResponsesAgent(){return isBAIProvider()&&!isDeepSeekV4Model()}
+function agentProviderProfile(){
+ const proto=providerProtocol(),model=String(settings.model||'').toLowerCase();
+ if(proto==='anthropic')return {id:'anthropic',protocol:'anthropic',forceChoice:true,thinkingTools:true};
+ if(proto==='gemini')return {id:'gemini',protocol:'gemini',forceChoice:true,thinkingTools:true};
+ if(isBAIProvider()&&isDeepSeekV4Model())return {id:'bai-deepseek-v4',protocol:'openai-chat',forceChoice:false,parallelField:false,reasoningField:false,minimal:true};
+ if(settings.provider==='deepseek'||String(settings.baseUrl||'').includes('api.deepseek.com'))return {id:'deepseek-native',protocol:'openai-chat',forceChoice:false,parallelField:false,reasoningField:false,minimal:true};
+ if(preferResponsesAgent())return {id:'openai-responses-compatible',protocol:'openai-responses',forceChoice:true,parallelField:true,reasoningField:true};
+ return {id:'openai-chat-compatible',protocol:'openai-chat',forceChoice:true,parallelField:true,reasoningField:true};
+}
 function parseToolArguments(value){
  if(value==null||value==='')return {};
  if(typeof value==='object')return value;
@@ -1462,7 +1471,7 @@ async function mcpRpc(method,params={},notification=false){
  const id=uid(),modern=!mcpLegacyMode;
  const headers={'Content-Type':'application/json','Accept':'application/json, text/event-stream',...parseMcpHeaders()};
  if(modern){headers['MCP-Protocol-Version']=mcpProtocolVersion;headers['Mcp-Method']=method;const n=params?.name||params?.uri||params?.taskId;if(n)headers['Mcp-Name']=String(n)}else if(mcpSessionId)headers['Mcp-Session-Id']=mcpSessionId;
- const meta=modern?{'io.modelcontextprotocol/clientInfo':{name:'AiWay',version:'2.0.0'},'io.modelcontextprotocol/clientCapabilities':{}}:null;
+ const meta=modern?{'io.modelcontextprotocol/clientInfo':{name:'AiWay',version:'2.3.0'},'io.modelcontextprotocol/clientCapabilities':{}}:null;
  const finalParams=modern?{...(params||{}),_meta:{...(params?._meta||{}),...meta}}:(params||{});
  const body=notification?{jsonrpc:'2.0',method,params:finalParams}:{jsonrpc:'2.0',id,method,params:finalParams};
  const r=await fetch(url,{method:'POST',headers,body:JSON.stringify(body),signal:aborter?.signal});const sid=r.headers.get('mcp-session-id');if(sid)mcpSessionId=sid;const raw=await r.text();if(!r.ok)throw new Error(`MCP HTTP ${r.status}: ${raw.slice(0,320)}`);if(notification)return {ok:true};
@@ -1472,7 +1481,7 @@ async function loadMcpTools(){
  mcpToolMap.clear();mcpToolDefs=[];loadedMcpTools.clear();mcpSessionId='';mcpLegacyMode=false;mcpProtocolVersion='2026-07-28';if(!toolOn('skillSystem')||!settings.mcpUrl?.trim())return [];
  let result;
  try{result=await mcpRpc('tools/list',{})}catch(modernError){
-  try{mcpLegacyMode=true;mcpProtocolVersion='2025-03-26';await mcpRpc('initialize',{protocolVersion:'2025-03-26',capabilities:{},clientInfo:{name:'AiWay',version:'2.0.0'}});try{await mcpRpc('notifications/initialized',{},true)}catch{}result=await mcpRpc('tools/list',{})}catch(legacyError){console.warn('MCP tools unavailable:',modernError,legacyError);toast('تعذر تحميل MCP: '+legacyError.message,'error');return []}
+  try{mcpLegacyMode=true;mcpProtocolVersion='2025-03-26';await mcpRpc('initialize',{protocolVersion:'2025-03-26',capabilities:{},clientInfo:{name:'AiWay',version:'2.3.0'}});try{await mcpRpc('notifications/initialized',{},true)}catch{}result=await mcpRpc('tools/list',{})}catch(legacyError){console.warn('MCP tools unavailable:',modernError,legacyError);toast('تعذر تحميل MCP: '+legacyError.message,'error');return []}
  }
  const tools=Array.isArray(result?.tools)?result.tools:[];mcpToolDefs=tools.slice(0,80).map(t=>{const safe=('mcp__'+String(t.name||'tool')).replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,64);mcpToolMap.set(safe,t.name);return {name:safe,description:`Remote MCP: ${t.description||t.name||'tool'}`,parameters:t.inputSchema&&typeof t.inputSchema==='object'?t.inputSchema:{type:'object',properties:{}}}});
  return mcpToolDefs;
@@ -1603,6 +1612,7 @@ function agentInstruction(ws){
  return `${settings.systemPrompt||''}${transientSearchContext||''}${projectInstructionContext(ws)}
 
 [AiWay Coding Agent]
+Active skill: ${selectAgentSkill((activeChat?.messages||[]).filter(m=>m.role==='user').at(-1)?.content||'',ws).title}. ${selectAgentSkill((activeChat?.messages||[]).filter(m=>m.role==='user').at(-1)?.content||'',ws).instruction}
 You are an autonomous tool-using coding agent. The user's original request is sent to you together with the currently enabled tools. YOU decide which tool, if any, should be called next. After AiWay executes your tool call, its real result is returned to you so you can decide the next action. Continue this loop until the task is actually complete.
 Model request budget: ${requestNo}/${MODEL_REQUEST_LIMIT}. After this request there can be at most ${remaining} additional model request(s). There will NEVER be request ${MODEL_REQUEST_LIMIT+1}. On the final request, prefer a concise final answer if the task is complete; call another tool only if it is absolutely necessary because AiWay cannot ask the model again afterward.
 Edit the real workspace with minimum tokens and requests.
@@ -1684,19 +1694,18 @@ function toResponsesTools(defs){return defs.map(d=>{const f={type:'function',nam
 function isThinkingToolChoiceError(status,data={}){const msg=String(data?.error?.message||data?.message||'');return status===400&&/thinking mode.*(?:does not|doesn't).*support.*tool_choice|tool_choice.*(?:not supported|unsupported).*thinking/i.test(msg)}
 function stripSamplingFields(body){delete body.temperature;delete body.top_p;delete body.presence_penalty;delete body.frequency_penalty;return body}
 function configureDeepSeekAgentMode(body,protocol){
- // DeepSeek V4 defaults to thinking=ON. Tool use is supported, but gateways/models can
- // reject forced tool_choice while thinking. For the coding-agent loop we disable
- // thinking explicitly, then use normal OpenAI tool_choice. This keeps the model-led
- // tool selection while making the first edit request deterministic and cheap.
+ // Compatibility-first: DeepSeek tool calling works with the core OpenAI `tools` field.
+ // Gateways may reject non-core controls (thinking/tool_choice/parallel fields), so AiWay
+ // deliberately sends the smallest valid request and preserves reasoning_content returned
+ // by the model in subsequent Chat Completions turns.
  if(!deepSeekThinkingToolCompat())return body;
- stripSamplingFields(body);
- if(protocol==='responses')body.reasoning={effort:'none'};
- else body.thinking={type:'disabled'};
+ stripSamplingFields(body);delete body.reasoning;delete body.thinking;delete body.reasoning_effort;delete body.output_config;
  return body;
 }
 function applyToolChoiceCompat(body,mustAct){
- body.tool_choice=mustAct?'required':'auto';
- body.parallel_tool_calls=false;
+ const profile=agentProviderProfile();
+ if(profile.forceChoice){body.tool_choice=mustAct?'required':'auto';if(profile.parallelField!==false)body.parallel_tool_calls=false}
+ else {delete body.tool_choice;delete body.parallel_tool_calls}
  return body;
 }
 function agentActionNudge(){return {role:'user',content:'Tool action required: this request asks for a real workspace change. Do not answer with a completion claim. Choose and call the most appropriate available function now. Use the tool result before giving the final answer.'}}
@@ -1762,23 +1771,30 @@ function effectiveAgentDefs(defs){
  return actionDefs.length?actionDefs:visible;
 }
 async function callOpenAIAgent(messages,defs,signal){
- claimModelRequest();const activeDefs=effectiveAgentDefs(defs);const mustAct=agentTaskRequiresEdit&&agentSuccessfulEdits===0;const body={model:settings.model,messages,tools:toOpenAITools(activeDefs),stream:false,max_tokens:Math.min(settings.maxTokens||2048,mustAct?1000:1800)};if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;applyReasoningOpenAI(body);configureDeepSeekAgentMode(body,'chat');applyToolChoiceCompat(body,mustAct);
- let r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});let data={};try{data=await r.json()}catch{}
- if(!r.ok&&isThinkingToolChoiceError(r.status,data)&&deepSeekThinkingToolCompat()){
-   // Some gateways ignore the thinking:false toggle but accept AUTO. Make one bounded
-   // compatibility retry; the agent instruction still requires a real tool call.
-   if(responseModelRequests>=MODEL_REQUEST_LIMIT)throw apiErrorFromResponse(r.status,data,'Chat Completions tool');
-   body.tool_choice='auto';claimModelRequest();r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});data={};try{data=await r.json()}catch{}
- }
- if(!r.ok)throw apiErrorFromResponse(r.status,data,'Chat Completions tool');return data;
+ claimModelRequest();const activeDefs=effectiveAgentDefs(defs);const mustAct=agentTaskRequiresEdit&&agentSuccessfulEdits===0;const profile=agentProviderProfile();
+ const body={model:settings.model,messages,tools:toOpenAITools(activeDefs),stream:false,max_tokens:Math.min(settings.maxTokens||2048,mustAct?1200:2000)};
+ if(!profile.minimal&&Number.isFinite(settings.temperature))body.temperature=settings.temperature;
+ if(!profile.minimal)applyReasoningOpenAI(body);
+ configureDeepSeekAgentMode(body,'chat');applyToolChoiceCompat(body,mustAct);
+ const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});let data={};try{data=await r.json()}catch{}
+ if(!r.ok)throw apiErrorFromResponse(r.status,data,`Chat Completions tools (${profile.id})`);return data;
 }
 async function runOpenAIAgent(text,ws,defs,assistantIdx){
- const baseMessages=[{role:'system',content:agentInstruction(ws)},...agentConversation(text,ws)];let messages=[...baseMessages],usage=null;
+ const baseMessages=[{role:'system',content:agentInstruction(ws)},...agentConversation(text,ws)];let messages=[...baseMessages],usage=null,nudged=false;
  for(let round=0;round<AGENT_MAX_ROUNDS;round++){
   const data=await callOpenAIAgent(messages,defs,aborter.signal),msg=data?.choices?.[0]?.message||{};usage=addUsage(usage,data.usage);const calls=normalizeChatToolCalls(msg);
-  if(!calls.length){const textOut=typeof msg.content==='string'?msg.content:(msg.content||[]).map(x=>x.text||'').join('');if(agentTaskCreatesNewFile&&agentSuccessfulCreates===0)return {text:'لم يتم إنشاء أي ملف جديد فعليًا. أوقف AiWay المهمة بدل إعلان نجاح وهمي.',usage,failed_edit:true};if(agentTaskRequiresEdit&&agentSuccessfulEdits===0)return {text:'لم يتم تطبيق أي تعديل فعلي. أوقف AiWay المهمة بدل إعلان نجاح وهمي؛ حاول تحديد العنصر أو الملف المستهدف أكثر.',usage,failed_edit:true};return {text:textOut||'تم تنفيذ المهمة.',usage}}
+  if(!calls.length){
+   const textOut=typeof msg.content==='string'?msg.content:(msg.content||[]).map(x=>x.text||'').join('');
+   if(agentTaskRequiresEdit&&agentSuccessfulEdits===0&&!nudged&&responseModelRequests<MODEL_REQUEST_LIMIT){
+    nudged=true;messages=[...messages,{...msg,content:msg.content??''},agentActionNudge()];setAgentStage(assistantIdx,`النموذج لم يستدعِ أداة؛ إعادة توجيه واحدة فقط · ${responseModelRequests+1}/${MODEL_REQUEST_LIMIT}…`);continue;
+   }
+   if(agentTaskCreatesNewFile&&agentSuccessfulCreates===0)return {text:'الموديل لم يُصدر Function Call لإنشاء الملف. أوقف AiWay المهمة بعد محاولة توجيه واحدة بدل استهلاك 10 Requests.',usage,failed_edit:true};
+   if(agentTaskRequiresEdit&&agentSuccessfulEdits===0)return {text:'الموديل لم يُصدر Tool Call حقيقي للتعديل. أوقف AiWay المهمة مبكرًا بدل حلقة استكشاف مكلفة.',usage,failed_edit:true};
+   return {text:textOut||'تم تنفيذ المهمة.',usage}
+  }
   const toolMessages=[];
-  for(const c of calls){let args=parseToolArguments(c.function?.arguments||'{}');if(args.__raw)args={};setAgentStage(assistantIdx,`أستخدم ${c.function?.name||'tool'}…`);const result=await guardedExecuteCodingTool(c.function?.name,args);toolMessages.push({role:'tool',tool_call_id:c.id,content:compactToolResultForModel(result)});if(!result.ok&&toolOn('autoFix'))setAgentStage(assistantIdx,'وجدت مشكلة؛ أحاول الإصلاح وإعادة الفحص…')}
+  for(const c of calls){let args=parseToolArguments(c.function?.arguments||'{}');if(args.__raw)args={};setAgentStage(assistantIdx,`Request ${responseModelRequests}/${MODEL_REQUEST_LIMIT} · ${c.function?.name||'tool'}…`);const result=await guardedExecuteCodingTool(c.function?.name,args);toolMessages.push({role:'tool',tool_call_id:c.id,content:compactToolResultForModel(result)});if(!result.ok&&toolOn('autoFix'))setAgentStage(assistantIdx,'وجدت مشكلة؛ أحاول الإصلاح وإعادة الفحص…')}
+  // Preserve the provider's assistant message verbatim (including reasoning_content for DeepSeek thinking mode).
   messages=[...messages,{...msg,content:msg.content??''},...toolMessages];
   if(responseModelRequests>=MODEL_REQUEST_LIMIT)return {text:agentBudgetSummary(),usage};
  }
@@ -1820,17 +1836,26 @@ function detectCodingIntent(text=''){
  const requiresEdit=action||createArtifact;
  return {q,requiresEdit,createArtifact};
 }
+function selectAgentSkill(text='',ws=null){
+ const intent=detectCodingIntent(text),q=String(text||'').toLowerCase();
+ if(intent.createArtifact)return {id:'create-artifact',title:'Create Artifact',instruction:'Create the requested artifact directly. Prefer workspace_write_file first; verify locally after creation. Do not inspect unrelated existing files.'};
+ if(/(?:fix|bug|error|broken|اصلح|أصلح|خطأ|مشكلة)/.test(q))return {id:'debug-fix',title:'Debug & Fix',instruction:'Locate the smallest relevant region, make one targeted fix, then validate. Avoid broad rewrites.'};
+ if(intent.requiresEdit)return {id:'targeted-edit',title:'Targeted Edit',instruction:'Find only the necessary code, apply the smallest safe edit, then validate. Do not explore after enough evidence exists.'};
+ return {id:'workspace-read',title:'Workspace Read',instruction:'Use read-only tools unless the user explicitly asks for a change.'};
+}
 function selectAgentTools(defs,text=''){
- // Model-led routing: expose all currently enabled local tools on the first request
- // and let the model choose the best next action. MCP implementation tools remain
- // deferred until mcp_tool_search loads them, avoiding a large schema/token cost.
- const visible=defs.filter(d=>!d.name.startsWith('mcp__')||loadedMcpTools.has(d.name));
- return visible;
+ const skill=selectAgentSkill(text);let names;
+ if(skill.id==='create-artifact')names=new Set(['workspace_write_file','sandbox_check','workspace_checkpoint','mcp_tool_search']);
+ else if(skill.id==='debug-fix')names=new Set(['workspace_locate_code','workspace_read_range','workspace_read_many','workspace_edit_lines','workspace_apply_patch','sandbox_check','workspace_diff','mcp_tool_search']);
+ else if(skill.id==='targeted-edit')names=new Set(['workspace_locate_code','workspace_read_range','workspace_read_many','workspace_edit_lines','workspace_apply_patch','workspace_write_file','sandbox_check','workspace_diff','mcp_tool_search']);
+ else names=new Set(['workspace_list_files','workspace_file_info','workspace_locate_code','workspace_search','workspace_read_range','workspace_read_many','mcp_tool_search']);
+ const visible=defs.filter(d=>(!d.name.startsWith('mcp__')||loadedMcpTools.has(d.name))&&(names.has(d.name)||d.name.startsWith('mcp__')));
+ return visible.length?visible:defs.filter(d=>!d.name.startsWith('mcp__')||loadedMcpTools.has(d.name));
 }
 async function shouldUseCodingAgent(text=''){if(!settings.toolsMaster)return false;const ws=await getWorkspace(false);const intent=detectCodingIntent(text);const hasWorkspace=!!ws?.files?.length&&codingToolDefinitions().length>0;const canCreate=intent.createArtifact&&codingToolDefinitions().some(d=>d.name==='workspace_write_file');const hasMcp=toolOn('skillSystem')&&!!settings.mcpUrl?.trim();return hasWorkspace||canCreate||hasMcp}
 function setAgentStage(idx,label){const m=activeChat?.messages?.[idx];if(!m)return;m.agentStage=label;scheduleStreamPaint(idx,false)}
 async function runCodingAgent(text,assistantIdx){
- const ws=(await getWorkspace(false))||{files:[],revisions:[],cache:{}};lastAgentChanges=[];agentToolCallCounts=new Map();agentExploreToolCalls=0;agentSuccessfulEdits=0;agentSuccessfulCreates=0;agentRecoveryReads=0;const intent=detectCodingIntent(text);agentTaskRequiresEdit=intent.requiresEdit;agentTaskCreatesNewFile=intent.createArtifact;let defs=codingToolDefinitions();defs.push(...await loadMcpTools());defs=selectAgentTools(defs,text);if(!defs.length)throw new Error('لا توجد أدوات Agent مفعلة');setAgentStage(assistantIdx,`أرسل طلبك للنموذج مع ${effectiveAgentDefs(defs).length} أداة ليختار الخطوة التالية · 1/${MODEL_REQUEST_LIMIT}…`);let result;const proto=providerProtocol();if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx);else if(preferResponsesAgent()){try{result=await runOpenAIResponsesAgent(text,ws,defs,assistantIdx)}catch(e){if(!shouldFallbackResponsesToChat(e))throw e;console.warn('Responses agent path incompatible; switching once to OpenAI Chat Completions tools:',e);setAgentStage(assistantIdx,`أحوّل بروتوكول الأدوات مرة واحدة إلى /chat/completions مع تعطيل Thinking للـAgent · ${Math.min(responseModelRequests+1,MODEL_REQUEST_LIMIT)}/${MODEL_REQUEST_LIMIT}…`);result=await runOpenAIAgent(text,ws,defs,assistantIdx)}}else result=await runOpenAIAgent(text,ws,defs,assistantIdx);
+ const ws=(await getWorkspace(false))||{files:[],revisions:[],cache:{}};lastAgentChanges=[];agentToolCallCounts=new Map();agentExploreToolCalls=0;agentSuccessfulEdits=0;agentSuccessfulCreates=0;agentRecoveryReads=0;const intent=detectCodingIntent(text);agentTaskRequiresEdit=intent.requiresEdit;agentTaskCreatesNewFile=intent.createArtifact;let defs=codingToolDefinitions();defs.push(...await loadMcpTools());defs=selectAgentTools(defs,text);if(!defs.length)throw new Error('لا توجد أدوات Agent مفعلة');const profile=agentProviderProfile(),skill=selectAgentSkill(text,ws);setAgentStage(assistantIdx,`${skill.title} · ${profile.id} · ${effectiveAgentDefs(defs).length} أدوات مناسبة · 1/${MODEL_REQUEST_LIMIT}…`);let result;const proto=providerProtocol();if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx);else if(preferResponsesAgent()){try{result=await runOpenAIResponsesAgent(text,ws,defs,assistantIdx)}catch(e){if(!shouldFallbackResponsesToChat(e))throw e;console.warn('Responses agent path incompatible; switching once to OpenAI Chat Completions tools:',e);setAgentStage(assistantIdx,`أحوّل بروتوكول الأدوات مرة واحدة إلى /chat/completions مع تعطيل Thinking للـAgent · ${Math.min(responseModelRequests+1,MODEL_REQUEST_LIMIT)}/${MODEL_REQUEST_LIMIT}…`);result=await runOpenAIAgent(text,ws,defs,assistantIdx)}}else result=await runOpenAIAgent(text,ws,defs,assistantIdx);
  const m=activeChat.messages[assistantIdx];m.content=result.text||'تم تنفيذ المهمة.';m.usage=result.usage||m.usage;m.streaming=false;m.toolRun=true;m.agentFailedEdit=!!result.failed_edit;m.changedFiles=[...new Set(lastAgentChanges.map(x=>x.path))];m.artifacts=m.changedFiles.map(path=>({path}));renderMessages();if(lastAgentChanges.length&&toolOn('diffViewer')){renderDiffModal();toast(`تم تعديل ${m.changedFiles.length} ملف`)}await updateWorkspaceChip();return result;
 }
 function artifactHtml(m={},i=-1){const files=m.artifacts||[];if(!files.length&&!m.toolRun)return '';const buttons=files.map(a=>`<button class="artifact-btn" type="button" data-download-artifact="${i}" data-path="${esc(a.path)}">↓ ${esc(a.path.split('/').pop())}</button>`).join('');return `<div class="agent-trace"><span class="tool-run-status"><i></i><strong>Agent Tools</strong> · ${files.length?`${files.length} ملف تم إنشاؤه/تعديله`:'تم استخدام الأدوات'}</span>${files.length?`<div class="artifact-actions">${buttons}${toolOn('diffViewer')?`<button class="artifact-btn" type="button" data-show-diff="1">± عرض Diff</button>`:''}</div>`:''}</div>`}
@@ -1852,7 +1877,7 @@ async function send(){
        console.error('Agent tool loop failed:',agentError);
        const m=activeChat.messages[assistantIdx];m.agentStage='';m.searching=false;m.streaming=false;m.toolRun=true;m.agentFailedEdit=true;
        const detail=String(agentError?.message||'فشل غير معروف');
-       m.content=`فشل اتصال الأدوات ولم يتم التحويل إلى شات عادي.\n\n${detail}\n\nAiWay أبقى المهمة في وضع Agent حتى لا يدّعي تنفيذ ملفات بدون Tool Call حقيقي.`;
+       m.content=`فشل بروتوكول الأدوات ولم يتم التحويل إلى شات عادي.\n\n${detail}\n\nAiWay استخدم طبقة توافق البروفايدر وأوقف المهمة مبكرًا بدل استهلاك ميزانية Requests أو ادعاء تنفيذ بدون Tool Call.`;
        scheduleStreamPaint(assistantIdx,true);
        toast('فشل Tool Calling — لم يتم الرجوع للشات العادي','error');
      }
