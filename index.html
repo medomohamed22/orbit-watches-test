@@ -203,36 +203,283 @@ linear-gradient(160deg,#09070f 0%,#0e0a17 48%,#08070d 100%)}
 .msg-actions .mini-btn.copied,.code-copy.copied{color:#fff;background:rgba(139,92,246,.20)}
 
 
-/* === AiWay thinking summaries + calm stream patch === */
+/* === AiWay Live Agent & Thinking Activity Widget 2026 === */
+.live-activity-card{
+  margin:14px 0 16px;
+  border-radius:20px;
+  border:1px solid rgba(167,139,250,.24);
+  background:linear-gradient(145deg,rgba(23,17,36,.94),rgba(13,10,22,.98));
+  box-shadow:0 16px 48px rgba(35,12,74,.32),inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter:blur(24px);
+  overflow:hidden;
+  position:relative;
+  transition:all .28s cubic-bezier(.16,1,.3,1);
+  animation:liveCardIn .3s cubic-bezier(.16,1,.3,1)
+}
+@keyframes liveCardIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+.live-activity-card:before{
+  content:"";
+  position:absolute;
+  top:0;left:0;right:0;
+  height:2.5px;
+  background:linear-gradient(90deg,#38bdf8,#8b5cf6,#ec4899,#38bdf8);
+  background-size:200% 100%;
+  animation:liveGradientFlow 3s linear infinite;
+  z-index:2
+}
+@keyframes liveGradientFlow{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.live-activity-head{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:13px 15px;
+  background:rgba(255,255,255,.03);
+  border-bottom:1px solid rgba(255,255,255,.07)
+}
+.live-orb{
+  width:36px;
+  height:36px;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  position:relative;
+  background:linear-gradient(135deg,rgba(139,92,246,.32),rgba(56,189,248,.18));
+  border:1px solid rgba(167,139,250,.38);
+  color:#d8c7ff;
+  box-shadow:0 0 22px rgba(139,92,246,.35)
+}
+.live-orb svg{width:19px;height:19px;filter:drop-shadow(0 0 6px rgba(167,139,250,.6))}
+.live-orb-ring{
+  position:absolute;
+  inset:-3px;
+  border-radius:14px;
+  border:1.5px dashed rgba(167,139,250,.5);
+  animation:orbSpin 8s linear infinite
+}
+@keyframes orbSpin{to{transform:rotate(360deg)}}
+.live-info{flex:1;min-width:0}
+.live-title{
+  font-size:12.5px;
+  font-weight:750;
+  color:#f7f3ff;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  letter-spacing:.1px
+}
+.live-sub{
+  font-size:10px;
+  color:#a79cb8;
+  margin-top:2px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.live-meta-badges{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.live-badge{
+  padding:4px 8px;
+  border-radius:8px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.09);
+  font-size:9.5px;
+  font-variant-numeric:tabular-nums;
+  color:#c9bfdc;
+  display:inline-flex;
+  align-items:center;
+  gap:4px
+}
+.live-badge.timer{color:#c4b5fd;background:rgba(139,92,246,.15);border-color:rgba(167,139,250,.3)}
+.live-badge.requests{color:#7dd3fc;background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.26)}
+
+/* Steps timeline */
+.live-steps-container{
+  padding:10px 14px 6px;
+  display:grid;
+  gap:6px
+}
+.live-step-row{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  padding:8px 10px;
+  border-radius:12px;
+  background:rgba(255,255,255,.025);
+  border:1px solid rgba(255,255,255,.05);
+  font-size:11px;
+  transition:all .2s ease;
+  animation:stepIn .2s ease
+}
+@keyframes stepIn{from{opacity:0;transform:translateX(6px)}to{opacity:1;transform:none}}
+.live-step-row.running{
+  background:rgba(139,92,246,.09);
+  border-color:rgba(167,139,250,.3);
+  box-shadow:0 4px 18px rgba(139,92,246,.14)
+}
+.live-step-row.done{
+  background:rgba(255,255,255,.02);
+  border-color:rgba(255,255,255,.04)
+}
+.live-step-icon{
+  width:23px;
+  height:23px;
+  border-radius:8px;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  font-size:11px;
+  background:rgba(255,255,255,.06);
+  color:#ddd4ed
+}
+.live-step-icon svg{width:13px;height:13px}
+.live-step-row.running .live-step-icon{
+  background:linear-gradient(135deg,#8b5cf6,#6d28d9);
+  color:#fff;
+  box-shadow:0 0 12px rgba(139,92,246,.5)
+}
+.live-step-row.done .live-step-icon{
+  background:rgba(80,227,177,.14);
+  color:#50e3b1;
+  border:1px solid rgba(80,227,177,.3)
+}
+.live-step-text{flex:1;min-width:0}
+.live-step-text b{
+  display:block;
+  font-size:11px;
+  color:#eee9f7;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.live-step-text small{
+  display:block;
+  font-size:9.5px;
+  color:#9d93ad;
+  margin-top:1px;
+  direction:ltr;
+  text-align:left;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.live-step-indicator{flex:0 0 auto;margin-inline-start:auto}
+.pulse-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#a78bfa;
+  box-shadow:0 0 10px #a78bfa;
+  animation:pulseDot 1s infinite alternate
+}
+@keyframes pulseDot{0%{transform:scale(.8);opacity:.5}100%{transform:scale(1.3);opacity:1;box-shadow:0 0 14px #a78bfa}}
+
+/* Mini Terminal / Preview Window */
+.live-preview-window{
+  margin:8px 12px 12px;
+  border-radius:14px;
+  background:#09070f;
+  border:1px solid rgba(255,255,255,.09);
+  overflow:hidden;
+  box-shadow:0 8px 26px rgba(0,0,0,.45)
+}
+.live-win-bar{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:7px 10px;
+  background:rgba(255,255,255,.04);
+  border-bottom:1px solid rgba(255,255,255,.06);
+  font-size:10px;
+  color:#a499b8
+}
+.mac-dots{display:flex;gap:5px;align-items:center}
+.mac-dots span{width:8px;height:8px;border-radius:50%;opacity:.85}
+.mac-dots span:nth-child(1){background:#ff5f56}
+.mac-dots span:nth-child(2){background:#ffbd2e}
+.mac-dots span:nth-child(3){background:#27c93f}
+.live-win-file{
+  margin-inline-start:4px;
+  color:#e2d9f3;
+  font-weight:600;
+  font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+  direction:ltr;
+  text-align:left;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis
+}
+.live-win-tool-tag{
+  margin-inline-start:auto;
+  padding:2px 7px;
+  border-radius:6px;
+  background:rgba(139,92,246,.2);
+  color:#c4b5fd;
+  font-size:8.5px;
+  font-weight:700;
+  border:1px solid rgba(167,139,250,.28)
+}
+.live-win-body{
+  padding:10px 12px;
+  max-height:160px;
+  overflow-y:auto;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  font-size:10.5px;
+  line-height:1.6;
+  direction:ltr;
+  text-align:left;
+  color:#d1c7e2;
+  scrollbar-width:thin
+}
+.live-code-row{
+  display:flex;
+  gap:10px;
+  white-space:pre-wrap;
+  word-break:break-all
+}
+.live-code-row .ln{
+  color:#635777;
+  user-select:none;
+  width:24px;
+  text-align:right;
+  flex:0 0 auto
+}
+.live-code-row.add{
+  background:rgba(34,197,94,.1);
+  color:#86efac;
+  border-radius:4px;
+  padding:0 4px
+}
+.live-code-row.del{
+  background:rgba(239,68,68,.1);
+  color:#fca5a5;
+  border-radius:4px;
+  padding:0 4px
+}
+.live-code-cursor{
+  display:inline-block;
+  width:6px;
+  height:13px;
+  background:#a78bfa;
+  margin-left:2px;
+  vertical-align:-1px;
+  animation:cursorBlink .8s infinite
+}
+@keyframes cursorBlink{50%{opacity:0}}
+
+/* Legacy fallback classes preserved for compatibility */
 .thinking-shell{min-width:min(82%,520px);max-width:min(86%,620px)}
-.thinking-card{
-  position:relative;overflow:hidden;padding:13px 14px;border-radius:19px;
-  border:1px solid rgba(181,145,255,.20);
-  background:linear-gradient(145deg,rgba(255,255,255,.065),rgba(139,92,246,.055));
-  box-shadow:0 16px 46px rgba(37,13,77,.18),inset 0 1px 0 rgba(255,255,255,.055);
-  backdrop-filter:blur(20px)
-}
-.thinking-card:before{
-  content:"";position:absolute;inset:0;pointer-events:none;
-  background:linear-gradient(105deg,transparent 18%,rgba(194,167,255,.075) 45%,transparent 72%);
-  translate:-100% 0;animation:thinkSweep 2.8s ease-in-out infinite
-}
-@keyframes thinkSweep{55%,100%{translate:100% 0}}
+.thinking-card{position:relative;overflow:hidden;padding:13px 14px;border-radius:19px;border:1px solid rgba(181,145,255,.20);background:linear-gradient(145deg,rgba(255,255,255,.065),rgba(139,92,246,.055));box-shadow:0 16px 46px rgba(37,13,77,.18);backdrop-filter:blur(20px)}
 .thinking-head{display:flex;align-items:center;gap:9px;position:relative;z-index:1}
 .thinking-orb{width:27px;height:27px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto;background:linear-gradient(145deg,#fff,#d8c7ff 36%,#8b5cf6);box-shadow:0 7px 22px rgba(139,92,246,.28)}
 .thinking-orb svg{width:15px;height:15px;stroke:#241334}
 .thinking-title{font-size:12px;font-weight:750;color:#f4efff}.thinking-time{font-size:9px;color:#8f879c;margin-inline-start:auto}
 .thinking-line{position:relative;z-index:1;margin-top:8px;color:#aaa2b8;font-size:11px;line-height:1.65;min-height:18px;transition:opacity .18s,transform .18s}
-.thinking-line.swap{opacity:.25;transform:translateY(2px)}
 .thinking-summary{position:relative;z-index:1;margin-top:9px;padding:8px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.075);background:rgba(8,6,13,.28);font-size:10px;line-height:1.65;color:#cec5da;max-height:74px;overflow:hidden}
 .thinking-summary:empty{display:none}
-.thinking-summary b{color:#eee7fa;font-weight:650}
-.thinking-dots{display:inline-flex;gap:3px;margin-inline-start:4px;vertical-align:middle}.thinking-dots i{width:3px;height:3px;border-radius:50%;background:#b68cff;animation:thinkDot 1.35s ease-in-out infinite}.thinking-dots i:nth-child(2){animation-delay:.15s}.thinking-dots i:nth-child(3){animation-delay:.3s}@keyframes thinkDot{50%{opacity:.25;transform:translateY(-2px)}}
+.thinking-dots{display:inline-flex;gap:3px;margin-inline-start:4px;vertical-align:middle}.thinking-dots i{width:3px;height:3px;border-radius:50%;background:#b68cff;animation:thinkDot 1.35s ease-in-out infinite}
 .stream-caret{animation:caretBlink 1.55s ease-in-out infinite!important;opacity:.72}
 .code-block.streaming-code{box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 10px 32px rgba(74,36,128,.08)}
-.code-block.streaming-code .code-head:after{content:"";width:36px;height:2px;border-radius:5px;margin-left:7px;background:linear-gradient(90deg,transparent,#b488ff,transparent);animation:codeProgress 1.6s ease-in-out infinite}
-@keyframes codeProgress{0%{opacity:.2;transform:translateX(-6px)}50%{opacity:.85}100%{opacity:.2;transform:translateX(6px)}}
-@media(max-width:600px){.thinking-shell{max-width:88%;min-width:70%}.thinking-card{padding:12px 13px;border-radius:17px}}
+@media(max-width:600px){.live-activity-card{border-radius:16px}.live-preview-window{margin:6px 10px 10px}}
 
 /* === AiWay accessibility + contrast improvements === */
 /* ارفع تباين النصوص الصغيرة والثانوية لتجاوز WCAG AA */
@@ -992,12 +1239,175 @@ function openSourcesPopup(messageIndex){
 function closeSourcesPopup(){const layer=$('#sourcesPopupLayer');layer?.classList.remove('show');layer?.setAttribute('aria-hidden','true')}
 function bindSourceUI(root=document){root.querySelectorAll('[data-open-sources]').forEach(b=>{if(b.dataset.bound==='1')return;b.dataset.bound='1';b.onclick=()=>openSourcesPopup(b.dataset.openSources)})}
 
+function toolIconSvg(type=''){
+  switch(type){
+    case 'locate':
+    case 'search':
+      return '<svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m16.5 16.5 4.5 4.5M11 8v6M8 11h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+    case 'edit':
+    case 'patch':
+      return '<svg viewBox="0 0 24 24" fill="none"><path d="m8 6-5 6 5 6M16 6l5 6-5 6M13 4l-2 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    case 'write':
+    case 'create':
+      return '<svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" stroke="currentColor" stroke-width="1.6"/><path d="M14 2v6h6M12 12v6M9 15h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+    case 'check':
+    case 'sandbox':
+      return '<svg viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" stroke="currentColor" stroke-width="1.6"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    case 'web':
+    case 'searchWeb':
+      return '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M3.6 9h16.8M3.6 15h16.8M12 3a14 14 0 0 0 0 18 14 14 0 0 0 0-18Z" stroke="currentColor" stroke-width="1.4"/></svg>';
+    case 'mcp':
+      return '<svg viewBox="0 0 24 24" fill="none"><path d="M9 3v4M15 3v4M3 9h4M3 15h4M21 9h-4M21 15h-4M9 21v-4M15 21v-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><rect x="7" y="7" width="10" height="10" rx="3" stroke="currentColor" stroke-width="1.6"/></svg>';
+    case 'done':
+      return '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="rgba(80,227,177,.18)" stroke="#50e3b1" stroke-width="1.5"/><path d="m8.5 12 2.5 2.5 5-5" stroke="#50e3b1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    default:
+      return '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3 14 10l7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg>';
+  }
+}
+
+function toolCategory(name=''){
+  if(/locate|search/i.test(name)) return 'search';
+  if(/edit|patch/i.test(name)) return 'edit';
+  if(/write|create/i.test(name)) return 'write';
+  if(/sandbox|check|test/i.test(name)) return 'check';
+  if(/web/i.test(name)) return 'web';
+  if(/mcp/i.test(name)) return 'mcp';
+  return 'default';
+}
+
+function toolFriendlyTitle(name='', args={}){
+  if(name==='workspace_locate_code') return `فحص وتحديد موضع الكود في ${args?.path || 'ملفات المشروع'}`;
+  if(name==='workspace_search') return `البحث عن: "${args?.query || ''}"`;
+  if(name==='workspace_edit_lines') return `تعديل واستبدال أسطر في ${args?.path || 'الملف'}`;
+  if(name==='workspace_apply_patch') return `تطبيق تعديل دقيق في ${args?.path || 'الملف'}`;
+  if(name==='workspace_write_file') return `إنشاء / كتابة الملف: ${args?.path || 'ملف جديد'}`;
+  if(name==='workspace_read_range') return `قراءة وفحص نطاق من ${args?.path || 'الملف'}`;
+  if(name==='workspace_read_many') return `قراءة عدة ملفات متزامنة`;
+  if(name==='workspace_list_files') return `استكشاف شجرة ملفات المشروع`;
+  if(name==='sandbox_check') return `فحص كود ${args?.path || ''} والتحقق من سلامة البناء`;
+  if(name==='searchWeb') return `البحث في الويب ومطابقة المصادر المحدثة`;
+  if(name==='mcp_tool_search') return `تحميل أداة خارجية (MCP): ${args?.query || ''}`;
+  if(name.startsWith('mcp__')) return `تنفيذ أداة خارجية: ${name.replace('mcp__','')}`;
+  return name || 'جاري معالجة الطلب...';
+}
+
+function updateAgentStep(idx, stepData){
+  const m = activeChat?.messages?.[idx];
+  if(!m) return null;
+  m.agentSteps = m.agentSteps || [];
+  
+  if(stepData.id){
+    const existing = m.agentSteps.find(s => s.id === stepData.id);
+    if(existing){
+      Object.assign(existing, stepData);
+      if(stepData.preview) m.livePreview = stepData.preview;
+      scheduleStreamPaint(idx, false);
+      return existing;
+    }
+  }
+  
+  const newStep = {
+    id: stepData.id || uid(),
+    name: stepData.name || '',
+    title: stepData.title || toolFriendlyTitle(stepData.name, stepData.args),
+    detail: stepData.detail || (stepData.args?.path ? `${stepData.args.path}` : ''),
+    status: stepData.status || 'running',
+    time: Date.now()
+  };
+  m.agentSteps.push(newStep);
+  if(stepData.preview) m.livePreview = stepData.preview;
+  scheduleStreamPaint(idx, false);
+  return newStep;
+}
+
+function renderAgentActivityHtml(m, idx){
+  const steps = Array.isArray(m.agentSteps) ? m.agentSteps : [];
+  const activeStep = steps.find(s => s.status === 'running') || steps.at(-1);
+  const cat = activeStep ? toolCategory(activeStep.name) : (m.searching ? 'web' : 'default');
+  const orbIcon = toolIconSvg(cat);
+  const elapsed = formatDuration(Date.now() - (m.startedAt || m.time || Date.now()));
+  const title = m.agentStage || (m.searching ? 'أبحث في الويب وأجمع المصادر…' : (activeStep ? activeStep.title : 'الوكيل الذكي يحلل طلبك ويجهّز الخطوات…'));
+  const reqCount = m.requestCount || responseModelRequests || 1;
+  
+  let stepsHtml = '';
+  if(steps.length > 0){
+    stepsHtml = `<div class="live-steps-container">${steps.slice(-4).map(s => {
+      const isRunning = s.status === 'running';
+      const isDone = s.status === 'done';
+      const icon = isDone ? toolIconSvg('done') : toolIconSvg(toolCategory(s.name));
+      return `<div class="live-step-row ${isRunning ? 'running' : 'done'}">
+        <div class="live-step-icon">${icon}</div>
+        <div class="live-step-text">
+          <b>${esc(s.title || s.name)}</b>
+          ${s.detail ? `<small>${esc(s.detail)}</small>` : ''}
+        </div>
+        <div class="live-step-indicator">${isRunning ? '<span class="pulse-dot"></span>' : '<span style="color:#50e3b1;font-size:11px;font-weight:700">✓</span>'}</div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  let previewHtml = '';
+  if(m.livePreview){
+    const p = m.livePreview;
+    let bodyContent = '';
+    if(p.type === 'code'){
+      const lines = String(p.content || '').split('\n').slice(0, 6);
+      bodyContent = lines.map((l, i) => {
+        const isAdd = l.startsWith('+');
+        const isDel = l.startsWith('-');
+        const cls = isAdd ? 'add' : (isDel ? 'del' : '');
+        return `<div class="live-code-row ${cls}"><span class="ln">${(p.startLine || 1) + i}</span><span>${esc(l)}</span></div>`;
+      }).join('') + '<span class="live-code-cursor"></span>';
+    } else {
+      bodyContent = `<div>${esc(p.content || '')}</div><span class="live-code-cursor"></span>`;
+    }
+
+    previewHtml = `<div class="live-preview-window">
+      <div class="live-win-bar">
+        <div class="mac-dots"><span></span><span></span><span></span></div>
+        <span class="live-win-file">${esc(p.path || 'workspace-action.log')}</span>
+        <span class="live-win-tool-tag">${esc(p.tool || 'Action')}</span>
+      </div>
+      <div class="live-win-body">${bodyContent}</div>
+    </div>`;
+  } else if(!m.content && !steps.length) {
+    previewHtml = `<div class="live-preview-window">
+      <div class="live-win-bar">
+        <div class="mac-dots"><span></span><span></span><span></span></div>
+        <span class="live-win-file">aiway-agent.log</span>
+        <span class="live-win-tool-tag">Working</span>
+      </div>
+      <div class="live-win-body">
+        <div style="color:#a78bfa">> جاري قراءة سياق المحادثة وتحليل ملفات الـ Workspace...</div>
+        <div style="color:#7dd3fc">> اختيار المسار الأمثل للأدوات لتنفيذ المطلوب بدقة...</div>
+        <span class="live-code-cursor"></span>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="live-activity-card">
+    <div class="live-activity-head">
+      <div class="live-orb"><div class="live-orb-ring"></div>${orbIcon}</div>
+      <div class="live-info">
+        <div class="live-title">${esc(title)}</div>
+        <div class="live-sub">سير العمل الذكي · خطوة بخطوة</div>
+      </div>
+      <div class="live-meta-badges">
+        <span class="live-badge timer">⏱ <span class="elapsed-time">${elapsed}</span></span>
+        <span class="live-badge requests">⚡ طلب ${reqCount}/${MODEL_REQUEST_LIMIT}</span>
+      </div>
+    </div>
+    ${stepsHtml}
+    ${previewHtml}
+  </div>`;
+}
+
 function messageHtml(m,i){
  const user=m.role==='user';const icon=user?`<path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`:`<path d="M12 3 14 10l7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" stroke="currentColor" stroke-width="1.4"/>`;
  const atts=(m.attachments||[]).map(a=>a.type?.startsWith('image/')&&a.dataUrl?`<img class="attachment-img" src="${a.dataUrl}" alt="${esc(a.name)}">`:`<div class="attachment-chip">📎 <span>${esc(a.name)}</span></div>`).join('');
  const tokens=m.usage?.total_tokens||m.liveTokens||0;
  const meta=!user?`<div class="msg-meta assistant-meta"><span class="assistant-signature"><span class="assistant-dot">✦</span>${esc(settings.assistantName||'AiWay')}</span><span class="model-short" title="${esc(m.model||'')}">${esc(shortModelName(m.model))}</span><span class="token-count">${m.streaming?'≈ ':''}${Number(tokens).toLocaleString('en-US')} tokens</span><span class="elapsed-time">${formatDuration(m.streaming?(m.elapsedMs||0):(m.durationMs||m.elapsedMs||0))}</span><span class="request-stat" title="عدد طلبات النموذج"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 7h8M8 12h5M8 17h7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M5 4.5h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.5"/></svg><span class="request-count">${Number(m.requestCount||0)}</span></span><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`:`<div class="msg-meta"><span class="msg-actions"><button class="mini-btn" data-copy="${i}" title="نسخ"><svg viewBox="0 0 24 24" fill="none"><path d="M8 8h11v11H8zM5 16H4V5h11v1" stroke="currentColor" stroke-width="1.5"/></svg></button><button class="mini-btn" data-edit="${i}" title="إعادة استخدام"><svg viewBox="0 0 24 24" fill="none"><path d="m5 16-1 4 4-1L19 8l-3-3L5 16Z" stroke="currentColor" stroke-width="1.5"/></svg></button></span></div>`;
- const emptyState=!user&&m.streaming&&!m.content?`<div class="stream-stage"><span class="stage-spinner"></span><span>${m.agentStage|| (m.searching?'أبحث في الويب وأجمع المصادر…':'أجهز الإجابة…')}</span></div>`:'';
+ const emptyState=!user&&m.streaming&&!m.content?renderAgentActivityHtml(m,i):'';
  if(user)return `<div class="msg-row user ${m.streaming?'streaming':''}" data-index="${i}"><div class="bubble"><div class="content">${markdown(m.content||'',!!m.streaming,m.sources||[],i)}</div>${atts?`<div class="attachment-list">${atts}</div>`:''}${meta}</div><div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div></div>`;
  return `<div class="msg-row assistant ${m.streaming?'streaming':''}" data-index="${i}"><div class="assistant-doc"><div class="assistant-head"><div class="avatar"><svg viewBox="0 0 24 24" fill="none">${icon}</svg></div><span>${esc(settings.assistantName||'AiWay')}</span></div><div class="content">${emptyState}${markdown(m.content||'',!!m.streaming,m.sources||[],i)}${m.streaming&&m.content?'<span class="stream-caret"></span>':''}</div>${atts?`<div class="attachment-list">${atts}</div>`:''}${sourcesHtml(m.sources,i)}${artifactHtml(m,i)}${meta}</div></div>`;
 }
@@ -1134,7 +1544,7 @@ function scheduleStreamPaint(idx,final=false){
    const row=$(`[data-index="${idx}"]`),el=row?.querySelector('.content');if(!el)return;
    const m=activeChat.messages[idx],openCode=hasOpenCodeFence(m.content||'');
    if(!m.usage?.total_tokens)m.liveTokens=(m.promptTokenEstimate||0)+estimateTokens(m.content||'');
-   const empty=!m.content&&m.streaming?`<div class="stream-stage"><span class="stage-spinner"></span><span>${m.agentStage|| (m.searching?'أبحث في الويب وأجمع المصادر…':'أجهز الإجابة…')}</span></div>`:'';
+   const empty=!m.content&&m.streaming?renderAgentActivityHtml(m,idx):'';
    el.innerHTML=empty+markdown(m.content||'',!final,m.sources||[],idx)+((!final&&!openCode)?'<span class="stream-caret"></span>':'');
    row.classList.toggle('streaming',!final);
    row.querySelectorAll('.code-block').forEach(b=>b.classList.toggle('streaming-code',!final&&openCode));
@@ -1355,23 +1765,64 @@ function thinkingFallbackPhrases(){
 function addTyping(){
  const box=$('#messages');$('#typingRow')?.remove();thinkingStartedAt=Date.now();
  const el=document.createElement('div');el.id='typingRow';el.className='msg-row assistant';
- el.innerHTML=`<div class="avatar"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 14 10l7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" stroke="currentColor" stroke-width="1.4"/></svg></div><div class="thinking-shell"><div class="thinking-card"><div class="thinking-head"><span class="thinking-orb"><svg viewBox="0 0 24 24" fill="none"><path d="M12 4v2m0 12v2M4 12h2m12 0h2M6.3 6.3l1.4 1.4m8.6 8.6 1.4 1.4m0-11.4-1.4 1.4m-8.6 8.6-1.4 1.4M9 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0Z" stroke-width="1.6" stroke-linecap="round"/></svg></span><span class="thinking-title">يفكّر<span class="thinking-dots"><i></i><i></i><i></i></span></span><span class="thinking-time" id="thinkingTime">0ث</span></div><div class="thinking-line" id="thinkingLine">${thinkingFallbackPhrases()[0]}</div><div class="thinking-summary" id="thinkingSummary"></div></div></div>`;
+ const phrases=thinkingFallbackPhrases();
+ el.innerHTML=`<div class="assistant-doc" style="max-width:790px;margin:0 auto;width:100%">
+  <div class="assistant-head">
+   <div class="avatar"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 14 10l7 2-7 2-2 7-2-7-7-2 7-2 2-7Z" stroke="currentColor" stroke-width="1.4"/></svg></div>
+   <span>${esc(settings.assistantName||'AiWay')}</span>
+  </div>
+  <div class="live-activity-card">
+   <div class="live-activity-head">
+    <div class="live-orb"><div class="live-orb-ring"></div>${toolIconSvg('default')}</div>
+    <div class="live-info">
+     <div class="live-title">يفكّر ويحلل المطلوب…</div>
+     <div class="live-sub" id="thinkingLine">${esc(phrases[0])}</div>
+    </div>
+    <div class="live-meta-badges">
+     <span class="live-badge timer">⏱ <span id="thinkingTime">0ث</span></span>
+    </div>
+   </div>
+   <div class="live-preview-window">
+    <div class="live-win-bar">
+     <div class="mac-dots"><span></span><span></span><span></span></div>
+     <span class="live-win-file">reasoning-stream.log</span>
+     <span class="live-win-tool-tag">Thinking</span>
+    </div>
+    <div class="live-win-body" id="thinkingSummary">
+     <div style="color:#c4b5fd">> قراءة سياق الطلب وترتيب الخطوات المنطقية...</div>
+     <div style="color:#7dd3fc">> تحليل المطلوب وتجهيز الاستجابة بأعلى دقة...</div>
+     <span class="live-code-cursor"></span>
+    </div>
+   </div>
+  </div>
+ </div>`;
  box.appendChild(el);scrollBottom();
- const phrases=thinkingFallbackPhrases();let n=0;clearInterval(thinkingTimer);
+ let n=0;clearInterval(thinkingTimer);
  thinkingTimer=setInterval(()=>{
    const time=$('#thinkingTime');if(time)time.textContent=Math.max(0,Math.floor((Date.now()-thinkingStartedAt)/1000))+'ث';
-   const line=$('#thinkingLine');if(line && !line.dataset.official){line.classList.add('swap');setTimeout(()=>{if(!line||line.dataset.official)return;n=(n+1)%phrases.length;line.textContent=phrases[n];line.classList.remove('swap')},150)}
- },1000);
+   const line=$('#thinkingLine');if(line && !line.dataset.official){
+     line.style.opacity='0.3';
+     setTimeout(()=>{
+       if(!line||line.dataset.official)return;
+       n=(n+1)%phrases.length;
+       line.textContent=phrases[n];
+       line.style.opacity='1';
+     },150);
+   }
+ },1200);
 }
 function updateThinkingSummary(text,source='AI'){
  const clean=safeSummaryText(text);if(!clean)return;
  const line=$('#thinkingLine'),sum=$('#thinkingSummary');
- if(line){line.dataset.official='1';line.textContent='ملخص تفكير متاح من النموذج';line.classList.remove('swap')}
- if(sum){sum.innerHTML=`<b>${esc(source)}:</b> ${esc(clean)}`;scrollBottom(false)}
+ if(line){line.dataset.official='1';line.textContent=`تفكير حي مباشر من النموذج (${source})`;}
+ if(sum){
+   sum.innerHTML=`<div style="color:#d8c7ff"><span style="color:#38bdf8;font-weight:700">> [${esc(source)} Reasoning]:</span> ${esc(clean)}</div><span class="live-code-cursor"></span>`;
+   scrollBottom(false);
+ }
 }
 function finishThinkingUI(){
  clearInterval(thinkingTimer);thinkingTimer=0;const el=$('#typingRow');if(!el)return;
- el.style.transition='opacity .18s,transform .18s';el.style.opacity='0';el.style.transform='translateY(-3px)';setTimeout(()=>el.remove(),180);
+ el.style.transition='opacity .2s ease,transform .2s ease';el.style.opacity='0';el.style.transform='translateY(-4px)';setTimeout(()=>el.remove(),200);
 }
 function beginAssistantBubble(searching=false){
  finishThinkingUI();const now=Date.now();const m={role:'assistant',content:'',time:now,startedAt:now,elapsedMs:0,model:settings.model,streaming:true,searching,promptTokenEstimate:currentPromptTokens(),liveTokens:0,requestCount:0,sources:[]};activeChat.messages.push(m);
@@ -1541,18 +1992,115 @@ async function commitWorkspaceEdit(ws,f,path,before,after,extra={}){
 }
 async function guardedExecuteCodingTool(name,args={}){
  const key=name+':'+JSON.stringify(args||{});const n=(agentToolCallCounts.get(key)||0)+1;agentToolCallCounts.set(key,n);
- if(n>1&&['workspace_search','workspace_locate_code','workspace_read_range','workspace_read_many','workspace_list_files','workspace_file_info'].includes(name))return toolError('REPEATED_EXPLORATION','This exploration call already ran. Do not repeat it; use the returned lines/hash and edit now.');
- if(n>AGENT_MAX_IDENTICAL_TOOL_CALLS)return toolError('REPEATED_TOOL_CALL','This exact tool call was already repeated. Change strategy or finish the task.');
+ 
+ let preview = null;
+ if(name === 'workspace_edit_lines' || name === 'workspace_apply_patch'){
+   preview = {
+     type: 'code',
+     path: args.path || 'file',
+     tool: name === 'workspace_apply_patch' ? 'Search & Replace' : 'Edit Lines',
+     startLine: args.start_line || 1,
+     content: args.new_text || args.old_text || 'جاري تطبيق التعديل على الكود...'
+   };
+ } else if(name === 'workspace_write_file'){
+   preview = {
+     type: 'code',
+     path: args.path || 'file',
+     tool: 'Create File',
+     startLine: 1,
+     content: (args.content || '').slice(0, 240) + '...'
+   };
+ } else if(name === 'workspace_locate_code' || name === 'workspace_search'){
+   preview = {
+     type: 'log',
+     path: args.path || 'workspace',
+     tool: 'Locate Code',
+     content: `🔍 البحث عن: "${args.query || ''}" في ${args.path || 'ملفات المشروع'}...`
+   };
+ } else if(name === 'sandbox_check'){
+   preview = {
+     type: 'log',
+     path: args.path || 'code',
+     tool: 'Syntax Validator',
+     content: `⚡ فحص سلامة بناء الكود واختبار الدوال في ${args.path || ''}...`
+   };
+ } else if(name === 'workspace_read_range' || name === 'workspace_read_many'){
+   preview = {
+     type: 'log',
+     path: args.path || 'workspace',
+     tool: 'Read Scope',
+     content: `▤ قراءة الأسطر ${args.start_line || 1}-${args.end_line || ''} من ${args.path || ''}...`
+   };
+ }
+ 
+ const currentStep = (streamAssistantIdx >= 0) ? updateAgentStep(streamAssistantIdx, {
+   name,
+   args,
+   status: 'running',
+   preview
+ }) : null;
+
+ if(n>1&&['workspace_search','workspace_locate_code','workspace_read_range','workspace_read_many','workspace_list_files','workspace_file_info'].includes(name)){
+   const err = toolError('REPEATED_EXPLORATION','This exploration call already ran. Do not repeat it; use the returned lines/hash and edit now.');
+   if(currentStep && streamAssistantIdx >= 0) updateAgentStep(streamAssistantIdx, { id: currentStep.id, status: 'error', detail: 'تكرار مستبعد' });
+   return err;
+ }
+ if(n>AGENT_MAX_IDENTICAL_TOOL_CALLS){
+   const err = toolError('REPEATED_TOOL_CALL','This exact tool call was already repeated. Change strategy or finish the task.');
+   if(currentStep && streamAssistantIdx >= 0) updateAgentStep(streamAssistantIdx, { id: currentStep.id, status: 'error', detail: 'استدعاء مكرر' });
+   return err;
+ }
  const exploratory=['workspace_search','workspace_locate_code','workspace_read_range','workspace_read_many','workspace_list_files','workspace_file_info'].includes(name);
  if(exploratory&&agentSuccessfulEdits===0){
    const recovery=name==='workspace_read_range'&&agentRecoveryReads<1;
-   if(agentExploreToolCalls>=AGENT_MAX_EXPLORE_TOOL_CALLS&&!recovery)return toolError('EXPLORATION_BUDGET_EXHAUSTED','Enough context has been gathered. Do not search/read again. Use workspace_edit_lines/workspace_apply_patch now, or explain the exact blocker.');
+   if(agentExploreToolCalls>=AGENT_MAX_EXPLORE_TOOL_CALLS&&!recovery){
+     const err = toolError('EXPLORATION_BUDGET_EXHAUSTED','Enough context has been gathered. Do not search/read again. Use workspace_edit_lines/workspace_apply_patch now, or explain the exact blocker.');
+     if(currentStep && streamAssistantIdx >= 0) updateAgentStep(streamAssistantIdx, { id: currentStep.id, status: 'error', detail: 'اكتمل جمع السياق' });
+     return err;
+   }
    agentExploreToolCalls++;if(recovery)agentRecoveryReads++;
  }
  const result=await executeCodingTool(name,args);
  if(result?.ok&&['workspace_edit_lines','workspace_apply_patch','workspace_write_file','workspace_delete_file','workspace_move_file'].includes(name)&&result.changed!==false)agentSuccessfulEdits++;
  if(result?.ok&&name==='workspace_write_file'&&result.created===true)agentSuccessfulCreates++;
  if(!result?.ok&&['workspace_edit_lines','workspace_apply_patch'].includes(name)&&['STALE_FILE','PATCH_NO_MATCH','PATCH_NOT_UNIQUE'].includes(result.error_code))agentRecoveryReads=0;
+ 
+ if(currentStep && streamAssistantIdx >= 0){
+   let finishDetail = result?.ok ? 'اكتملت بنجاح ✓' : (result?.error || 'فشلت الأداة');
+   let finishPreview = null;
+   if(result?.verification){
+     finishDetail = `تم التعديل والتحقق (${result.changed_chars ? result.changed_chars + ' حرف' : 'مكتمل'})`;
+     finishPreview = {
+       type: 'code',
+       path: args.path || 'file',
+       tool: 'Verified Diff',
+       startLine: args.start_line || 1,
+       content: result.verification
+     };
+   } else if(result?.matches){
+     finishDetail = `تم العثور على ${result.matches.length} تطابق جاهز`;
+     finishPreview = {
+       type: 'log',
+       path: args.path || 'workspace',
+       tool: 'Matches Found',
+       content: `✓ عُثر على ${result.matches.length} موضع كود في ${args.path || 'المشروع'}.`
+     };
+   } else if(result?.result && typeof result.result === 'string'){
+     finishDetail = result.result;
+     finishPreview = {
+       type: 'log',
+       path: args.path || 'sandbox',
+       tool: 'Check Result',
+       content: `✓ ${result.result}`
+     };
+   }
+   updateAgentStep(streamAssistantIdx, {
+     id: currentStep.id,
+     status: result?.ok ? 'done' : 'error',
+     detail: finishDetail,
+     preview: finishPreview || preview
+   });
+ }
  return result;
 }
 
@@ -2007,7 +2555,20 @@ function selectAgentTools(defs,text=''){
 async function shouldUseCodingAgent(text=''){if(!settings.toolsMaster)return false;const ws=await getWorkspace(false);const intent=detectCodingIntent(text);const hasWorkspace=!!ws?.files?.length&&codingToolDefinitions().length>0;const canCreate=intent.createArtifact&&codingToolDefinitions().some(d=>d.name==='workspace_write_file');const hasMcp=toolOn('skillSystem')&&!!settings.mcpUrl?.trim();return hasWorkspace||canCreate||hasMcp}
 function setAgentStage(idx,label){const m=activeChat?.messages?.[idx];if(!m)return;m.agentStage=label;scheduleStreamPaint(idx,false)}
 async function runCodingAgent(text,assistantIdx){
- const ws=(await getWorkspace(false))||{files:[],revisions:[],cache:{}};lastAgentChanges=[];agentToolCallCounts=new Map();agentExploreToolCalls=0;agentSuccessfulEdits=0;agentSuccessfulCreates=0;agentRecoveryReads=0;const intent=detectCodingIntent(text);agentTaskRequiresEdit=intent.requiresEdit;agentTaskCreatesNewFile=intent.createArtifact;let defs=codingToolDefinitions();defs.push(...await loadMcpTools());defs=selectAgentTools(defs,text);if(!defs.length)throw new Error('لا توجد أدوات Agent مفعلة');const profile=agentProviderProfile(),skill=selectAgentSkill(text,ws);setAgentStage(assistantIdx,`${skill.title} · ${profile.id} · ${effectiveAgentDefs(defs).length} أدوات مناسبة · 1/${MODEL_REQUEST_LIMIT}…`);let result;const proto=providerProtocol();if(profile.transport==='action-bridge')result=await runActionBridgeAgent(text,ws,defs,assistantIdx);else if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx);else if(preferResponsesAgent()){try{result=await runOpenAIResponsesAgent(text,ws,defs,assistantIdx)}catch(e){if(!shouldFallbackResponsesToChat(e))throw e;console.warn('Responses agent path incompatible; switching once to OpenAI Chat Completions tools:',e);setAgentStage(assistantIdx,`أحوّل بروتوكول الأدوات مرة واحدة إلى /chat/completions · ${Math.min(responseModelRequests+1,MODEL_REQUEST_LIMIT)}/${MODEL_REQUEST_LIMIT}…`);result=await runOpenAIAgent(text,ws,defs,assistantIdx)}}else result=await runOpenAIAgent(text,ws,defs,assistantIdx);
+ const ws=(await getWorkspace(false))||{files:[],revisions:[],cache:{}};lastAgentChanges=[];agentToolCallCounts=new Map();agentExploreToolCalls=0;agentSuccessfulEdits=0;agentSuccessfulCreates=0;agentRecoveryReads=0;const intent=detectCodingIntent(text);agentTaskRequiresEdit=intent.requiresEdit;agentTaskCreatesNewFile=intent.createArtifact;let defs=codingToolDefinitions();defs.push(...await loadMcpTools());defs=selectAgentTools(defs,text);if(!defs.length)throw new Error('لا توجد أدوات Agent مفعلة');const profile=agentProviderProfile(),skill=selectAgentSkill(text,ws);setAgentStage(assistantIdx,`${skill.title} · ${effectiveAgentDefs(defs).length} أدوات مناسبة · 1/${MODEL_REQUEST_LIMIT}…`);
+  updateAgentStep(assistantIdx, {
+    name: 'agent_start',
+    title: `بدء المهارة: ${skill.title}`,
+    detail: `تجهيز ${effectiveAgentDefs(defs).length} أداة مناسبة لتنفيذ الطلب`,
+    status: 'running',
+    preview: {
+      type: 'log',
+      path: 'agent-orchestrator.log',
+      tool: skill.title,
+      content: `> ${skill.instruction.split('\n')[0]}`
+    }
+  });
+  let result;const proto=providerProtocol();if(profile.transport==='action-bridge')result=await runActionBridgeAgent(text,ws,defs,assistantIdx);else if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx);else if(preferResponsesAgent()){try{result=await runOpenAIResponsesAgent(text,ws,defs,assistantIdx)}catch(e){if(!shouldFallbackResponsesToChat(e))throw e;console.warn('Responses agent path incompatible; switching once to OpenAI Chat Completions tools:',e);setAgentStage(assistantIdx,`أحوّل بروتوكول الأدوات مرة واحدة إلى /chat/completions · ${Math.min(responseModelRequests+1,MODEL_REQUEST_LIMIT)}/${MODEL_REQUEST_LIMIT}…`);result=await runOpenAIAgent(text,ws,defs,assistantIdx)}}else result=await runOpenAIAgent(text,ws,defs,assistantIdx);
  const m=activeChat.messages[assistantIdx];m.content=result.text||'تم تنفيذ المهمة.';m.usage=result.usage||m.usage;m.streaming=false;m.toolRun=true;m.agentFailedEdit=!!result.failed_edit;m.changedFiles=[...new Set(lastAgentChanges.map(x=>x.path))];m.artifacts=m.changedFiles.map(path=>({path}));renderMessages();if(lastAgentChanges.length&&toolOn('diffViewer')){renderDiffModal();toast(`تم تعديل ${m.changedFiles.length} ملف`)}await updateWorkspaceChip();return result;
 }
 function artifactHtml(m={},i=-1){const files=m.artifacts||[];if(!files.length&&!m.toolRun)return '';const buttons=files.map(a=>`<button class="artifact-btn" type="button" data-download-artifact="${i}" data-path="${esc(a.path)}">↓ ${esc(a.path.split('/').pop())}</button>`).join('');return `<div class="agent-trace"><span class="tool-run-status"><i></i><strong>Agent Tools</strong> · ${files.length?`${files.length} ملف تم إنشاؤه/تعديله`:'تم استخدام الأدوات'}</span>${files.length?`<div class="artifact-actions">${buttons}${toolOn('diffViewer')?`<button class="artifact-btn" type="button" data-show-diff="1">± عرض Diff</button>`:''}</div>`:''}</div>`}
@@ -2023,7 +2584,26 @@ async function send(){
  if(settings.autoTitle && (activeChat.title==='محادثة جديدة'||!activeChat.title))activeChat.title=text.replace(/\s+/g,' ').slice(0,46)+(text.length>46?'…':'');
  $('#prompt').value='';pendingAttachments=[];renderAttachPreview();autoGrow();renderMessages();await saveChat();setGenerating(true);responseModelRequests=0;aborter=new AbortController();transientSearchContext='';const assistantIdx=beginAssistantBubble(!!settings.webSearch);
  try{
-   if(settings.webSearch){const results=await searchWeb(text);const m=activeChat.messages[assistantIdx];m.sources=results.map(r=>({title:r.title,url:r.url,domain:r.domain,publishedDate:r.publishedDate}));m.searching=false;transientSearchContext=searchContextText(results);scheduleStreamPaint(assistantIdx,false)}
+   if(settings.webSearch){
+      const sStep = updateAgentStep(assistantIdx, {
+        name: 'searchWeb',
+        title: 'البحث في مصادر الويب…',
+        status: 'running',
+        preview: { type: 'log', path: 'web-search.log', tool: 'Web Search', content: `🌐 جاري استخراج وتدقيق أحدث المعلومات والروابط...` }
+      });
+      const results=await searchWeb(text);
+      const m=activeChat.messages[assistantIdx];
+      m.sources=results.map(r=>({title:r.title,url:r.url,domain:r.domain,publishedDate:r.publishedDate}));
+      m.searching=false;
+      transientSearchContext=searchContextText(results);
+      if(sStep) updateAgentStep(assistantIdx, {
+        id: sStep.id,
+        status: 'done',
+        detail: `تم فحص وتوثيق ${results.length} مصادر موثوقة`,
+        preview: { type: 'log', path: 'web-sources.log', tool: 'Sources Verified', content: results.map((r,idx)=>`[${idx+1}] ${r.title}`).join('\n') }
+      });
+      scheduleStreamPaint(assistantIdx,false);
+    }
    if(await shouldUseCodingAgent(text)){
      try{await runCodingAgent(text,assistantIdx)}catch(agentError){
        if(agentError?.name==='AbortError'||/signal is aborted|aborted without reason/i.test(String(agentError?.message||''))){const m=activeChat.messages[assistantIdx];m.agentStage='';m.searching=false;m.streaming=false;m.toolRun=true;m.content='تم إيقاف عملية الـAgent.';scheduleStreamPaint(assistantIdx,true);throw Object.assign(new Error('تم إيقاف العملية'),{name:'AbortError'})}
