@@ -1678,15 +1678,26 @@ function openAIStrictSchema(schema){
  return walk(JSON.parse(JSON.stringify(schema||{type:'object',properties:{}})),false);
 }
 function deepSeekThinkingToolCompat(){return isDeepSeekV4Model()}
-function toOpenAITools(defs){return defs.map(d=>{const f={name:d.name,description:d.description,parameters:openAIStrictSchema(d.parameters)};if(!deepSeekThinkingToolCompat())f.strict=true;return {type:'function',function:f}})}
-function toResponsesTools(defs){return defs.map(d=>{const f={type:'function',name:d.name,description:d.description,parameters:openAIStrictSchema(d.parameters)};if(!deepSeekThinkingToolCompat())f.strict=true;return f})}
+function cloneToolSchema(schema){return JSON.parse(JSON.stringify(schema||{type:'object',properties:{},additionalProperties:false}))}
+function toOpenAITools(defs){return defs.map(d=>{const f={name:d.name,description:d.description,parameters:deepSeekThinkingToolCompat()?cloneToolSchema(d.parameters):openAIStrictSchema(d.parameters)};if(!deepSeekThinkingToolCompat())f.strict=true;return {type:'function',function:f}})}
+function toResponsesTools(defs){return defs.map(d=>{const f={type:'function',name:d.name,description:d.description,parameters:deepSeekThinkingToolCompat()?cloneToolSchema(d.parameters):openAIStrictSchema(d.parameters)};if(!deepSeekThinkingToolCompat())f.strict=true;return f})}
 function isThinkingToolChoiceError(status,data={}){const msg=String(data?.error?.message||data?.message||'');return status===400&&/thinking mode.*(?:does not|doesn't).*support.*tool_choice|tool_choice.*(?:not supported|unsupported).*thinking/i.test(msg)}
-function stripDeepSeekThinkingIncompatibleFields(body){delete body.tool_choice;delete body.parallel_tool_calls;delete body.temperature;delete body.top_p;delete body.presence_penalty;delete body.frequency_penalty;return body}
+function stripSamplingFields(body){delete body.temperature;delete body.top_p;delete body.presence_penalty;delete body.frequency_penalty;return body}
+function configureDeepSeekAgentMode(body,protocol){
+ // DeepSeek V4 defaults to thinking=ON. Tool use is supported, but gateways/models can
+ // reject forced tool_choice while thinking. For the coding-agent loop we disable
+ // thinking explicitly, then use normal OpenAI tool_choice. This keeps the model-led
+ // tool selection while making the first edit request deterministic and cheap.
+ if(!deepSeekThinkingToolCompat())return body;
+ stripSamplingFields(body);
+ if(protocol==='responses')body.reasoning={effort:'none'};
+ else body.thinking={type:'disabled'};
+ return body;
+}
 function applyToolChoiceCompat(body,mustAct){
- // DeepSeek V4 thinking mode supports tools, but its OpenAI-compatible thinking path
- // can reject the tool_choice field itself. Omitting it means AUTO by protocol default.
- if(deepSeekThinkingToolCompat())return stripDeepSeekThinkingIncompatibleFields(body);
- body.tool_choice=mustAct?'required':'auto';body.parallel_tool_calls=false;return body;
+ body.tool_choice=mustAct?'required':'auto';
+ body.parallel_tool_calls=false;
+ return body;
 }
 function agentActionNudge(){return {role:'user',content:'Tool action required: this request asks for a real workspace change. Do not answer with a completion claim. Choose and call the most appropriate available function now. Use the tool result before giving the final answer.'}}
 function apiErrorFromResponse(status,data={},prefix='API'){
@@ -1695,6 +1706,8 @@ function apiErrorFromResponse(status,data={},prefix='API'){
  const err=new Error(parts.join(' · '));err.status=status;err.code=e.code||'';err.param=e.param||'';err.apiData=data;return err;
 }
 function isResponsesEndpointUnsupported(err){return err?.code==='model_not_supported_on_endpoint'||/not supported on \/v1\/responses|responses.*not supported|unsupported.*responses/i.test(String(err?.message||''))}
+function shouldFallbackResponsesToChat(err){const m=String(err?.message||'');return isResponsesEndpointUnsupported(err)||err?.code==='required_tool_call_missing'||(deepSeekThinkingToolCompat()&&/thinking mode.*tool_choice|reasoning.*(?:none|effort).*unsupported|unsupported.*reasoning/i.test(m))}
+function missingRequiredToolCallError(protocol){const e=new Error(`${protocol} returned no function_call even though tool_choice=required.`);e.code='required_tool_call_missing';return e}
 function responseText(data={}){
  return (data.output||[]).filter(x=>x?.type==='message').flatMap(x=>x.content||[]).filter(x=>x?.type==='output_text'||x?.type==='text').map(x=>x.text||'').join('');
 }
@@ -1703,22 +1716,14 @@ function responseFunctionCalls(data={}){
 }
 function responseUsage(data={}){const u=data.usage||{};return {prompt_tokens:u.input_tokens,completion_tokens:u.output_tokens,total_tokens:u.total_tokens??((u.input_tokens||0)+(u.output_tokens||0))}}
 async function callOpenAIResponsesAgent(input,defs,ws,signal){
- claimModelRequest();const activeDefs=effectiveAgentDefs(defs);const mustAct=agentTaskRequiresEdit&&agentSuccessfulEdits===0&&(agentTaskCreatesNewFile||agentExploreToolCalls>=1);
- const body={model:settings.model,instructions:agentInstruction(ws)+(mustAct?'\nIMPORTANT: The user requested a real change. Select and call an available function; a text-only success claim is invalid.':''),input,tools:toResponsesTools(activeDefs),stream:false,max_output_tokens:Math.min(settings.maxTokens||2048,mustAct?1600:2400)};
- if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;applyToolChoiceCompat(body,mustAct);
+ claimModelRequest();const activeDefs=effectiveAgentDefs(defs);const mustAct=agentTaskRequiresEdit&&agentSuccessfulEdits===0;
+ const body={model:settings.model,instructions:agentInstruction(ws)+(mustAct?'\nIMPORTANT: A real workspace change is required. You MUST select exactly the next useful function. Do not answer with prose instead of a function call.':''),input,tools:toResponsesTools(activeDefs),stream:false,max_output_tokens:Math.min(settings.maxTokens||2048,mustAct?1200:2200)};
+ if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;configureDeepSeekAgentMode(body,'responses');applyToolChoiceCompat(body,mustAct);
  const ep=resolveCompatibleEndpoints();let r=await fetch(ep.responsesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});
  let data={};try{data=await r.json()}catch{}
- // Capability-driven retry for third-party OpenAI-compatible gateways. This is
- // intentionally narrow: a 400 explicitly naming thinking+tool_choice is retried
- // without fields DeepSeek thinking mode rejects. The retry still counts toward 10.
- if(!r.ok&&isThinkingToolChoiceError(r.status,data)){
-  if(responseModelRequests>=MODEL_REQUEST_LIMIT)throw apiErrorFromResponse(r.status,data,'Responses');
-  stripDeepSeekThinkingIncompatibleFields(body);claimModelRequest();r=await fetch(ep.responsesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});data={};try{data=await r.json()}catch{}
- }
- if(!r.ok&&body.temperature!==undefined&&/temperature|unsupported parameter|unknown parameter/i.test(data?.error?.message||data?.message||'')){
-  if(responseModelRequests>=MODEL_REQUEST_LIMIT)throw apiErrorFromResponse(r.status,data,'Responses');
-  delete body.temperature;claimModelRequest();r=await fetch(ep.responsesUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});data={};try{data=await r.json()}catch{}
- }
+ // Do not burn the 10-request budget retrying the same incompatible Responses body.
+ // DeepSeek-specific protocol mismatches are surfaced to the caller, which performs
+ // one clean Chat Completions fallback with thinking explicitly disabled.
  if(!r.ok)throw apiErrorFromResponse(r.status,data,'Responses tool');return data;
 }
 async function runOpenAIResponsesAgent(text,ws,defs,assistantIdx){
@@ -1726,10 +1731,10 @@ async function runOpenAIResponsesAgent(text,ws,defs,assistantIdx){
  for(let round=0;round<AGENT_MAX_ROUNDS;round++){
   const data=await callOpenAIResponsesAgent(input,defs,ws,aborter.signal);usage=addUsage(usage,responseUsage(data));const calls=responseFunctionCalls(data);const outText=responseText(data);
   if(!calls.length){
-   if(agentTaskRequiresEdit&&agentSuccessfulEdits===0&&responseModelRequests<MODEL_REQUEST_LIMIT){
-    // DeepSeek thinking mode cannot be forced with tool_choice on some gateways.
-    // Give the model one protocol-valid action nudge instead of falsely falling back to chat.
-    input=[...input,...(data.output||[]),agentActionNudge()];setAgentStage(assistantIdx,`النموذج لم يستدعِ أداة؛ أطلب منه تنفيذ Tool Call فعلي · ${Math.min(responseModelRequests+1,MODEL_REQUEST_LIMIT)}/${MODEL_REQUEST_LIMIT}…`);continue;
+   if(agentTaskRequiresEdit&&agentSuccessfulEdits===0){
+    // tool_choice=required should make this impossible on a compliant endpoint.
+    // Treat it as a protocol mismatch instead of spending up to 10 requests nudging.
+    throw missingRequiredToolCallError('Responses API');
    }
    if(agentTaskCreatesNewFile&&agentSuccessfulCreates===0)return {text:'لم يتم إنشاء أي ملف جديد فعليًا. أوقف AiWay المهمة بدل إعلان نجاح وهمي.',usage,failed_edit:true};if(agentTaskRequiresEdit&&agentSuccessfulEdits===0)return {text:outText||'لم يتم تطبيق أي تعديل فعلي. أوقف AiWay المهمة بدل إعلان نجاح وهمي؛ حاول تحديد العنصر أو الملف المستهدف أكثر.',usage,failed_edit:true};return {text:outText||'تم تنفيذ المهمة.',usage}
   }
@@ -1757,9 +1762,14 @@ function effectiveAgentDefs(defs){
  return actionDefs.length?actionDefs:visible;
 }
 async function callOpenAIAgent(messages,defs,signal){
- claimModelRequest();const activeDefs=effectiveAgentDefs(defs);const mustAct=agentTaskRequiresEdit&&agentSuccessfulEdits===0&&(agentTaskCreatesNewFile||agentExploreToolCalls>=1);const body={model:settings.model,messages,tools:toOpenAITools(activeDefs),stream:false,max_tokens:Math.min(settings.maxTokens||2048,mustAct?1200:1800)};if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;applyReasoningOpenAI(body);applyToolChoiceCompat(body,mustAct);
+ claimModelRequest();const activeDefs=effectiveAgentDefs(defs);const mustAct=agentTaskRequiresEdit&&agentSuccessfulEdits===0;const body={model:settings.model,messages,tools:toOpenAITools(activeDefs),stream:false,max_tokens:Math.min(settings.maxTokens||2048,mustAct?1000:1800)};if(Number.isFinite(settings.temperature))body.temperature=settings.temperature;applyReasoningOpenAI(body);configureDeepSeekAgentMode(body,'chat');applyToolChoiceCompat(body,mustAct);
  let r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});let data={};try{data=await r.json()}catch{}
- if(!r.ok&&isThinkingToolChoiceError(r.status,data)){if(responseModelRequests>=MODEL_REQUEST_LIMIT)throw apiErrorFromResponse(r.status,data,'Chat Completions tool');stripDeepSeekThinkingIncompatibleFields(body);claimModelRequest();r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});data={};try{data=await r.json()}catch{}}
+ if(!r.ok&&isThinkingToolChoiceError(r.status,data)&&deepSeekThinkingToolCompat()){
+   // Some gateways ignore the thinking:false toggle but accept AUTO. Make one bounded
+   // compatibility retry; the agent instruction still requires a real tool call.
+   if(responseModelRequests>=MODEL_REQUEST_LIMIT)throw apiErrorFromResponse(r.status,data,'Chat Completions tool');
+   body.tool_choice='auto';claimModelRequest();r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});data={};try{data=await r.json()}catch{}
+ }
  if(!r.ok)throw apiErrorFromResponse(r.status,data,'Chat Completions tool');return data;
 }
 async function runOpenAIAgent(text,ws,defs,assistantIdx){
@@ -1820,7 +1830,7 @@ function selectAgentTools(defs,text=''){
 async function shouldUseCodingAgent(text=''){if(!settings.toolsMaster)return false;const ws=await getWorkspace(false);const intent=detectCodingIntent(text);const hasWorkspace=!!ws?.files?.length&&codingToolDefinitions().length>0;const canCreate=intent.createArtifact&&codingToolDefinitions().some(d=>d.name==='workspace_write_file');const hasMcp=toolOn('skillSystem')&&!!settings.mcpUrl?.trim();return hasWorkspace||canCreate||hasMcp}
 function setAgentStage(idx,label){const m=activeChat?.messages?.[idx];if(!m)return;m.agentStage=label;scheduleStreamPaint(idx,false)}
 async function runCodingAgent(text,assistantIdx){
- const ws=(await getWorkspace(false))||{files:[],revisions:[],cache:{}};lastAgentChanges=[];agentToolCallCounts=new Map();agentExploreToolCalls=0;agentSuccessfulEdits=0;agentSuccessfulCreates=0;agentRecoveryReads=0;const intent=detectCodingIntent(text);agentTaskRequiresEdit=intent.requiresEdit;agentTaskCreatesNewFile=intent.createArtifact;let defs=codingToolDefinitions();defs.push(...await loadMcpTools());defs=selectAgentTools(defs,text);if(!defs.length)throw new Error('لا توجد أدوات Agent مفعلة');setAgentStage(assistantIdx,`أرسل طلبك للنموذج مع ${effectiveAgentDefs(defs).length} أداة ليختار الخطوة التالية · 1/${MODEL_REQUEST_LIMIT}…`);let result;const proto=providerProtocol();if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx);else if(preferResponsesAgent()){try{result=await runOpenAIResponsesAgent(text,ws,defs,assistantIdx)}catch(e){if(!isResponsesEndpointUnsupported(e))throw e;console.warn('Responses endpoint unavailable for this model; switching protocol to OpenAI Chat Completions tools:',e);setAgentStage(assistantIdx,`الموديل لا يقبل /responses؛ أتابع بنفس OpenAI Function Calling عبر /chat/completions · ${Math.min(responseModelRequests+1,MODEL_REQUEST_LIMIT)}/${MODEL_REQUEST_LIMIT}…`);result=await runOpenAIAgent(text,ws,defs,assistantIdx)}}else result=await runOpenAIAgent(text,ws,defs,assistantIdx);
+ const ws=(await getWorkspace(false))||{files:[],revisions:[],cache:{}};lastAgentChanges=[];agentToolCallCounts=new Map();agentExploreToolCalls=0;agentSuccessfulEdits=0;agentSuccessfulCreates=0;agentRecoveryReads=0;const intent=detectCodingIntent(text);agentTaskRequiresEdit=intent.requiresEdit;agentTaskCreatesNewFile=intent.createArtifact;let defs=codingToolDefinitions();defs.push(...await loadMcpTools());defs=selectAgentTools(defs,text);if(!defs.length)throw new Error('لا توجد أدوات Agent مفعلة');setAgentStage(assistantIdx,`أرسل طلبك للنموذج مع ${effectiveAgentDefs(defs).length} أداة ليختار الخطوة التالية · 1/${MODEL_REQUEST_LIMIT}…`);let result;const proto=providerProtocol();if(proto==='gemini')result=await runGeminiAgent(text,ws,defs,assistantIdx);else if(proto==='anthropic')result=await runAnthropicAgent(text,ws,defs,assistantIdx);else if(preferResponsesAgent()){try{result=await runOpenAIResponsesAgent(text,ws,defs,assistantIdx)}catch(e){if(!shouldFallbackResponsesToChat(e))throw e;console.warn('Responses agent path incompatible; switching once to OpenAI Chat Completions tools:',e);setAgentStage(assistantIdx,`أحوّل بروتوكول الأدوات مرة واحدة إلى /chat/completions مع تعطيل Thinking للـAgent · ${Math.min(responseModelRequests+1,MODEL_REQUEST_LIMIT)}/${MODEL_REQUEST_LIMIT}…`);result=await runOpenAIAgent(text,ws,defs,assistantIdx)}}else result=await runOpenAIAgent(text,ws,defs,assistantIdx);
  const m=activeChat.messages[assistantIdx];m.content=result.text||'تم تنفيذ المهمة.';m.usage=result.usage||m.usage;m.streaming=false;m.toolRun=true;m.agentFailedEdit=!!result.failed_edit;m.changedFiles=[...new Set(lastAgentChanges.map(x=>x.path))];m.artifacts=m.changedFiles.map(path=>({path}));renderMessages();if(lastAgentChanges.length&&toolOn('diffViewer')){renderDiffModal();toast(`تم تعديل ${m.changedFiles.length} ملف`)}await updateWorkspaceChip();return result;
 }
 function artifactHtml(m={},i=-1){const files=m.artifacts||[];if(!files.length&&!m.toolRun)return '';const buttons=files.map(a=>`<button class="artifact-btn" type="button" data-download-artifact="${i}" data-path="${esc(a.path)}">↓ ${esc(a.path.split('/').pop())}</button>`).join('');return `<div class="agent-trace"><span class="tool-run-status"><i></i><strong>Agent Tools</strong> · ${files.length?`${files.length} ملف تم إنشاؤه/تعديله`:'تم استخدام الأدوات'}</span>${files.length?`<div class="artifact-actions">${buttons}${toolOn('diffViewer')?`<button class="artifact-btn" type="button" data-show-diff="1">± عرض Diff</button>`:''}</div>`:''}</div>`}
