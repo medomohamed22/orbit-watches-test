@@ -1596,7 +1596,53 @@ async function executeCodingTool(name,args={}){
   const f=ws.files.find(x=>x.path===path);if(!f)return toolError('FILE_NOT_FOUND',`File not found: ${path}`);if(args.expected_hash&&args.expected_hash!==f.hash)return toolError('STALE_FILE','File changed since it was read. Re-read the target range and retry.',{current_hash:f.hash});const lines=String(f.text||'').split('\n'),start=Math.max(1,Number(args.start_line)||1),end=Number(args.end_line);if(!Number.isInteger(end)||end<start-1||start>lines.length+1||end>lines.length)return toolError('INVALID_RANGE',`Invalid line range ${start}-${end} for ${lines.length} lines`);const insertion=String(args.new_text??'');const replacement=insertion===''?[]:insertion.split('\n');const before=f.text;lines.splice(start-1,Math.max(0,end-start+1),...replacement);const after=lines.join('\n');if(after===before)return {ok:true,path,new_hash:f.hash,changed:false};const r=await commitWorkspaceEdit(ws,f,path,before,after);const newLines=after.split('\n'),va=Math.max(0,start-3),vb=Math.min(newLines.length,start+replacement.length+2);return {...r,changed:true,start_line:start,end_line:end,inserted_lines:replacement.length,verification:newLines.slice(va,vb).map((x,i)=>`${va+i+1}: ${x}`).join('\n'),message:'Exact line edit applied in-place; verification snippet included'};
  }
  if(name==='workspace_apply_patch'){
-  const f=ws.files.find(x=>x.path===path);if(!f)return toolError('FILE_NOT_FOUND',`File not found: ${path}`);if(args.expected_hash&&args.expected_hash!==f.hash)return toolError('STALE_FILE','File changed since it was read. Re-read and retry.',{current_hash:f.hash});const old=String(args.old_text??''),neu=String(args.new_text??'');if(!old)return toolError('INVALID_ARGUMENTS','old_text cannot be empty');let at=0,count=0;while((at=f.text.indexOf(old,at))!==-1){count++;at+=Math.max(1,old.length)}const expected=args.expected_occurrences||1;if(count!==expected)return toolError(count===0?'PATCH_NO_MATCH':'PATCH_NOT_UNIQUE',`old_text occurs ${count} times; expected ${expected}. Read a narrower exact block and retry.`,{occurrences:count});const before=f.text;let after=before,from=0;for(let i=0;i<expected;i++){const pos=after.indexOf(old,from);after=after.slice(0,pos)+neu+after.slice(pos+old.length);from=pos+neu.length}const r=await commitWorkspaceEdit(ws,f,path,before,after);const pos=after.indexOf(neu),line=Math.max(1,after.slice(0,Math.max(0,pos)).split('\n').length),ls=after.split('\n'),a=Math.max(0,line-3),b=Math.min(ls.length,line+Math.max(2,neu.split('\n').length+2));return {...r,changed_chars:Math.abs(after.length-before.length),verification:ls.slice(a,b).map((x,i)=>`${a+i+1}: ${x}`).join('\n'),message:'Targeted patch applied in-place; verification snippet included'};
+  const f=ws.files.find(x=>x.path===path);if(!f)return toolError('FILE_NOT_FOUND',`File not found: ${path}`);
+  if(args.expected_hash&&args.expected_hash!==f.hash)return toolError('STALE_FILE','File changed since it was read. Re-read and retry.',{current_hash:f.hash});
+  const oldText=String(args.old_text??''),neuText=String(args.new_text??'');
+  if(!oldText)return toolError('INVALID_ARGUMENTS','old_text cannot be empty');
+  
+  let matchIndex = f.text.indexOf(oldText);
+  let matchedOld = oldText;
+  
+  // Fallback: whitespace-insensitive matching
+  if(matchIndex === -1) {
+    const normalize = str => str.replace(/\\r\\n/g, '\\n').split('\\n').map(l => l.trim()).join('\\n').trim();
+    const normOld = normalize(oldText);
+    const lines = f.text.replace(/\\r\\n/g, '\\n').split('\\n');
+    let bestStart = -1, bestEnd = -1;
+    for(let i=0; i<lines.length; i++) {
+      for(let j=i; j<lines.length; j++) {
+        const slice = lines.slice(i, j+1).join('\\n');
+        if(normalize(slice) === normOld) {
+          bestStart = i; bestEnd = j; break;
+        }
+      }
+      if(bestStart !== -1) break;
+    }
+    if(bestStart !== -1) {
+      matchedOld = lines.slice(bestStart, bestEnd+1).join('\\n');
+      matchIndex = f.text.indexOf(matchedOld);
+    }
+  }
+
+  if(matchIndex === -1) {
+    return toolError('PATCH_NO_MATCH', 'old_text did not match anywhere in the file. Ensure you include sufficient unchanged context lines exactly as they appear in the file, and avoid omitting code with comments like "// rest of code".');
+  }
+  
+  let at=0,count=0;while((at=f.text.indexOf(matchedOld,at))!==-1){count++;at+=Math.max(1,matchedOld.length)}
+  const expected=args.expected_occurrences||1;
+  if(count!==expected)return toolError('PATCH_NOT_UNIQUE',`old_text occurs ${count} times; expected ${expected}. Include more unchanged context lines (before/after) in old_text to make it unique.`,{occurrences:count});
+  
+  const before=f.text;let after=before,from=0;
+  for(let i=0;i<expected;i++){
+    const pos=after.indexOf(matchedOld,from);
+    after=after.slice(0,pos)+neuText+after.slice(pos+matchedOld.length);
+    from=pos+neuText.length;
+  }
+  
+  const r=await commitWorkspaceEdit(ws,f,path,before,after);
+  const pos=after.indexOf(neuText),line=Math.max(1,after.slice(0,Math.max(0,pos)).split('\\n').length),ls=after.split('\\n'),a=Math.max(0,line-3),b=Math.min(ls.length,line+Math.max(2,neuText.split('\\n').length+2));
+  return {...r,changed_chars:Math.abs(after.length-before.length),verification:ls.slice(a,b).map((x,i)=>`${a+i+1}: ${x}`).join('\\n'),message:'Targeted patch applied in-place; verification snippet included'};
  }
  if(name==='workspace_write_file'){
   if(!toolOn('multiFile'))return toolError('TOOL_DISABLED','Multi-file editing disabled');if(!path)return toolError('INVALID_ARGUMENTS','path is required');let targetPath=path,f=ws.files.find(x=>x.path===targetPath);const requestedPath=targetPath;
