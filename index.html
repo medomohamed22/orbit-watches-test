@@ -1667,29 +1667,70 @@ async function sandboxCheck(ws,path,mode='syntax',testCode=''){
      if(!doc.documentElement||!doc.body)issues.push('HTML document/body could not be parsed');
      for(const script of [...doc.querySelectorAll('script:not([src])')]){const type=String(script.getAttribute('type')||'').toLowerCase();const code=String(script.textContent||'').trim();if(!code)continue;if(type==='module'){skippedModules++;continue}if(type&&!['text/javascript','application/javascript'].includes(type))continue;checkedScripts++;try{new Function(code)}catch(e){issues.push(`Inline script ${checkedScripts}: ${e.message}`)}}
      if(issues.length)return {ok:false,path,mode:'html-validate',error_code:'ARTIFACT_SYNTAX_ERROR',error:issues.join(' | '),checks:{html:true,inline_scripts:checkedScripts,skipped_modules:skippedModules}};
-     return {ok:true,path,mode:'html-validate',result:'HTML parsed successfully; classic inline JavaScript syntax is valid.',checks:{html:true,inline_scripts:checkedScripts,skipped_modules:skippedModules},limited:skippedModules>0};
-   }catch(e){return {ok:false,path,mode:'html-validate',error_code:'VALIDATOR_ERROR',error:e.message}}
- }
- if(ext==='json'){try{JSON.parse(text);return {ok:true,path,mode:'validate',result:'Valid JSON'}}catch(e){return {ok:false,path,error_code:'SYNTAX_ERROR',error:e.message}}}
- if(!['js','mjs','cjs','jsx','ts','tsx'].includes(ext))return {ok:true,path,mode:'validate',limited:true,result:'No local parser is bundled for this file type; creation/edit succeeded and validation was skipped.'};
- if(['ts','tsx','jsx'].includes(ext))return {ok:true,path,mode:'syntax',limited:true,result:`${ext.toUpperCase()} validation skipped safely because no parser/transpiler is bundled; file can still be read and patched.`};
- if(ext==='mjs'||/^\s*(import|export)\s/m.test(text)){if(mode==='run')return {ok:false,path,error:{code:'UNSUPPORTED_EXECUTION',message:'ES modules are not executed in the local worker sandbox.'}};return {ok:true,path,mode:'syntax',limited:true,result:'ES module detected; runtime parse check skipped safely in browser sandbox.'}};
- try{new Function(text)}catch(e){return {ok:false,path,mode:'syntax',error:{code:'SYNTAX_ERROR',message:e.message}}}
- if(mode==='syntax')return {ok:true,path,mode:'syntax',result:'JavaScript script syntax is valid'};
- return await runWorkerSandbox(text+'\n'+String(testCode||''),2500);
+     return {ok:true,path,mode:'html-validate',result:'function parseActionBridgeOutput(content=''){
+  const raw=String(content||'').trim();
+  const m=raw.match(/AIWAY_ACTION\s*({[\s\S]*?})\s*AIWAY_CONTENT_START\s*([\s\S]*?)\s*AIWAY_CONTENT_END/i);
+  if(m){try{const a=JSON.parse(m[1]);a.arguments=a.arguments||{};a.arguments.content=m[2];return a}catch{}}
+  const fencedMatches=[...raw.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)];
+  let candidates=fencedMatches.map(m=>m[1]);
+  candidates.push(raw);
+  for(const c of candidates){
+    if(!c)continue;
+    try{return JSON.parse(c.trim())}catch{}
+    const start=c.indexOf('{');
+    if(start>=0){
+      let depth=0,quoted=false,escp=false;
+      for(let i=start;i<c.length;i++){
+        const ch=c[i];
+        if(quoted){if(escp)escp=false;else if(ch==='\\')escp=true;else if(ch==='"')quoted=false;continue}
+        if(ch==='"'){quoted=true;continue}
+        if(ch==='{')depth++;
+        if(ch==='}'&&--depth===0){try{return JSON.parse(c.slice(start,i+1))}catch{}break}
+      }
+    }
+  }
+  return null;
 }
-function runWorkerSandbox(code,timeout=2500){return new Promise(resolve=>{
- const workerCode=`const logs=[];const safe=(...a)=>logs.push(a.map(x=>{try{return typeof x==='string'?x:JSON.stringify(x)}catch{return String(x)}}).join(' '));console={log:safe,info:safe,warn:safe,error:safe};self.fetch=()=>Promise.reject(new Error('Network disabled in AiWay sandbox'));self.XMLHttpRequest=undefined;self.WebSocket=undefined;self.importScripts=()=>{throw new Error('importScripts disabled')};try{${code}\n;postMessage({ok:true,logs})}catch(e){postMessage({ok:false,error:String(e&&e.stack||e),logs})}`;
- let w;try{w=new Worker(URL.createObjectURL(new Blob([workerCode],{type:'text/javascript'})))}catch(e){resolve({ok:false,error:e.message});return}let done=false;const timer=setTimeout(()=>{if(done)return;done=true;w.terminate();resolve({ok:false,error:`Execution timed out after ${timeout}ms`,timed_out:true})},timeout);w.onmessage=e=>{if(done)return;done=true;clearTimeout(timer);w.terminate();resolve({...e.data,mode:'run'})};w.onerror=e=>{if(done)return;done=true;clearTimeout(timer);w.terminate();resolve({ok:false,error:e.message||'Worker error'})};
- })}
-
-function isRecoverableToolFailure(result={}){const code=String(result?.error_code||'');return ['STALE_FILE','PATCH_NO_MATCH','PATCH_NOT_UNIQUE','ARTIFACT_SYNTAX_ERROR','SYNTAX_ERROR','INVALID_TOOL_ARGUMENTS'].includes(code)}
-async function validateAgentChangedArtifacts(){const ws=await getWorkspace(false);if(!ws)return {ok:true,checks:[]};const paths=[...new Set(lastAgentChanges.map(x=>x.path).filter(Boolean))],checks=[];for(const path of paths){const f=ws.files.find(x=>x.path===path);if(!f)continue;const ext=(path.split('.').pop()||'').toLowerCase();if(!['html','htm','js','mjs','cjs','jsx','ts','tsx','json'].includes(ext))continue;checks.push(await sandboxCheck(ws,path,'syntax',''))}const bad=checks.filter(x=>x?.ok===false);return {ok:bad.length===0,checks,bad}}
-function bridgeToolSummary(defs=[]){return defs.map(d=>({name:d.name,description:d.description,parameters:d.parameters}))}
-function actionBridgeInstructions(ws,defs,text){const mustAct=agentTaskRequiresEdit&&agentSuccessfulEdits===0,skill=selectAgentSkill(text,ws);return `${settings.systemPrompt||''}${transientSearchContext||''}${projectInstructionContext(ws)}\n\n[AiWay Provider Action Bridge]\nThis provider/model uses a provider-neutral action bridge. Do NOT emit native function/tool calling. Return exactly ONE next action; AiWay executes it locally and returns the real result only when another model turn is necessary.\nActive skill: ${skill.title}. ${skill.instruction}\n${mustAct?'A real workspace change is required. A final answer is forbidden until a change succeeds.':''}\nAvailable actions:\n${JSON.stringify(bridgeToolSummary(defs))}\n\nOUTPUT CONTRACT\nOrdinary action: {"kind":"tool","name":"TOOL_NAME","arguments":{...}}\nFor workspace_write_file with large content output exactly:\nAIWAY_ACTION {"kind":"tool","name":"workspace_write_file","arguments":{"path":"index.html","overwrite":false}}\nAIWAY_CONTENT_START\n<raw file content>\nAIWAY_CONTENT_END\nAfter a successful real change you may output: {"kind":"final","message":"short summary"}.\nNever invent tool results. Never repeat a failed action unchanged. Minimize model requests.\nWorkspace: ${workspaceManifest(ws)}`.trim()}
-function parseActionBridgeOutput(content=''){const raw=String(content||'').trim(),m=raw.match(/AIWAY_ACTION\s*({[\s\S]*?})\s*AIWAY_CONTENT_START\s*([\s\S]*?)\s*AIWAY_CONTENT_END/i);if(m){try{const a=JSON.parse(m[1]);a.arguments=a.arguments||{};a.arguments.content=m[2];return a}catch{}}const fenced=raw.match(/```(?:json)?\s*([\s\S]*?)```/i),candidates=[fenced?.[1],raw];for(const c of candidates){if(!c)continue;try{return JSON.parse(c.trim())}catch{}const start=c.indexOf('{');if(start>=0){let depth=0,quoted=false,escp=false;for(let i=start;i<c.length;i++){const ch=c[i];if(quoted){if(escp)escp=false;else if(ch==='\\')escp=true;else if(ch==='"')quoted=false;continue}if(ch==='"'){quoted=true;continue}if(ch==='{')depth++;if(ch==='}'&&--depth===0){try{return JSON.parse(c.slice(start,i+1))}catch{}break}}}}return null}
 async function callActionBridgeAgent(messages,defs,ws,text,signal){claimModelRequest();const body={model:settings.model,messages:[{role:'system',content:actionBridgeInstructions(ws,defs,text)},...messages],stream:false,max_tokens:Math.min(Math.max(settings.maxTokens||4096,agentTaskCreatesNewFile?7000:2600),12000)};stripSamplingFields(body);const r=await fetch(resolveCompatibleEndpoints().chatUrl,{method:'POST',headers:headers(),body:JSON.stringify(body),signal});let data={};try{data=await r.json()}catch{}if(!r.ok)throw apiErrorFromResponse(r.status,data,'AiWay action bridge');return data}
-async function runActionBridgeAgent(text,ws,defs,assistantIdx){let messages=agentConversation(text,ws),usage=null,formatRetry=false,recoveryUsed=false;for(let round=0;round<Math.min(AGENT_BRIDGE_MAX_REQUESTS,MODEL_REQUEST_LIMIT);round++){setAgentStage(assistantIdx,`Provider Bridge · Request ${responseModelRequests+1}/${MODEL_REQUEST_LIMIT}…`);const data=await callActionBridgeAgent(messages,effectiveAgentDefs(defs),ws,text,aborter.signal);usage=addUsage(usage,data.usage);const msg=data?.choices?.[0]?.message||{},out=typeof msg.content==='string'?msg.content:(msg.content||[]).map(x=>x.text||'').join(''),action=parseActionBridgeOutput(out);if(!action){if(!formatRetry&&responseModelRequests<MODEL_REQUEST_LIMIT){formatRetry=true;messages=[...messages,{role:'assistant',content:out},{role:'user',content:'Return exactly one valid AiWay action using the required contract. No explanation.'}];continue}return {text:'الموديل لم يُرجع Action قابلة للتنفيذ. أوقف AiWay المهمة بدون Loop إضافي.',usage,failed_edit:agentTaskRequiresEdit}}if(action.kind==='final'){if(agentTaskRequiresEdit&&agentSuccessfulEdits===0)return {text:'تم رفض رسالة نجاح لأن أي تعديل فعلي لم يُنفذ.',usage,failed_edit:true};return {text:String(action.message||agentBudgetSummary()),usage}}if(action.kind!=='tool'||!action.name)return {text:'صيغة Action غير صالحة؛ أوقف AiWay المهمة.',usage,failed_edit:agentTaskRequiresEdit};const allowed=new Set(effectiveAgentDefs(defs).map(d=>d.name));if(!allowed.has(action.name))return {text:`الموديل طلب أداة غير مسموحة في هذه الـSkill: ${action.name}`,usage,failed_edit:agentTaskRequiresEdit};setAgentStage(assistantIdx,`Request ${responseModelRequests}/${MODEL_REQUEST_LIMIT} · ${action.name}…`);const result=await guardedExecuteCodingTool(action.name,action.arguments||{});if(result?.ok&&agentTaskCreatesNewFile&&agentSuccessfulCreates>0){const validation=await validateAgentChangedArtifacts();if(validation.ok)return {text:`تم إنشاء ${[...new Set(lastAgentChanges.map(x=>x.path))].join('، ')} والتحقق منه محليًا.`,usage};if(!recoveryUsed&&responseModelRequests<AGENT_BRIDGE_MAX_REQUESTS){recoveryUsed=true;messages=[...messages,{role:'assistant',content:out},{role:'user',content:`The file was created, but local syntax validation found a real code error. Repair it once using workspace_write_file with overwrite:true. Validation: ${compactToolResultForModel(validation.bad,1800)}`}];continue}return {text:'تم إنشاء الملف لكن فشل التحقق المحلي بعد محاولة إصلاح واحدة.',usage,failed_edit:true}}if(!result?.ok&&!isRecoverableToolFailure(result))return {text:`توقفت المهمة لأن الأداة أعادت خطأ غير قابل للإصلاح تلقائيًا: ${result.error||result.error_code||'Tool error'}`,usage,failed_edit:agentTaskRequiresEdit};if(!result?.ok&&recoveryUsed)return {text:`فشلت الأداة بعد محاولة استرداد واحدة: ${result.error||result.error_code}`,usage,failed_edit:true};if(!result?.ok)recoveryUsed=true;messages=[...messages,{role:'assistant',content:out},{role:'user',content:`REAL TOOL RESULT for ${action.name}: ${compactToolResultForModel(result,2600)}\nChoose one next action. Do not repeat an unchanged failed action.`}];if(responseModelRequests>=MODEL_REQUEST_LIMIT)break}return {text:agentBudgetSummary()+' تم إيقاف الـAgent عند ميزانية التنفيذ الآمنة.',usage,failed_edit:agentTaskRequiresEdit&&agentSuccessfulEdits===0}}
+async function runActionBridgeAgent(text,ws,defs,assistantIdx){
+  let messages=agentConversation(text,ws),usage=null,formatRetries=0,recoveryUsed=false;
+  for(let round=0;round<Math.min(AGENT_BRIDGE_MAX_REQUESTS,MODEL_REQUEST_LIMIT);round++){
+    setAgentStage(assistantIdx,`Provider Bridge · Request ${responseModelRequests+1}/${MODEL_REQUEST_LIMIT}…`);
+    const data=await callActionBridgeAgent(messages,effectiveAgentDefs(defs),ws,text,aborter.signal);
+    usage=addUsage(usage,data.usage);
+    const msg=data?.choices?.[0]?.message||{},out=typeof msg.content==='string'?msg.content:(msg.content||[]).map(x=>x.text||'').join(''),action=parseActionBridgeOutput(out);
+    if(!action){
+      if(formatRetries<2 && responseModelRequests<MODEL_REQUEST_LIMIT){
+        formatRetries++;
+        messages=[...messages,{role:'assistant',content:out},{role:'user',content:'Your response did not contain a valid JSON action. Return EXACTLY ONE valid JSON action using the required contract. Do NOT wrap it in conversational text.'}];
+        continue;
+      }
+      return {text:'الموديل لم يُرجع Action قابلة للتنفيذ. أوقف AiWay المهمة بدون Loop إضافي.',usage,failed_edit:agentTaskRequiresEdit};
+    }
+    if(action.kind==='final'){if(agentTaskRequiresEdit&&agentSuccessfulEdits===0)return {text:'تم رفض رسالة نجاح لأن أي تعديل فعلي لم يُنفذ.',usage,failed_edit:true};return {text:String(action.message||agentBudgetSummary()),usage}}
+    if(action.kind!=='tool'||!action.name)return {text:'صيغة Action غير صالحة؛ أوقف AiWay المهمة.',usage,failed_edit:agentTaskRequiresEdit};
+    const allowed=new Set(effectiveAgentDefs(defs).map(d=>d.name));
+    if(!allowed.has(action.name))return {text:`الموديل طلب أداة غير مسموحة في هذه الـSkill: ${action.name}`,usage,failed_edit:agentTaskRequiresEdit};
+    setAgentStage(assistantIdx,`Request ${responseModelRequests}/${MODEL_REQUEST_LIMIT} · ${action.name}…`);
+    const result=await guardedExecuteCodingTool(action.name,action.arguments||{});
+    if(result?.ok&&agentTaskCreatesNewFile&&agentSuccessfulCreates>0){
+      const validation=await validateAgentChangedArtifacts();
+      if(validation.ok)return {text:`تم إنشاء ${[...new Set(lastAgentChanges.map(x=>x.path))].join('، ')} والتحقق منه محليًا.`,usage};
+      if(!recoveryUsed&&responseModelRequests<AGENT_BRIDGE_MAX_REQUESTS){
+        recoveryUsed=true;
+        messages=[...messages,{role:'assistant',content:out},{role:'user',content:`The file was created, but local syntax validation found a real code error. Repair it once using workspace_write_file with overwrite:true. Validation: ${compactToolResultForModel(validation.bad,1800)}`}];
+        continue;
+      }
+      return {text:'تم إنشاء الملف لكن فشل التحقق المحلي بعد محاولة إصلاح واحدة.',usage,failed_edit:true};
+    }
+    if(!result?.ok&&!isRecoverableToolFailure(result))return {text:`توقفت المهمة لأن الأداة أعادت خطأ غير قابل للإصلاح تلقائيًا: ${result.error||result.error_code||'Tool error'}`,usage,failed_edit:agentTaskRequiresEdit};
+    if(!result?.ok&&recoveryUsed)return {text:`فشلت الأداة بعد محاولة استرداد واحدة: ${result.error||result.error_code}`,usage,failed_edit:true};
+    if(!result?.ok)recoveryUsed=true;
+    messages=[...messages,{role:'assistant',content:out},{role:'user',content:`REAL TOOL RESULT for ${action.name}: \n${compactToolResultForModel(result,2600)}\nChoose one next action. Do not repeat an unchanged failed action.`}];
+    if(responseModelRequests>=MODEL_REQUEST_LIMIT)break;
+  }
+  return {text:agentBudgetSummary()+' تم إيقاف الـAgent عند ميزانية التنفيذ الآمنة.',usage,failed_edit:agentTaskRequiresEdit&&agentSuccessfulEdits===0};
+}
 function projectInstructionContext(ws){
  if(!toolOn('projectInstructions'))return '';const preferred=['AGENTS.md','GEMINI.md','CLAUDE.md','.github/copilot-instructions.md'];const files=ws?.files||[],picked=[];
  for(const name of preferred){for(const f of files.filter(x=>x.path===name).slice(0,1)){const text=String(f.text||'').trim();if(text)picked.push(`--- ${f.path} ---\n${text.slice(0,1800)}`)}}
@@ -1873,15 +1914,15 @@ async function callOpenAIAgent(messages,defs,signal){
  if(!r.ok)throw apiErrorFromResponse(r.status,data,`Chat Completions tools (${profile.id})`);return data;
 }
 async function runOpenAIAgent(text,ws,defs,assistantIdx){
- const baseMessages=[{role:'system',content:agentInstruction(ws)},...agentConversation(text,ws)];let messages=[...baseMessages],usage=null,nudged=false;
+ const baseMessages=[{role:'system',content:agentInstruction(ws)},...agentConversation(text,ws)];let messages=[...baseMessages],usage=null,nudges=0;
  for(let round=0;round<AGENT_MAX_ROUNDS;round++){
   const data=await callOpenAIAgent(messages,defs,aborter.signal),msg=data?.choices?.[0]?.message||{};usage=addUsage(usage,data.usage);const calls=normalizeChatToolCalls(msg);
   if(!calls.length){
    const textOut=typeof msg.content==='string'?msg.content:(msg.content||[]).map(x=>x.text||'').join('');
-   if(agentTaskRequiresEdit&&agentSuccessfulEdits===0&&!nudged&&responseModelRequests<MODEL_REQUEST_LIMIT){
-    nudged=true;messages=[...messages,{...msg,content:msg.content??''},agentActionNudge()];setAgentStage(assistantIdx,`النموذج لم يستدعِ أداة؛ إعادة توجيه واحدة فقط · ${responseModelRequests+1}/${MODEL_REQUEST_LIMIT}…`);continue;
+   if(agentTaskRequiresEdit&&agentSuccessfulEdits===0&&nudges<2&&responseModelRequests<MODEL_REQUEST_LIMIT){
+    nudges++;messages=[...messages,{...msg,content:msg.content??''},agentActionNudge()];setAgentStage(assistantIdx,`النموذج لم يستدعِ أداة؛ محاولة توجيه ${nudges}/2 · ${responseModelRequests+1}/${MODEL_REQUEST_LIMIT}…`);continue;
    }
-   if(agentTaskCreatesNewFile&&agentSuccessfulCreates===0)return {text:'الموديل لم يُصدر Function Call لإنشاء الملف. أوقف AiWay المهمة بعد محاولة توجيه واحدة بدل استهلاك 10 Requests.',usage,failed_edit:true};
+   if(agentTaskCreatesNewFile&&agentSuccessfulCreates===0)return {text:'الموديل لم يُصدر Function Call لإنشاء الملف. أوقف AiWay المهمة بعد استنفاد التوجيهات لتوفير الاستهلاك.',usage,failed_edit:true};
    if(agentTaskRequiresEdit&&agentSuccessfulEdits===0)return {text:'الموديل لم يُصدر Tool Call حقيقي للتعديل. أوقف AiWay المهمة مبكرًا بدل حلقة استكشاف مكلفة.',usage,failed_edit:true};
    return {text:textOut||'تم تنفيذ المهمة.',usage}
   }
